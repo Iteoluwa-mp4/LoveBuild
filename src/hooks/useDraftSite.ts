@@ -44,8 +44,14 @@ export type DraftSite = {
   /** Re-reads the path for a field's current value. */
   read: <T = unknown>(path: string) => T | undefined;
 
-  /** Forces a save now, skipping the debounce. */
-  flush: () => Promise<void>;
+  /**
+   * Forces a save now, skipping the debounce. Resolves false if it failed.
+   *
+   * The boolean is the point, and it exists for publishing. `void` would force
+   * callers to assume success, and "assume the save worked" is exactly the wrong
+   * assumption immediately before making a site public.
+   */
+  flush: () => Promise<boolean>;
 };
 
 const AUTOSAVE_MS = 1500;
@@ -120,43 +126,70 @@ export function useDraftSite(slug: string, repo?: SiteRepository): DraftSite {
 
   /* ---------------- save ---------------- */
 
-  const persist = useCallback(async () => {
-    /*
-     * Waits out a save that is already running, then saves whatever is current.
-     *
-     * The old guard here was `if (inFlight.current) return` — it returned
-     * immediately while a debounced autosave was mid-flight. That made "Save
-     * now" a no-op during exactly the window it is most likely to be pressed,
-     * and it resolved before the work it was meant to force had been written.
-     */
-    if (inFlight.current) await inFlight.current;
-
-    const current = latest.current;
-    if (!current) return;
-
-    const run = (async () => {
+  /** One round trip. Never runs while another is in flight. */
+  const runSave = useCallback(
+    async (current: Site): Promise<boolean> => {
       setSaveState({ phase: "saving" });
 
       try {
         await repository.save(current);
         dirty.current = false;
         setSaveState({ phase: "saved", at: Date.now() });
+        return true;
       } catch (cause) {
         const message =
           cause instanceof SaveError ? cause.message : "Could not save your changes.";
         const path = cause instanceof SaveError ? cause.path : undefined;
         // `dirty` stays true: the work is still unsaved, so an unload must retry.
         setSaveState({ phase: "error", message, path });
+        return false;
       }
-    })();
+    },
+    [repository],
+  );
 
-    inFlight.current = run;
-    try {
-      await run;
-    } finally {
-      inFlight.current = null;
+  /**
+   * Saves everything currently on screen, reporting whether it worked.
+   *
+   * The loop is the point, not an optimisation. The obvious implementation — one
+   * `save`, then done — is wrong in two ways that both matter here:
+   *
+   *   - If a debounced autosave is already in flight, returning early reports the
+   *     *older* config as saved. Publishing calls this, and would go live one save
+   *     behind what is on screen.
+   *   - An edit made while that save was running leaves `dirty` true, so a single
+   *     pass would again claim success while work is unsaved.
+   *
+   * Bounded at three passes: a loop that can spin on someone typing faster than
+   * the network is worse than the problem it solves, and by then the save
+   * indicator has already said "saving" repeatedly, which is honest.
+   */
+  const persist = useCallback(async (): Promise<boolean> => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (inFlight.current) {
+        await inFlight.current;
+        continue;
+      }
+
+      if (!dirty.current) return true;
+
+      const current = latest.current;
+      if (!current) return false;
+
+      const run = runSave(current);
+      inFlight.current = run;
+      let ok: boolean;
+      try {
+        ok = await run;
+      } finally {
+        inFlight.current = null;
+      }
+
+      if (!ok) return false;
     }
-  }, [repository]);
+
+    return !dirty.current;
+  }, [runSave]);
 
   const scheduleSave = useCallback(() => {
     dirty.current = true;
@@ -244,7 +277,7 @@ export function useDraftSite(slug: string, repo?: SiteRepository): DraftSite {
   const flush = useCallback(async () => {
     window.clearTimeout(timer.current);
     timer.current = undefined;
-    await persist();
+    return persist();
   }, [persist]);
 
   return {

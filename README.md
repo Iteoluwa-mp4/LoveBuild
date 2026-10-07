@@ -34,55 +34,55 @@ Done:
 - **Derivation** — `src/lib/site/derive.ts`. Computed values and visibility rules.
 - **Template** — `src/components/site/`. Both pages render entirely from config.
 - **Repository seam** — `src/lib/site/repository.ts`. One interface;
-  `LocalSiteRepository` implements it today, Supabase arrives in Step 4b.
+  `LocalSiteRepository` implements it today.
+- **Auth** — `src/lib/site/auth.ts`. A local passcode. See below for what it is.
 - **Path editing** — `src/lib/site/path.ts`. Immutable get/set/splice/move by
   dotted path, so every input binds without knowing where it lives.
 - **Dashboard** — `/dashboard/:slug`. Form, live preview, outline, autosave.
-- **Tests** — 106 passing. `npm test`
+- **Tests** — 187 passing. `npm test`
 
-Also built: the Supabase backend and login, ready for keys. Cloudinary uploads are
-still to do.
+Cloudinary uploads are still to do.
 
-## Running the backend
+## Storage, auth and publishing
 
-Three steps, none of which can be done from here.
+Everything is stored in this browser's localStorage, and the app runs with no
+`.env`, no account and no server. That is the design, not a prototype stage.
 
-1. **Create a project** at supabase.com — free, about 15 minutes.
-2. **Run `supabase/migrations/001_init.sql`** in Dashboard > SQL Editor. It is
-   idempotent, so re-running it is safe.
-3. **Copy the Project URL and anon key** from Settings > API into `.env`, then
-   create the uncle's account under Authentication > Users > Add user. Email
-   anything like `uncle@placeholder.local`, tick **Auto Confirm User**, and set a
-   password you will send him.
+### The passcode is a gate, not a lock
 
-The account is created in the dashboard rather than in code on purpose: doing it
-in code needs the **service_role** key, which bypasses row level security. Creating
-it here means that key never touches this machine.
+`/login` asks for a passcode, and the dashboard is unreachable without one. Be
+clear about what that buys: **nothing to read.** The sites, the config and the
+photos are all already in localStorage, and any script on the origin can read the
+same keys. The passcode exists so the editor — where someone writes a love letter —
+is not one stray keystroke away, not to protect data.
 
-With no keys the app runs entirely on localStorage and everything still works.
-`getRepository()` picks the backend; `repositoryKind()` reports which.
+It is salted SHA-256 in `auth.ts`. The salt is not defence against anything real;
+it is there so two people choosing the same passcode do not store the same string.
 
-### Publishing is a manual step
+`useSession` keeps its three states (`checking`, `signed-out`, `signed-in`) and
+`RequireAuth` keeps its call sites, so a real backend later is a change to
+`auth.ts` and one subscription — not a rebuild of the gate.
 
-New sites are `draft`, and a draft is invisible to the public — the shared link
-returns nothing. To publish:
+### Publishing
 
-```sql
-update sites set status = 'published' where slug = 'their-name';
-```
+New sites are drafts, and a draft is invisible: the shared link returns nothing.
+**Publish site** in the dashboard flips it, behind a confirm that names how many
+fields are still missing or placeholder.
 
-After that first flip his edits go live immediately, without asking anyone. That
-is the trade for not building a review gate: **once published, he can break the
-live site himself.**
+Publishing flushes first. `flush()` resolves false if anything is unsaved, and
+keeps re-saving until what is on screen is what is on disk — so you cannot publish
+an older version while newer edits sit in a debounce timer.
 
-### What is not verified
+After that first flip, every save goes live immediately, without asking. That is
+the trade for not building a review gate: **once published, he can break the live
+site himself.** Unpublish hides it again.
 
-Nothing in the Supabase path has been run. It was written before the project
-existed. Specifically untested: the policies, the anon key reading a draft, and
-sign-in. The local backend models the draft/published split on purpose so the
-dashboard's states can be developed against, but that is a simulation, not the
-real thing.
+### Uploads
 
+Photos and videos are measured and previewed from a blob URL, then marked
+"Not uploaded". A blob URL dies with the page, so previews disappear on reload
+while the text and structure survive. The dashboard says so in as many words
+rather than letting someone find out at the worst moment.
 ## Commands
 
 ```bash
@@ -135,13 +135,11 @@ src/lib/site/
   path.ts            immutable edits by dotted config path
   repository.ts      the storage interface
   localRepository.ts localStorage implementation
-  supabaseRepository.ts  the real one (unverified — see below)
-  getRepository.ts   picks a backend by env
-  default.ts         blank seed + SEED_SLUG
+  getRepository.ts   returns the local one; a second backend slots in here
+  auth.ts            the local passcode — a gate, not a lock
+  default.ts         sample copy + placeholder detection + createDraft
   load.ts            public site lookup by slug
   brand.ts           storage prefixes + preview message names
-
-src/lib/supabase.ts    client, and whether a project is configured
 
 src/hooks/
   useDraftSite.ts    the editor's single source of truth
@@ -159,8 +157,6 @@ src/components/dashboard/     THE EDITOR
   PreviewPage  editors.tsx  fields.tsx  StatusBanner
 src/components/auth/          LoginPage  RequireAuth
 src/components/dev/           dev screens
-
-supabase/migrations/001_init.sql   tables, RLS policies, triggers
 ```
 
 ### Where to change what
@@ -172,7 +168,7 @@ supabase/migrations/001_init.sql   tables, RLS policies, triggers
 | Whether a section shows | `visibleBlocks` in `derive.ts` |
 | Footer links | `buildSitemap` in `sitemap.ts` |
 | Where the buttons go | `sitePaths` in `paths.ts` |
-| Database or who can read it | `supabase/migrations/001_init.sql` |
+| Whether the editor is locked | `auth.ts`, and `RequireAuth` for the gate |
 
 ## Dashboard layout
 
@@ -363,9 +359,10 @@ and says so. Cloudinary lands in Step 4b behind the same `onChange`.
 
 **`createDraft()` starts new sites from the seed.** Right, because the question
 this prototype exists to answer is whether *editing* existing copy feels
-manageable, and that cannot be judged from a blank form. Step 4b must replace it
-with a template picker or a genuinely blank site — the seed contains one person's
-words and the next customer should not inherit them.
+manageable, and that cannot be judged from a blank form. The seed is now
+instructional placeholder copy rather than one person's words, and every untouched
+field is flagged until it is replaced — but a genuine blank option is still worth
+having alongside it.
 
 ## Still queued on the dashboard
 
@@ -377,9 +374,25 @@ field is nearly full. A collapsible theme picker.
 
 ## Next up
 
-Step 4b: Supabase project, `owner_id` on `sites`, RLS policies, the uncle's
-account, a login gate, and `SupabaseSiteRepository` behind the existing
-interface. Nothing above that seam changes.
+**Cloudinary uploads.** The only piece left of the storage story. An unsigned
+preset under `lovebuilds/`, an upload with progress, `publicId` written back, and
+a *transformed* delivery URL (`f_auto,q_auto` plus a width cap) rather than the raw
+one — that last detail decides whether her phone downloads a 4K video. Then the
+"Not uploaded" badge and its two paragraphs of caveat can go.
+
+**Edit on the page.** Currently an 833-line form beside an iframe. The change that
+would matter most is `contenteditable` in the preview: click her name, type, see it
+update. `draft.set` already takes a dotted path and the template is already pure,
+so the foundation is there. Two things will cost real time — React fights
+`contenteditable` unless you commit on blur, and `useInertNavigation` in
+`PreviewPage.tsx` deliberately swallows clicks in the capture phase, so an editing
+layer has to be threaded through that rather than fighting it.
+
+**A decision, not a task.** Where storage goes next. Local storage is per-browser,
+which is fine for one uncle and wrong the moment this is a product someone signs
+up for. `repository.ts` and `auth.ts` are both drawn so a hosted backend is a new
+implementation and a new file rather than a rewrite — worth keeping that property
+when the choice is made.
 
 
 

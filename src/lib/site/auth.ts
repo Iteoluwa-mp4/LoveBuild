@@ -179,6 +179,10 @@ export async function setPasscode(passcode: string): Promise<AuthResult> {
   write(SALT_KEY, salt);
   write(HASH_KEY, digest);
   write(UNLOCKED_KEY, "1");
+  // Subscribers decide what to do about it. The login page navigates from that
+  // subscription rather than redirecting itself, because a redirect here would
+  // race the listener and can land back on this page.
+  notify();
   return { ok: true };
 }
 
@@ -196,6 +200,9 @@ export async function checkPasscode(passcode: string): Promise<AuthResult> {
   }
 
   write(UNLOCKED_KEY, "1");
+  // Same reason as `setPasscode`: without this the correct passcode would unlock
+  // storage and leave the person staring at the form they just filled in.
+  notify();
   return { ok: true };
 }
 
@@ -222,27 +229,35 @@ export function lock(): void {
 }
 
 /**
- * Notifies subscribers that the session changed.
+ * Subscribers to the session.
  *
- * A plain event rather than a React hook, because the session lives in storage
- * and is read from three places that are not all React components. `useSession`
- * subscribes to it; so does anything else that needs to know.
+ * A plain listener set rather than a DOM event. The earlier version dispatched on
+ * `window` inside a `try`, with a comment saying a test environment has no window
+ * — which is precisely the problem: the notification was silently dropped
+ * anywhere that was not a browser, including every test. Storage is the real
+ * source of truth and nothing here needs the DOM to say so.
+ *
+ * It also means the "did it notify" question is answerable, which a
+ * `window.dispatchEvent` in a try/catch can never be.
  */
-const EVENT = `${STORAGE_PREFIX}auth-changed`;
+const listeners = new Set<() => void>();
 
 function notify(): void {
-  try {
-    window.dispatchEvent(new Event(EVENT));
-  } catch {
-    /* no window in a test environment; the read functions still work */
+  // Copied first: a listener may unsubscribe itself, and mutating the set while
+  // iterating it would skip whoever comes next.
+  for (const listener of [...listeners]) {
+    try {
+      listener();
+    } catch {
+      /* one bad subscriber must not stop the others */
+    }
   }
 }
 
+/** Subscribes to session changes. Returns an unsubscribe function. */
 export function subscribe(listener: () => void): () => void {
-  try {
-    window.addEventListener(EVENT, listener);
-    return () => window.removeEventListener(EVENT, listener);
-  } catch {
-    return () => {};
-  }
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }

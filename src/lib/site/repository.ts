@@ -40,6 +40,16 @@ export interface SiteRepository {
    * this is enforced by row level security, not by the filter in the query, so
    * forgetting the filter cannot leak anything.
    */
+  /**
+   * The visitor's read.
+   *
+   * Returns null for a draft, which is the correct answer rather than an error —
+   * from out here, an unpublished site does not exist. It is also the *only* place
+   * publication is decided: a caller that has a site from this method knows it is
+   * live, so nothing else needs to ask about status a second time. That is not a
+   * micro-optimisation; asking twice used to cost a whole extra query whose answer
+   * could only ever be "published".
+   */
   getPublic(slug: string): Promise<Site | null>;
 
   /**
@@ -52,6 +62,21 @@ export interface SiteRepository {
   save(site: Site): Promise<void>;
 
   remove(slug: string): Promise<void>;
+
+  /**
+   * Changes whether the public link works.
+   *
+   * Separate from `save` on purpose. Status is the one thing in the config that
+   * must not be editable from the form: `save` takes a whole `Site` and parses it,
+   * and folding publication into that would mean every autosave could quietly flip
+   * a live site back to a draft — or, worse, a draft live.
+   *
+   * It is also the only call that is allowed to leave the "everything that
+   * matters is filled in" state. Nothing about writing "published" should depend
+   * on the text being complete; publishing a half-finished site is a choice
+   * somebody makes, and `findIssues` exists to tell them what they are choosing.
+   */
+  setStatus(slug: string, status: SiteStatus): Promise<void>;
 
   /**
    * How a save failed in a way the author can act on.

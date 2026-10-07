@@ -217,6 +217,21 @@ export class LocalSiteRepository implements SiteRepository {
     trackSlug(site.slug);
   }
 
+  /**
+   * Publishes, or takes a site back down.
+   *
+   * Refuses on a slug with no config. That is not defensive padding: the status
+   * key would otherwise exist independently of the config it describes, so
+   * `getPublic` could find a "published" for a site that was deleted — an orphan
+   * flag that makes the site look live in a list while every link 404s.
+   */
+  async setStatus(slug: string, status: SiteStatus): Promise<void> {
+    if (!read(CONFIG_PREFIX + slug)) {
+      throw new SaveError(`There is no saved site called "${slug}" to publish.`);
+    }
+    writeStatus(slug, status);
+  }
+
   async remove(slug: string): Promise<void> {
     remove(CONFIG_PREFIX + slug);
     removeStatus(slug);

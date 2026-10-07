@@ -40,6 +40,7 @@ export default function Dashboard() {
   // Always local storage. See getRepository.
   const draft = useDraftSite(slug, getRepository());
   const [siteStatus, setSiteStatus] = useState<SiteStatus | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [device, setDevice] = useState<"desktop" | "phone">("desktop");
   const [previewPage, setPreviewPage] = useState<"home" | "gallery">("home");
 
@@ -56,10 +57,35 @@ export default function Dashboard() {
   // banner flips to Live without a reload.
   useEffect(() => {
     if (draft.saveState.phase !== "saved" && draft.saveState.phase !== "idle") return;
-    void getRepository().list().then((list) => {
-      setSiteStatus(list.find((s) => s.slug === slug)?.status ?? null);
-    }).catch(() => setSiteStatus(null));
+    void getRepository()
+      .list()
+      .then((list) => {
+        setSiteStatus(list.find((s) => s.slug === slug)?.status ?? null);
+      })
+      .catch(() => setSiteStatus(null));
   }, [draft.saveState.phase, slug]);
+
+  /**
+   * Publishes, or takes the site back down.
+   *
+   * Flushes first, and that ordering is the whole point. `flush` resolves false if
+   * anything is still unsaved, and `persist` keeps re-saving until the config on
+   * screen is the config on disk — so publishing cannot put an older version live
+   * while newer edits sit in a debounce timer. Every save after this one is live
+   * too, which is what the banner says out loud.
+   */
+  const setPublished = async (next: SiteStatus) => {
+    if (!(await draft.flush())) return;
+
+    try {
+      await getRepository().setStatus(slug, next);
+      setSiteStatus(next);
+    } catch (cause) {
+      setPublishError(
+        cause instanceof Error ? cause.message : "Could not change who can see this site.",
+      );
+    }
+  };
 
   /** Opens the section owning a config path, so the outline can point at it. */
   const jumpTo = (path: string) => {
@@ -167,7 +193,23 @@ export default function Dashboard() {
             status={siteStatus}
             slug={slug}
             local={repositoryKind() === "local"}
+            // Only the count, and only to phrase the confirmation. It is the same
+            // list the "Ready to share?" section enumerates in full below.
+            missingCount={issues.length}
+            onPublish={() => {
+              setPublishError(null);
+              void setPublished("published");
+            }}
+            onUnpublish={() => {
+              setPublishError(null);
+              void setPublished("draft");
+            }}
           />
+          {publishError && (
+            <p className="notice notice-bad" role="alert">
+              {publishError}
+            </p>
+          )}
           {draft.loadError && (
             <p className="notice notice-bad">
               <strong>The stored version could not be read.</strong> {draft.loadError}
