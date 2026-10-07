@@ -3,7 +3,7 @@ import type { Site, SiteStatus } from "./schema";
 /**
  * Storage, abstracted.
  *
- * Step 4a shipped `LocalSiteRepository`. `SupabaseSiteRepository` implements the
+ * `LocalSiteRepository` implements it today. A hosted backend implements the
  * same interface, and nothing above this line changes — the form, the autosave,
  * the preview. That seam is the whole reason prototyping the form against
  * localStorage was cheap rather than wasteful.
@@ -36,7 +36,7 @@ export interface SiteRepository {
    * Reads a site the way a visitor would: no credentials, published only.
    *
    * Returns null for a draft, which is the correct answer rather than an error —
-   * from out here, an unpublished site does not exist. On the Supabase backend
+   * from out here, an unpublished site does not exist. On a hosted backend
    * this is enforced by row level security, not by the filter in the query, so
    * forgetting the filter cannot leak anything.
    */

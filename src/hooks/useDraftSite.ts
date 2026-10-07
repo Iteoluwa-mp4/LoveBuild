@@ -75,7 +75,7 @@ export function useDraftSite(slug: string, repo?: SiteRepository): DraftSite {
   const latest = useRef<Site | null>(null);
   const dirty = useRef(false);
   const timer = useRef<number | undefined>(undefined);
-  const inFlight = useRef(false);
+  const inFlight = useRef<Promise<unknown> | null>(null);
 
   /* ---------------- load ---------------- */
 
@@ -121,24 +121,40 @@ export function useDraftSite(slug: string, repo?: SiteRepository): DraftSite {
   /* ---------------- save ---------------- */
 
   const persist = useCallback(async () => {
+    /*
+     * Waits out a save that is already running, then saves whatever is current.
+     *
+     * The old guard here was `if (inFlight.current) return` — it returned
+     * immediately while a debounced autosave was mid-flight. That made "Save
+     * now" a no-op during exactly the window it is most likely to be pressed,
+     * and it resolved before the work it was meant to force had been written.
+     */
+    if (inFlight.current) await inFlight.current;
+
     const current = latest.current;
-    if (!current || inFlight.current) return;
+    if (!current) return;
 
-    inFlight.current = true;
-    setSaveState({ phase: "saving" });
+    const run = (async () => {
+      setSaveState({ phase: "saving" });
 
+      try {
+        await repository.save(current);
+        dirty.current = false;
+        setSaveState({ phase: "saved", at: Date.now() });
+      } catch (cause) {
+        const message =
+          cause instanceof SaveError ? cause.message : "Could not save your changes.";
+        const path = cause instanceof SaveError ? cause.path : undefined;
+        // `dirty` stays true: the work is still unsaved, so an unload must retry.
+        setSaveState({ phase: "error", message, path });
+      }
+    })();
+
+    inFlight.current = run;
     try {
-      await repository.save(current);
-      dirty.current = false;
-      setSaveState({ phase: "saved", at: Date.now() });
-    } catch (cause) {
-      const message =
-        cause instanceof SaveError ? cause.message : "Could not save your changes.";
-      const path = cause instanceof SaveError ? cause.path : undefined;
-      // `dirty` stays true: the work is still unsaved, so an unload must retry.
-      setSaveState({ phase: "error", message, path });
+      await run;
     } finally {
-      inFlight.current = false;
+      inFlight.current = null;
     }
   }, [repository]);
 

@@ -1,25 +1,25 @@
 import { LocalSiteRepository } from "./localRepository";
 import type { SiteRepository } from "./repository";
-import { getSupabaseRepository } from "./supabaseRepository";
-import { isSupabaseConfigured } from "../supabase";
 
 /**
  * Chooses a backend.
  *
- * Supabase when the project is configured, localStorage otherwise. That fallback
- * is deliberate: the app runs with no `.env` at all, so the dashboard can be
- * developed and demoed offline, and so a missing key produces a working app
- * rather than a blank screen.
+ * Local storage is currently the only implementation, and it is meant to stay the
+ * fallback forever rather than being replaced. Every backend this app will ever
+ * have is one someone opens in *their own browser* to edit *their own* site, so
+ * "works with nothing configured" is not a prototype compromise — it is the
+ * behaviour.
  *
- * One instance of each, created lazily: a new repository on every render would be a new
- * be a new object identity and the autosave effect would re-subscribe each time.
+ * The seam is still here, and still worth its weight: a hosted backend drops in as
+ * one more `SiteRepository` and nothing above this line changes. That was the
+ * whole reason the interface was drawn before anything was decided about hosting.
  */
 
+/** One instance, so the React tree does not remount on every render. */
 let chosen: SiteRepository | null = null;
 
 export function getRepository(): SiteRepository {
-  chosen ??= isSupabaseConfigured ? getSupabaseRepository() : new LocalSiteRepository();
-
+  chosen ??= new LocalSiteRepository();
   return chosen;
 }
 

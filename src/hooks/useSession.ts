@@ -1,81 +1,57 @@
 import { useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
 
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { isPasscodeSet, isUnlocked, subscribe } from "../lib/site/auth";
+import type { AuthResult } from "../lib/site/auth";
 
 /**
- * Who is signed in, if anyone.
+ * Who is in the editor, if anyone.
  *
  * Deliberately reports three states rather than two. A boolean collapses "nobody
- * is signed in" and "we haven't checked yet" into the same value, which is
- * exactly how a protected route flashes its contents for a frame before
- * redirecting to the login page.
+ * is signed in" and "we haven't checked yet" into the same value, which is exactly
+ * how a protected route flashes its contents for a frame before redirecting to the
+ * login page.
+ *
+ * The session is local: see `lib/site/auth.ts`, which is honest about being a gate
+ * rather than a lock. What survives here is the *contract* — three states, one
+ * hook — so that when a real backend arrives this file points at it and nothing
+ * above changes.
  */
 
 export type SessionState =
   | { status: "checking" }
   | { status: "signed-out" }
-  | { status: "signed-in"; session: Session; email: string | null };
+  /** `local` means a browser-local passcode; a real backend would name itself. */
+  | { status: "signed-in"; method: "local" };
 
 export function useSession(): SessionState {
   /**
-   * `undefined` means "not known yet"; `null` means "known to be nobody".
+   * `undefined` means "not known yet"; a boolean means "known".
    *
    * That distinction is the whole point. Deriving the status during render from
    * this one value keeps the effect below free of a synchronous `setState`, which
    * would otherwise fire an extra render on mount and on every config change.
    */
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [unlocked, setUnlocked] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
-    // With no project there is nobody to sign in, and no point showing a login
-    // form that cannot work. Nothing to check, so nothing to listen for.
-    if (!isSupabaseConfigured) return;
+    const read = () => setUnlocked(isUnlocked());
+    read();
 
-    const client = supabase();
-    let cancelled = false;
-
-    void client.auth.getSession().then(({ data }) => {
-      if (!cancelled) setSession(data.session);
-    });
-
-    // Keeps the tab in step with sign-in, sign-out and token refresh in another
-    // tab, without the page having to be reloaded.
-    const { data: subscription } = client.auth.onAuthStateChange((_event, next) => {
-      if (!cancelled) setSession(next);
-    });
-
-    return () => {
-      cancelled = true;
-      subscription.subscription.unsubscribe();
-    };
+    // Signing out in another tab, or in the same tab from the dashboard bar, has
+    // to move this one too — otherwise the login page appears to do nothing.
+    return subscribe(read);
   }, []);
 
-  // Derived, not stored. No project configured resolves to signed-out straight
-  // away, so offline development does not sit on a loading state forever.
-  if (!isSupabaseConfigured) return { status: "signed-out" };
-  if (session === undefined) return { status: "checking" };
-  if (session === null) return { status: "signed-out" };
+  if (unlocked === undefined) return { status: "checking" };
 
-  return { status: "signed-in", session, email: session.user.email ?? null };
+  // A passcode that has never been set means there is nobody to authenticate, and
+  // no point showing a login form that cannot be satisfied. This is the normal
+  // state on a fresh browser.
+  if (!unlocked && !isPasscodeSet()) return { status: "signed-in", method: "local" };
+
+  if (!unlocked) return { status: "signed-out" };
+
+  return { status: "signed-in", method: "local" };
 }
 
-export type SignInResult = { ok: true } | { ok: false; message: string };
-
-export async function signIn(email: string, password: string): Promise<SignInResult> {
-  if (!isSupabaseConfigured) {
-    return {
-      ok: false,
-      message: "No Supabase project is configured, so signing in is switched off.",
-    };
-  }
-
-  const { error } = await supabase().auth.signInWithPassword({ email, password });
-
-  if (!error) return { ok: true };
-
-  // Supabase returns the same message for an unknown email and a wrong password,
-  // which is deliberate on their part and worth keeping: telling someone which
-  // half they got right turns this into an account-enumeration oracle.
-  return { ok: false, message: "That email and password didn't match." };
-}
+export type { AuthResult as SignInResult };

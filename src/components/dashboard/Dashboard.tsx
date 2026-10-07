@@ -13,7 +13,7 @@ import { getRepository, repositoryKind } from "../../lib/site/getRepository";
 import { publicUrl } from "../../lib/site/slug";
 import { type SiteStatus } from "../../lib/site/schema";
 import { findIssues, findSampleIssues } from "../../lib/site/derive";
-import { isSupabaseConfigured, supabase } from "../../lib/supabase";
+import { isPasscodeSet, lock } from "../../lib/site/auth";
 
 /**
  * The dashboard.
@@ -37,7 +37,7 @@ const SAVE_LABEL: Record<string, string> = {
 
 export default function Dashboard() {
   const { slug = SEED_SLUG } = useParams();
-  // Supabase when configured, localStorage otherwise. See getRepository.
+  // Always local storage. See getRepository.
   const draft = useDraftSite(slug, getRepository());
   const [siteStatus, setSiteStatus] = useState<SiteStatus | null>(null);
   const [device, setDevice] = useState<"desktop" | "phone">("desktop");
@@ -141,12 +141,13 @@ export default function Dashboard() {
           Gallery
         </Link>
 
-        {isSupabaseConfigured && (
-          <button
-            type="button"
-            className="btn"
-            onClick={() => void supabase().auth.signOut()}
-          >
+        {/*
+          Only offered once a passcode exists. Before that there is nothing to
+          sign out of — locking the editor would gate someone out of work they
+          never locked in, which is how "I am locked out of my own site" happens.
+        */}
+        {isPasscodeSet() && (
+          <button type="button" className="btn" onClick={lock}>
             Sign out
           </button>
         )}

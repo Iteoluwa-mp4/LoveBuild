@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 
 import { useSession } from "../../hooks/useSession";
 import { buildSitemap, editUrl } from "../../lib/site/sitemap";
-import { isSupabaseConfigured } from "../../lib/supabase";
 import type { Site } from "../../lib/site/schema";
 
 /**
@@ -12,16 +11,16 @@ import type { Site } from "../../lib/site/schema";
  * copy and hides itself when empty. This one is chrome and is always there —
  * a site with nothing written in it still needs a way to get somewhere.
  *
- * The owner links are the awkward part. When a project is configured the "Edit"
- * link only shows for a signed-in account, so a visitor does not see the fact
- * that a dashboard exists. When none is configured there is no auth to check,
- * and hiding it would lock the person running the app out of their own editor.
+ * The owner link is the awkward part. It is shown whenever the editor is
+ * unlocked, and a visitor — who is, in this build, always locked out — sees
+ * "Sign in" instead. That framing is deliberate: it is the only route from a
+ * published site back to the editor, so hiding it entirely would leave the owner
+ * no way in and there would be nothing to show a visitor anyway.
  */
 export default function SiteFooter({ site, basePath }: { site: Site; basePath: string }) {
   const session = useSession();
   const sitemap = buildSitemap(site, basePath);
 
-  const canEdit = !isSupabaseConfigured || session.status === "signed-in";
   const signedIn = session.status === "signed-in";
 
   const name = site.identity.name.trim();
@@ -86,7 +85,7 @@ export default function SiteFooter({ site, basePath }: { site: Site; basePath: s
             Framed as "sign in" rather than as an admin control, because that is
             what it actually is.
           */}
-          {canEdit ? (
+          {signedIn ? (
             <a className="site-footer-owner" href={editUrl(site.slug)}>
               Edit this site →
             </a>
