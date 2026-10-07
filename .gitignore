@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+
+# Env files hold the Supabase anon key and Cloudinary secrets.
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.log

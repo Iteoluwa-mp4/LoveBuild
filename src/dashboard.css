@@ -1,0 +1,861 @@
+/* ==================================================================
+   Dashboard.
+
+   Deliberately plain and utilitarian: this is the tool someone else has
+   to use, not the thing being admired. Nothing here competes with the
+   site it is editing.
+   ================================================================== */
+
+.dash {
+  --dash-bg: #0f0f12;
+  --dash-panel: #17171c;
+  --dash-panel-2: #1e1e25;
+  --dash-line: #2a2a33;
+  --dash-text: #e8e8ec;
+  --dash-dim: #9a9aa6;
+  --dash-accent: #6ea8fe;
+  --dash-warn: #f0b45e;
+  --dash-bad: #f07a7a;
+  --dash-good: #6fd39a;
+  --dash-bar-h: 3.4rem;
+
+  /*
+   * The page itself does not scroll.
+   *
+   * It is a flex column locked to the viewport, and the two columns inside are
+   * the scroll containers. That is what makes each side scroll on its own: the
+   * cursor is over the form, the form scrolls, the preview stays put.
+   *
+   * Below 1100px this is undone in the media query at the end of this block,
+   * where the layout stacks and the document scrolls normally.
+   */
+  height: 100svh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--dash-bg);
+  color: var(--dash-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------- top bar ---------- */
+
+/*
+ * Not sticky any more. Its parent no longer scrolls, so `position: sticky` was
+ * a no-op pretending to work. As a plain flex item it simply stays put.
+ */
+.dash-bar {
+  flex: 0 0 auto;
+  min-height: var(--dash-bar-h);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1.1rem;
+  background: var(--dash-panel);
+  border-bottom: 1px solid var(--dash-line);
+  flex-wrap: wrap;
+}
+
+.dash-bar h1 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.dash-bar h1 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dash-bar h1 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.dash-bar-sub {
+  font-size: 0.72rem;
+  color: var(--dash-dim);
+  font-weight: 400;
+}
+
+.dash-spacer {
+  flex: 1;
+}
+
+/* ---------- layout ---------- */
+
+/*
+ * `min-height: 0` on the grid and its children is load-bearing, not tidiness.
+ *
+ * Grid and flex children default to `min-height: auto`, which means they
+ * refuse to shrink below the size of their content. Without this the columns
+ * simply grow past the viewport and `overflow-y: auto` never engages — the
+ * exact layout we are trying to get rid of, with no obvious reason why.
+ */
+.dash-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 1100px) {
+  .dash-body {
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 44%);
+  }
+}
+
+.dash-form {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 780px;
+
+  /*
+   * Stop dead at the end, rather than chaining to the page. The page is locked
+   * anyway, but this also suppresses rubber-banding and the mobile swipe-back
+   * gesture, both of which would otherwise eat the scroll.
+   */
+  overscroll-behavior: contain;
+}
+
+.dash-side {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-left: 1px solid var(--dash-line);
+  background: #0c0c0f;
+}
+
+/*
+ * Children of a scrollable flex column must not shrink.
+ *
+ * Flex items default to `flex-shrink: 1`, so inside a fixed-height column the
+ * sections were squeezed to fit the pane rather than overflowing it. The result
+ * looked locked in place: `scrollHeight` equalled `clientHeight`, nothing
+ * scrolled, and content was silently compressed. `flex: 0 0 auto` makes each
+ * child keep its natural height and overflow, which is the entire point.
+ */
+.dash-form > *,
+.dash-side > * {
+  flex: 0 0 auto;
+}
+
+/*
+ * Stacked layout: back to an ordinary scrolling document.
+ *
+ * Mutual exclusion would be actively unhelpful here — the columns are one
+ * below the other, so "which pane am I in" has no meaning on a phone.
+ */
+@media (max-width: 1099px) {
+  .dash {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+  }
+
+  .dash-body {
+    display: block;
+    overflow: visible;
+  }
+
+  .dash-form,
+  .dash-side {
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
+  .dash-side {
+    border-left: 0;
+    border-top: 1px solid var(--dash-line);
+  }
+}
+
+/* ---------- sections ---------- */
+
+.dash-section {
+  background: var(--dash-panel);
+  border: 1px solid var(--dash-line);
+  border-radius: 0.7rem;
+  overflow: hidden;
+}
+
+.dash-section > summary,
+.dash-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.dash-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.dash-section > summary:hover {
+  background: var(--dash-panel-2);
+}
+
+.dash-section-title {
+  font-weight: 620;
+  font-size: 0.9rem;
+}
+
+.dash-section-hint {
+  font-size: 0.75rem;
+  color: var(--dash-dim);
+  margin-left: auto;
+  text-align: right;
+}
+
+.dash-section-body {
+  padding: 0.35rem 1rem 1rem;
+  border-top: 1px solid var(--dash-line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/* ---------- fields ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--dash-text);
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.field-count {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--dash-dim);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.field-hint {
+  font-size: 0.73rem;
+  color: var(--dash-dim);
+}
+
+.field-warn {
+  font-size: 0.73rem;
+  color: var(--dash-warn);
+}
+
+.field input[type="text"],
+.field textarea,
+.field select {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  background: #0d0d10;
+  border: 1px solid var(--dash-line);
+  border-radius: 0.45rem;
+  color: var(--dash-text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: 2px solid color-mix(in srgb, var(--dash-accent) 60%, transparent);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+  line-height: 1.55;
+}
+
+.field-row {
+  display: grid;
+  gap: 0.9rem;
+}
+
+@media (min-width: 620px) {
+  .field-row-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---------- toggle ---------- */
+
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.toggle input {
+  margin-top: 0.2rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--dash-accent);
+  flex-shrink: 0;
+}
+
+.toggle-text {
+  font-size: 0.83rem;
+}
+
+.toggle-text small {
+  display: block;
+  color: var(--dash-dim);
+  font-size: 0.73rem;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--dash-line);
+  background: var(--dash-panel-2);
+  color: var(--dash-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 560;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  border-color: #3b3b47;
+  background: #262630;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--dash-accent);
+  border-color: var(--dash-accent);
+  color: #0b1020;
+}
+
+.btn-primary:hover {
+  background: #85b6ff;
+  border-color: #85b6ff;
+}
+
+.btn-danger {
+  color: var(--dash-bad);
+}
+
+.btn-danger:hover {
+  border-color: var(--dash-bad);
+  background: color-mix(in srgb, var(--dash-bad) 12%, var(--dash-panel-2));
+}
+
+.btn-icon {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.75rem;
+}
+
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ---------- list items ---------- */
+
+.item {
+  border: 1px solid var(--dash-line);
+  border-radius: 0.55rem;
+  background: #131318;
+  overflow: hidden;
+}
+
+.item-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--dash-panel-2);
+  border-bottom: 1px solid var(--dash-line);
+  flex-wrap: wrap;
+}
+
+.item-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item-caret {
+  color: var(--dash-dim);
+  font-size: 0.7rem;
+  width: 0.8rem;
+  flex-shrink: 0;
+}
+
+.item-toggle:hover .item-title {
+  text-decoration: underline;
+}
+
+.item-toggle:focus-visible {
+  outline: 2px solid var(--dash-accent);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+
+.item-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item[data-open="false"] .item-head {
+  border-bottom: 0;
+}
+
+.item-index {
+  font-variant-numeric: tabular-nums;
+  color: var(--dash-dim);
+  font-size: 0.75rem;
+  min-width: 1.5rem;
+}
+
+.item-head .btn-row {
+  margin-left: auto;
+}
+
+.item-body {
+  padding: 0.75rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.item-empty {
+  padding: 0.9rem;
+  border: 1px dashed var(--dash-line);
+  border-radius: 0.55rem;
+  color: var(--dash-dim);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.badge {
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--dash-line);
+  color: var(--dash-dim);
+}
+
+.badge-warn {
+  color: var(--dash-warn);
+  border-color: color-mix(in srgb, var(--dash-warn) 45%, transparent);
+}
+
+.badge-good {
+  color: var(--dash-good);
+  border-color: color-mix(in srgb, var(--dash-good) 45%, transparent);
+}
+
+/* ---------- theme picker ---------- */
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.6rem;
+}
+
+.theme-card {
+  border: 1px solid var(--dash-line);
+  border-radius: 0.55rem;
+  padding: 0.55rem;
+  background: var(--dash-panel-2);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.theme-card[aria-pressed="true"] {
+  border-color: var(--dash-accent);
+  box-shadow: 0 0 0 1px var(--dash-accent);
+}
+
+.theme-preview {
+  height: 3rem;
+  border-radius: 0.35rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--theme-grad-hero-bg);
+}
+
+.theme-preview i {
+  position: absolute;
+  z-index: 1;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  bottom: 0.35rem;
+  left: 0.35rem;
+  background: var(--theme-grad-gold-btn);
+}
+
+.theme-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* ---------- save indicator ---------- */
+
+.save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--dash-dim);
+  white-space: nowrap;
+}
+
+.save-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--dash-dim);
+}
+
+.save-dot[data-phase="saved"] {
+  background: var(--dash-good);
+}
+.save-dot[data-phase="dirty"] {
+  background: var(--dash-warn);
+}
+.save-dot[data-phase="saving"] {
+  background: var(--dash-accent);
+  animation: pulse 1s ease-in-out infinite;
+}
+.save-dot[data-phase="error"] {
+  background: var(--dash-bad);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------- preview ---------- */
+
+.preview {
+  border: 1px solid var(--dash-line);
+  border-radius: 0.6rem;
+  background: #08080a;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--dash-line);
+  background: var(--dash-panel);
+  flex-wrap: wrap;
+}
+
+.preview-stage {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  background:
+    repeating-conic-gradient(#0e0e12 0% 25%, #0a0a0d 0% 50%) 50% / 16px 16px;
+  padding: 0.75rem;
+  min-height: 60svh;
+}
+
+.preview-frame {
+  border: 0;
+  background: #0e0518;
+  border-radius: 0.4rem;
+  width: 100%;
+  height: 100%;
+  min-height: 60svh;
+  transition: width 0.2s ease;
+}
+
+.preview-frame[data-device="phone"] {
+  width: 390px;
+  max-width: 100%;
+  border-radius: 1rem;
+  border: 1px solid var(--dash-line);
+}
+
+/* ---------- outline ---------- */
+
+.outline {
+  border: 1px solid var(--dash-line);
+  border-radius: 0.6rem;
+  background: var(--dash-panel);
+  overflow: hidden;
+}
+
+.outline-head {
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--dash-line);
+  font-size: 0.82rem;
+  font-weight: 620;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.outline-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.outline-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--dash-line) 60%, transparent);
+  font-size: 0.79rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.outline-row:hover {
+  background: var(--dash-panel-2);
+}
+
+.outline-row[data-shown="false"] {
+  opacity: 0.55;
+}
+
+.outline-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  transform: translateY(-0.05rem);
+  background: var(--dash-dim);
+}
+
+.outline-row[data-shown="true"] .outline-dot {
+  background: var(--dash-good);
+}
+
+.outline-detail {
+  color: var(--dash-dim);
+  font-size: 0.73rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12rem;
+}
+
+.outline-badge {
+  margin-left: auto;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dash-dim);
+  border: 1px solid var(--dash-line);
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+}
+
+/* ---------- notices ---------- */
+
+.notice {
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.notice-warn {
+  border-color: color-mix(in srgb, var(--dash-warn) 45%, transparent);
+  background: color-mix(in srgb, var(--dash-warn) 10%, transparent);
+  color: #f6d9ac;
+}
+
+.notice-bad {
+  border-color: color-mix(in srgb, var(--dash-bad) 45%, transparent);
+  background: color-mix(in srgb, var(--dash-bad) 10%, transparent);
+  color: #f6c4c4;
+}
+
+.notice-live {
+  border-color: color-mix(in srgb, var(--dash-good) 45%, transparent);
+  background: color-mix(in srgb, var(--dash-good) 10%, transparent);
+  color: #c9ecd9;
+}
+
+.notice-link {
+  color: inherit;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.notice strong {
+  font-weight: 650;
+}
+
+/* ---------- uploader ---------- */
+
+.uploader {
+  border: 1px dashed var(--dash-line);
+  border-radius: 0.5rem;
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.uploader-preview {
+  width: 100%;
+  max-height: 11rem;
+  object-fit: contain;
+  background: #0d0d10;
+  border-radius: 0.4rem;
+  display: block;
+}
+
+/* Empty slot in the dashboard. Mirrors the template's media-placeholder so the
+   form and the preview agree on what "nothing here yet" looks like. */
+.uploader-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  border-radius: 0.5rem;
+  border: 1px dashed color-mix(in srgb, var(--dash-accent) 35%, var(--dash-line));
+  background: #0d0d10;
+  color: var(--dash-dim);
+}
+
+.uploader-empty-mark {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--dash-accent);
+  background: color-mix(in srgb, var(--dash-accent) 12%, transparent);
+}
+
+.uploader-empty-mark svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.25;
+}
+
+.uploader-empty-text {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.uploader-meta {
+  font-size: 0.73rem;
+  color: var(--dash-dim);
+  word-break: break-all;
+}
+
+/* ---------- sr-only ---------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.spinner {
+  padding: 3rem;
+  text-align: center;
+  color: var(--dash-dim);
+}
+

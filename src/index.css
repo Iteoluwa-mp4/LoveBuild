@@ -1,0 +1,326 @@
+/* The webfont import must come first: Tailwind expands its own @import into
+   real rules at build time, which would leave this one after them and get it
+   dropped by the browser. */
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap");
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   Colour tokens.
+
+   `inline` matters. Without it, `@theme` resolves `var(--theme-gold)` once at
+   build time and bakes the midnight value into the utility — so every theme
+   would render identically. With it, the utility keeps the var() reference and
+   follows whatever the themed root element sets.
+
+   The names here are deliberately semantic (`void`, `gold`, `lavender`) rather
+   than literal (`purple-900`). A component says `text-gold` and does not care
+   that the rose preset points it at pink, which is the whole point.
+   ------------------------------------------------------------------ */
+@theme inline {
+  --color-void: var(--theme-void);
+  --color-card-deep: var(--theme-card-deep);
+  --color-ink: var(--theme-ink);
+  --color-ink-2: var(--theme-ink2);
+  --color-purple: var(--theme-purple);
+  --color-purple-deep: var(--theme-purple-deep);
+  --color-violet: var(--theme-violet);
+  --color-purple-bright: var(--theme-purple-bright);
+  --color-lavender: var(--theme-lavender);
+  --color-gold: var(--theme-gold);
+  --color-gold-bright: var(--theme-gold-bright);
+  --color-gold-pale: var(--theme-gold-pale);
+  --color-gold-mid: var(--theme-gold-mid);
+  --color-gold-deep: var(--theme-gold-deep);
+  --color-on-gold: var(--theme-on-gold);
+  --color-content: var(--theme-text);
+  --color-dim: var(--theme-dim);
+
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+/* ------------------------------------------------------------------
+   Gradients and scrims are whole values, not colour scales.
+
+   A gradient has its own stop positions, so it cannot be assembled from flat
+   tokens at the call site without leaking layout decisions into components.
+   Each one is exposed as a custom property rather than a utility, and used as
+   `bg-[image:var(--theme-grad-title)]`.
+   ------------------------------------------------------------------ */
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    /* Resolves from the tokens SiteShell publishes on <html>. The fallback only
+       applies before any theme is applied, so a themed site never shows it. */
+    background: var(--theme-void, #150a22);
+    color: var(--theme-text, #efe3fa);
+    font-family: var(--font-sans);
+  }
+
+  /* The vertical reel feed in the gallery. Scoped to the gallery so the home
+     page keeps its natural free-form scroll. Applied via a class on <html>. */
+  html.gallery-feed {
+    scroll-snap-type: y proximity;
+  }
+
+  html.gallery-feed [data-snap] {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  /* The drifting hairline under the hero's scroll cue. */
+  @keyframes cueDrift {
+    0% {
+      transform: scaleY(0);
+      transform-origin: top;
+      opacity: 0;
+    }
+    40% {
+      transform: scaleY(1);
+      transform-origin: top;
+      opacity: 1;
+    }
+    60% {
+      transform: scaleY(1);
+      transform-origin: bottom;
+      opacity: 1;
+    }
+    100% {
+      transform: scaleY(0);
+      transform-origin: bottom;
+      opacity: 0;
+    }
+  }
+
+  .cue-line {
+    animation: cueDrift 2.6s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.gallery-feed {
+    scroll-snap-type: none;
+  }
+
+  .cue-line {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Per-theme shadows.
+
+   These are plain classes rather than `shadow-[var(--theme-shadow-*)]`
+   utilities on purpose. Tailwind v4 composes `box-shadow` out of five
+   custom-property slots, and an arbitrary value that is itself a `var()`
+   reference lands in the slot without the composed value picking it up —
+   the element ends up with a fully transparent shadow. Assigning
+   `box-shadow` directly is both simpler and immune to that.
+   ------------------------------------------------------------------ */
+.shadow-btn {
+  box-shadow: var(--theme-shadow-btn);
+}
+
+.shadow-card {
+  box-shadow: var(--theme-shadow-card);
+}
+
+.shadow-panel {
+  box-shadow: var(--theme-shadow-panel);
+}
+
+.shadow-frame {
+  box-shadow: var(--theme-shadow-frame);
+}
+
+/* ------------------------------------------------------------------
+   Site footer.
+
+   Navigation chrome, not content — the closing section above it is
+   the author's copy and hides itself when empty, this does not. A site
+   with nothing written in it still needs somewhere to go.
+
+   Reads the theme tokens, so it sits in the right palette on every
+   preset instead of being a grey slab at the bottom of a rose page.
+   ------------------------------------------------------------------ */
+.site-footer {
+  border-top: 1px solid color-mix(in srgb, var(--theme-lavender) 14%, transparent);
+  background: var(--theme-grad-footer);
+  color: var(--theme-lavender);
+  font-family: var(--font-sans);
+}
+
+.site-footer-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 2rem;
+}
+
+.site-footer-cols {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 40rem) {
+  .site-footer-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3rem;
+  }
+}
+
+.site-footer-heading {
+  margin: 0 0 0.9rem;
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--theme-gold);
+}
+
+.site-footer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.site-footer-list a {
+  color: var(--theme-lavender);
+  text-decoration: none;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  transition: color 0.2s ease;
+}
+
+.site-footer-list a:hover {
+  color: var(--theme-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-footer-more a {
+  color: var(--theme-gold-bright);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+}
+
+.site-footer-credit {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--theme-lavender) 12%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  font-size: 0.8rem;
+  color: var(--theme-lavender);
+  opacity: 0.8;
+}
+
+.site-footer-name {
+  margin-right: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--theme-text);
+}
+
+.site-footer-brand {
+  color: var(--theme-gold-bright);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.site-footer-brand:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-footer-owner {
+  color: var(--theme-lavender);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-footer-owner:hover {
+  color: var(--theme-gold-bright);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------
+   Empty media slots.
+
+   Shared by the moment cards, the gallery photographs and the film
+   frames, so "nothing here yet" looks the same everywhere. Uses the
+   theme tokens like everything else, so a placeholder on the rose
+   preset is not a grey box from the midnight one.
+   ------------------------------------------------------------------ */
+.media-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  height: 100%;
+  min-height: 7rem;
+  padding: 1.25rem;
+  text-align: center;
+  color: var(--theme-lavender);
+  background: var(--theme-grad-card-front);
+  border: 1px dashed color-mix(in srgb, var(--theme-gold) 38%, transparent);
+  border-radius: 0.75rem;
+}
+
+.media-placeholder-mark {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  color: var(--theme-gold-bright);
+  background: color-mix(in srgb, var(--theme-gold) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--theme-gold) 45%, transparent);
+}
+
+.media-placeholder-mark svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  stroke-width: 2.25;
+}
+
+.media-placeholder-text {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* Photographs sit in a natural-aspect frame, so let the slot match. */
+.media-placeholder[data-kind="image"].media-placeholder--tall {
+  min-height: 12rem;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,354 @@
+import { z } from "zod";
+
+/**
+ * The shape of a site. This file is the single source of truth for the whole
+ * app: the dashboard form is generated from it, the database column is typed by
+ * it, and every component in `src/components/site` reads from it.
+ *
+ * Rules of the house:
+ *   - Nothing in a component may hardcode content. If a string appears in JSX,
+ *     it belongs in here, or it is chrome (a button label, an aria string).
+ *   - A field that can be computed does not get stored. See `derive.ts`.
+ *   - `version` is how config changes stay backwards compatible. Bump it and
+ *     write a migration rather than reshaping old rows in place.
+ *
+ * A note on `.prefault()` vs `.default()`
+ * -------------------------------------
+ * A draft is allowed to be unfinished, so almost every field needs a fallback.
+ * For nested objects that means the whole sub-tree must materialise from
+ * nothing: `siteSchema.parse({ slug, theme })` should return a complete object.
+ *
+ * Zod 4's `.default({})` returns that object *literally*, without parsing it,
+ * so inner defaults never fire and you get `home === {}`. `.prefault({})` feeds
+ * the value through the schema first, which is what actually cascades.
+ * Scalars use plain `.default()` because their fallback is already valid.
+ */
+
+/** A UUID. Used as a stable React key so reordering never remounts a node. */
+const id = z.string().min(1);
+
+/* ------------------------------------------------------------------ *
+ * STATUS
+ * ------------------------------------------------------------------ */
+
+/**
+ * A site's publication state.
+ *
+ * This lives in the database column, NOT in the config object. It used to be in
+ * both, which meant a `sites.status` column and a `site.status` field could
+ * disagree — and nothing would say so. Row level security keys off the column,
+ * so the column has to be the only source of truth.
+ *
+ * `draft` is invisible to the public. `submitted` is also invisible and exists
+ * only if a review gate is ever wanted. `published` is what the shared link
+ * serves.
+ *
+ * Exported from here because it is the shared vocabulary between the schema, the
+ * repository and the dashboard — but deliberately absent from `siteSchema`.
+ */
+export const statusSchema = z.enum(["draft", "submitted", "published"]);
+export type SiteStatus = z.infer<typeof statusSchema>;
+
+/* ------------------------------------------------------------------ *
+ * MEDIA
+ * ------------------------------------------------------------------ */
+
+/**
+ * One uploaded asset.
+ *
+ * `url` is authoritative for rendering. `publicId` is the Cloudinary asset id,
+ * set once the upload completes, and is what you need in order to delete the
+ * asset later or rebuild it at a different width. `publicId` is nullable
+ * because seed content points at local files until it is uploaded.
+ *
+ * Deliberately an object and not a bare URL string: a string cannot carry alt
+ * text, a caption, intrinsic dimensions, or a stable key for reordering.
+ */
+export const mediaSchema = z.object({
+  id,
+  /** Cloudinary public id. null while the asset has not been uploaded yet. */
+  publicId: z.string().nullable().default(null),
+  /** Direct URL the renderer uses. */
+  url: z.string(),
+  /** Accessibility text. Falls back to `caption`, then to a generic phrase. */
+  alt: z.string().max(300).default(""),
+  /** Visible caption. */
+  caption: z.string().max(300).default(""),
+  /** Intrinsic size, once known. Used to reserve layout space and avoid CLS. */
+  width: z.number().int().positive().nullable().default(null),
+  height: z.number().int().positive().nullable().default(null),
+  /** Video length in milliseconds. */
+  durationMs: z.number().int().nonnegative().nullable().default(null),
+});
+export type Media = z.infer<typeof mediaSchema>;
+
+/* ------------------------------------------------------------------ *
+ * HOME
+ * ------------------------------------------------------------------ */
+
+/**
+ * The hero headline, split into lines so each can be revealed in sequence. The
+ * last line carries the accent gradient. The current layout is tuned for three
+ * lines; one to four render without breaking.
+ */
+const heroLinesSchema = z.array(z.string().max(90)).min(1).max(4).default(["", "", ""]);
+
+/**
+ * A photo that flips to reveal a hidden message when clicked.
+ *
+ * `tag` and `date` are optional on purpose. Left blank, `momentTag` derives
+ * "Moment 01" and the date slot simply does not render. He can customise
+ * either, but is never asked to.
+ */
+const momentSchema = z.object({
+  id,
+  /** Small label above the card. Empty derives "Moment 01", "Moment 02"... */
+  tag: z.string().max(40).default(""),
+  /** Short date shown on the reverse, e.g. "October 14". Optional. */
+  date: z.string().max(60).default(""),
+  /** The prompt printed over the photo. */
+  caption: z.string().max(300).default(""),
+  /** The reveal text on the back. */
+  secret: z.string().max(600).default(""),
+  image: mediaSchema,
+});
+export type Moment = z.infer<typeof momentSchema>;
+
+/**
+ * The pull-quote panel, which toggles to a longer letter.
+ *
+ * There is deliberately no `emphasis` field. An earlier version stored the
+ * gradient-highlighted phrase separately from the quote text, which meant the
+ * moment its author edited his own sentence the phrase stopped matching and the
+ * highlight silently vanished. `emphasisParts` in `derive.ts` derives it from
+ * the text instead, so it cannot break.
+ *
+ * `truth` is a single string; paragraphs are split on blank lines. Keeping it
+ * one field means one textarea in the dashboard rather than a paragraph editor.
+ *
+ * Every field here is optional. An author who never fills this in gets no quote
+ * panel at all, which `visibleBlocks` decides.
+ */
+const quoteSchema = z
+  .object({
+    text: z.string().max(2000).default(""),
+    /** The longer letter revealed by the toggle. */
+    truth: z.string().max(8000).default(""),
+    author: z.string().max(120).default(""),
+    authorSub: z.string().max(200).default(""),
+    verdictLabel: z.string().max(60).default(""),
+    verdictValue: z.string().max(60).default(""),
+    /** Label on the toggle while the letter is hidden. */
+    toggleReveal: z.string().max(40).default(""),
+    /** Label on the toggle while the letter is showing. */
+    toggleBack: z.string().max(40).default(""),
+  })
+  .prefault({});
+
+/** A quote card in the closing fan. */
+const footerCardSchema = z.object({
+  id,
+  tag: z.string().max(40).default(""),
+  quote: z.string().max(400).default(""),
+});
+export type FooterCard = z.infer<typeof footerCardSchema>;
+
+const homeSchema = z
+  .object({
+    hero: z
+      .object({
+        lines: heroLinesSchema,
+        subline: z.string().max(500).default(""),
+        /** Label only. The target is derived: primary opens the gallery. */
+        primaryCta: z.string().max(60).default(""),
+        /** Label only. The target is derived: secondary jumps to #moments. */
+        secondaryCta: z.string().max(60).default(""),
+      })
+      .prefault({}),
+    moments: z.array(momentSchema).max(30).default([]),
+    quote: quoteSchema,
+    footer: z
+      .object({
+        heading: z.string().max(200).default(""),
+        subline: z.string().max(300).default(""),
+        /** Label only. The target is derived: footer button opens the gallery. */
+        ctaLabel: z.string().max(60).default(""),
+        cards: z.array(footerCardSchema).max(12).default([]),
+      })
+      .prefault({}),
+  })
+  .prefault({});
+
+/* ------------------------------------------------------------------ *
+ * GALLERY
+ * ------------------------------------------------------------------ */
+
+/** One video, with a line of text addressed to the reader beside it. */
+const filmSchema = z.object({
+  id,
+  title: z.string().max(200).default(""),
+  /** The line spoken beside the clip. */
+  note: z.string().max(1000).default(""),
+  src: mediaSchema,
+});
+export type Film = z.infer<typeof filmSchema>;
+
+/** One photograph with a small caption underneath. */
+const stillSchema = z.object({
+  id,
+  caption: z.string().max(300).default(""),
+  src: mediaSchema,
+});
+export type Still = z.infer<typeof stillSchema>;
+
+/**
+ * A titled group of films and photographs. The gallery renders a chapter's
+ * title screen, then one screen per film, then one screen of photographs.
+ * A chapter may hold either, both, or neither.
+ *
+ * This nesting is the whole shape of the gallery. Flattening films and stills
+ * into one list would lose the grouping that gives the page its narrative.
+ */
+const chapterSchema = z.object({
+  id,
+  /** Shown above the title. Empty derives "01", "02" from position. */
+  label: z.string().max(10).default(""),
+  title: z.string().max(120).default(""),
+  /** One line introducing the chapter. Omit for none. */
+  blurb: z.string().max(400).optional(),
+  films: z.array(filmSchema).max(50).default([]),
+  stills: z.array(stillSchema).max(50).default([]),
+});
+export type Chapter = z.infer<typeof chapterSchema>;
+
+const gallerySchema = z
+  .object({
+    hero: z
+      .object({
+        eyebrow: z.string().max(60).default(""),
+        lineOne: z.string().max(120).default(""),
+        lineTwo: z.string().max(120).default(""),
+        blurb: z.string().max(500).default(""),
+      })
+      .prefault({}),
+    chapters: z.array(chapterSchema).max(40).default([]),
+    outro: z
+      .object({
+        lineOne: z.string().max(120).default(""),
+        lineTwo: z.string().max(120).default(""),
+        aside: z.string().max(300).default(""),
+        backLabel: z.string().max(60).default(""),
+      })
+      .prefault({}),
+  })
+  .prefault({});
+
+/* ------------------------------------------------------------------ *
+ * SITE
+ * ------------------------------------------------------------------ */
+
+/**
+ * Three-dimensional ornaments. Both are heavy (three.js) and both are specific
+ * to the original design, so a site can switch them off.
+ */
+const ornamentsSchema = z
+  .object({
+    /** The 3D hero heart. */
+    hero3d: z.boolean().default(true),
+    /** Drifting gold particles behind the gallery. */
+    particles: z.boolean().default(true),
+  })
+  .prefault({});
+
+export const siteSchema = z.object({
+  version: z.literal(1).default(1),
+  /** URL segment. Generated once, then treated as immutable. */
+  slug: z.string().regex(/^[a-z0-9-]+$/, "lowercase letters, digits and hyphens"),
+
+  /** Preset id from `themes.ts`. Kept as a string so that adding a preset later
+   *  cannot invalidate an existing config; `resolveTheme` falls back safely. */
+  theme: z.string().min(1),
+
+  /** Only the site name lives here. Nav labels are chrome and belong to the
+   *  components, not the config. */
+  identity: z
+    .object({
+      name: z.string().max(60).default(""),
+    })
+    .prefault({}),
+
+  ornaments: ornamentsSchema,
+
+  home: homeSchema,
+  gallery: gallerySchema,
+});
+
+export type Site = z.infer<typeof siteSchema>;
+
+/* ------------------------------------------------------------------ *
+ * SUBMISSION CHECKS
+ * ------------------------------------------------------------------ */
+
+/**
+ * What a site must have before it can go live.
+ *
+ * Separate from the schema on purpose. The schema describes what a *draft* may
+ * look like — anything goes, including almost nothing. This describes what a
+ * *submitted* site must have, so the review step can reject an empty one
+ * without the schema having to be strict all the way through.
+ */
+export type Issue = {
+  /** Dotted path to the offending field, for the dashboard to highlight. */
+  path: string;
+  message: string;
+};
+
+export function findSubmissionIssues(site: Site): Issue[] {
+  const issues: Issue[] = [];
+  const need = (path: string, value: string, label: string) => {
+    if (!value.trim()) issues.push({ path, message: `${label} is empty` });
+  };
+
+  need("identity.name", site.identity.name, "Site name");
+  need("home.hero.lines.0", site.home.hero.lines[0] ?? "", "First headline line");
+  need("home.hero.subline", site.home.hero.subline, "Hero subtitle");
+  need("home.hero.primaryCta", site.home.hero.primaryCta, "Main button label");
+
+  if (!site.home.moments.length) {
+    issues.push({ path: "home.moments", message: "Add at least one moment" });
+  }
+
+  // Every media entry needs a reachable URL. A dropped upload leaves a null
+  // publicId and an empty url, which would render as a broken frame.
+  const checkMedia = (media: Media, path: string) => {
+    if (!media.url.trim()) issues.push({ path: `${path}.url`, message: "File is missing" });
+  };
+
+  site.home.moments.forEach((m, i) => {
+    need(`home.moments.${i}.caption`, m.caption, "Moment caption");
+    checkMedia(m.image, `home.moments.${i}.image`);
+  });
+
+  if (!site.gallery.chapters.length) {
+    issues.push({ path: "gallery.chapters", message: "Add at least one chapter" });
+  }
+
+  site.gallery.chapters.forEach((chapter, ci) => {
+    need(`gallery.chapters.${ci}.title`, chapter.title, "Chapter title");
+    if (!chapter.films.length && !chapter.stills.length) {
+      issues.push({
+        path: `gallery.chapters.${ci}`,
+        message: `"${chapter.title || `Chapter ${ci + 1}`}" has no films or photographs`,
+      });
+    }
+    chapter.films.forEach((film, fi) => {
+      need(`gallery.chapters.${ci}.films.${fi}.title`, film.title, "Film title");
+      checkMedia(film.src, `gallery.chapters.${ci}.films.${fi}.src`);
+    });
+    chapter.stills.forEach((still, si) => {
+      checkMedia(still.src, `gallery.chapters.${ci}.stills.${si}.src`);
+    });
+  });
+
+  return issues;
+}
