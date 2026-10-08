@@ -1,7 +1,6 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { gsap } from "gsap";
 import { Quote, Sparkles } from "lucide-react";
 import EditableText from "./EditableText";
 import GlossyButton from "./GlossyButton";
@@ -10,6 +9,7 @@ import PixelTransition from "./PixelTransition";
 import ScrollToTop from "./ScrollToTop";
 import SiteFooter from "./SiteFooter";
 import SiteNav from "./SiteNav";
+import useScrollReveal from "../../hooks/useScrollReveal";
 import { EMPTY_SLOT_COUNT, ctaTarget, emphasisParts, momentTag, visibleBlocks } from "../../lib/site/derive";
 import type { Site } from "../../lib/site/schema";
 import { blocky, glassPurple } from "../../lib/shape";
@@ -17,175 +17,75 @@ import { blocky, glassPurple } from "../../lib/shape";
 /** three.js is lazy so it never lands in the initial bundle. */
 const HeartDiamond = lazy(() => import("./ornaments/HeartDiamond"));
 
-gsap.registerPlugin(ScrollTrigger);
-
 /**
- * ScrollTrigger measures element positions once, when it initialises. Every
- * photograph on this page loads after that and pushes everything below it down,
- * so without a re-measure the triggers sit at the wrong scroll offsets and the
- * content stays at `autoAlpha: 0` — present in the DOM, but invisible.
+ * Everything GSAP is imported from here, by name.
  *
- * The re-measure runs on `load`, and again once the outstanding images settle.
- */
-function remeasureOnImageLoad() {
-  const refresh = () => ScrollTrigger.refresh();
-  window.addEventListener("load", refresh);
-
-  const images = [...document.querySelectorAll("img")].filter((img) => !img.complete);
-  let timer: number | undefined;
-
-  if (images.length > 0) {
-    let left = images.length;
-    const onSettled = () => {
-      left -= 1;
-      if (left === 0) {
-        ScrollTrigger.refresh();
-        window.clearTimeout(timer);
-      }
-    };
-    images.forEach((img) => {
-      img.addEventListener("load", onSettled, { once: true });
-      img.addEventListener("error", onSettled, { once: true });
-    });
-    // Safety net for an image that never fires either event.
-    timer = window.setTimeout(refresh, 4000);
-  } else {
-    refresh();
-  }
-
-  return () => {
-    window.removeEventListener("load", refresh);
-    window.clearTimeout(timer);
-  };
-}
-
-/**
- * The home page.
- *
- * Every string here comes from `site` — the labels on the moment cards, the
- * toggle on the quote panel and the fan cards are all content, because they are
- * the parts someone would want to change for their own wife. Section chrome
- * lives in the components.
- *
- * Regions with no content do not render at all, decided by `visibleBlocks`.
+ * This file used a default import while `PixelTransition.tsx` used a named one.
+ * Under Vite those can resolve to two separate copies of the library, which is
+ * worth avoiding even now that this page no longer registers any plugin: the plain
+ * timelines below should run on the same core as everything else. Vite is also
+ * told to dedupe `gsap` (see vite.config.ts).
  */
 export default function HomePage({ site, basePath }: { site: Site; basePath: string }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const blocks = visibleBlocks(site);
 
-  // Re-measure scroll triggers once the photographs have loaded.
-  useEffect(() => remeasureOnImageLoad(), [
-    site.home.moments.length,
-    site.home.footer.cards.length,
-    site.ornaments.hero3d,
-  ]);
 
   useLayoutEffect(() => {
+    const root = pageRef.current;
+    if (!root) return;
+
     const cleanups: Array<() => void> = [];
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-      tl.set([".fh-line", ".fh-sub", ".fh-cta", ".fh-orb"], { autoAlpha: 0 })
-        .set(".fh-line", { yPercent: 115 })
-        .set(".fh-orb", { scale: 0.85 })
-        .to(".fh-orb", { autoAlpha: 1, scale: 1, duration: 1.4, ease: "power2.out" }, 0.1)
-        .to(".fh-line", { autoAlpha: 1, yPercent: 0, duration: 1, stagger: 0.1 }, 0.3)
-        .to(".fh-sub", { autoAlpha: 1, y: 0, duration: 0.7 }, "-=0.5")
-        .to(".fh-cta", { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.08 }, "-=0.4");
 
-      gsap.utils.toArray<HTMLElement>("[data-tilt-card]").forEach((card, i) => {
-        gsap.fromTo(
-          card,
-          { autoAlpha: 0, y: 50, rotateZ: i % 2 === 0 ? -4 : 4 },
-          {
-            autoAlpha: 1,
-            y: 0,
-            rotateZ: 0,
-            duration: 1,
-            ease: "power3.out",
-            scrollTrigger: { trigger: card, start: "top 88%", invalidateOnRefresh: true },
-          },
-        );
+    /**
+     * The hero entrance, and the magnetic buttons.
+     *
+     * No ScrollTrigger anywhere on this page — see `useScrollReveal` for what
+     * that cost and why. These two are plain GSAP and work: a timeline that runs
+     * once on load, and pointer listeners that are cleaned up by hand.
+     */
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    tl.set([".fh-line", ".fh-sub", ".fh-cta", ".fh-orb"], { autoAlpha: 0 })
+      .set(".fh-line", { yPercent: 115 })
+      .set(".fh-orb", { scale: 0.85 })
+      .to(".fh-orb", { autoAlpha: 1, scale: 1, duration: 1.4, ease: "power2.out" }, 0.1)
+      .to(".fh-line", { autoAlpha: 1, yPercent: 0, duration: 1, stagger: 0.1 }, 0.3)
+      .to(".fh-sub", { autoAlpha: 1, y: 0, duration: 0.7 }, "-=0.5")
+      .to(".fh-cta", { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.08 }, "-=0.4");
+
+    for (const el of root.querySelectorAll<HTMLElement>(".magnetic")) {
+      const xTo = gsap.quickTo(el, "x", { duration: 0.4, ease: "power3" });
+      const yTo = gsap.quickTo(el, "y", { duration: 0.4, ease: "power3" });
+
+      const onMove = (e: MouseEvent) => {
+        const r = el.getBoundingClientRect();
+        xTo((e.clientX - r.left - r.width / 2) * 0.3);
+        yTo((e.clientY - r.top - r.height / 2) * 0.3);
+      };
+      const onLeave = () => {
+        xTo(0);
+        yTo(0);
+      };
+
+      el.addEventListener("mousemove", onMove);
+      el.addEventListener("mouseleave", onLeave);
+      cleanups.push(() => {
+        el.removeEventListener("mousemove", onMove);
+        el.removeEventListener("mouseleave", onLeave);
       });
-
-      gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((el) => {
-        gsap.fromTo(
-          el,
-          { autoAlpha: 0, y: 26 },
-          {
-            autoAlpha: 1,
-            y: 0,
-            duration: 0.9,
-            ease: "power3.out",
-            scrollTrigger: {
-              trigger: el,
-              start: el.dataset.revealStart ?? "top 85%",
-              invalidateOnRefresh: true,
-            },
-          },
-        );
-      });
-
-      gsap.utils.toArray<HTMLElement>("[data-cta-card]").forEach((card, i) => {
-        const depth = card.dataset.depth === "1" ? 1.3 : 1;
-        const tilt = i % 2 === 0 ? -3 : 3;
-
-        gsap.fromTo(
-          card,
-          { y: 140, rotateZ: tilt, autoAlpha: 0 },
-          {
-            y: 0,
-            rotateZ: 0,
-            autoAlpha: 1,
-            duration: 1.1 * depth,
-            delay: i * 0.14,
-            ease: "power4.out",
-            scrollTrigger: {
-              trigger: ".fh-cta-row",
-              start: "top bottom",
-              invalidateOnRefresh: true,
-            },
-            onComplete: () => {
-              const shine = card.querySelector<HTMLElement>(".fh-cta-shine");
-              if (shine) {
-                gsap.fromTo(
-                  shine,
-                  { xPercent: -100, opacity: 1 },
-                  { xPercent: 100, duration: 0.9, ease: "power2.inOut" },
-                );
-              }
-            },
-          },
-        );
-      });
-
-      gsap.utils.toArray<HTMLElement>(".magnetic").forEach((el) => {
-        const xTo = gsap.quickTo(el, "x", { duration: 0.4, ease: "power3" });
-        const yTo = gsap.quickTo(el, "y", { duration: 0.4, ease: "power3" });
-
-        const onMove = (e: MouseEvent) => {
-          const r = el.getBoundingClientRect();
-          xTo((e.clientX - r.left - r.width / 2) * 0.3);
-          yTo((e.clientY - r.top - r.height / 2) * 0.3);
-        };
-        const onLeave = () => {
-          xTo(0);
-          yTo(0);
-        };
-
-        el.addEventListener("mousemove", onMove);
-        el.addEventListener("mouseleave", onLeave);
-        cleanups.push(() => {
-          el.removeEventListener("mousemove", onMove);
-          el.removeEventListener("mouseleave", onLeave);
-        });
-      });
-    }, pageRef);
+    }
 
     return () => {
       cleanups.forEach((fn) => fn());
-      ctx.revert();
+      tl.revert();
     };
-  }, [site.home.moments.length, site.home.footer.cards.length, site.ornaments.hero3d]);
+  }, [site.ornaments.hero3d]);
+
+  // Everything below the hero reveals on scroll. See the hook for why this is
+  // IntersectionObserver and not ScrollTrigger, and why the hidden state is
+  // applied from JavaScript rather than from CSS.
+  useScrollReveal(pageRef);
+
 
   return (
     <>
@@ -281,7 +181,13 @@ export default function HomePage({ site, basePath }: { site: Site; basePath: str
             </div>
 
             <div className="grid sm:grid-cols-2 gap-6">
-              {site.home.moments.length >= 0 ? (
+              {/*
+                `> 0`, not `>= 0`. An array length is never negative, so the old
+                comparison was always true and the empty-slot branch below was
+                dead code — a site with no moments rendered a bare heading and
+                nothing else, instead of the "Add a picture" boxes.
+              */}
+              {site.home.moments.length > 0 ? (
                 site.home.moments.map((moment, i) => (
                   <MomentCard key={moment.id} moment={moment} index={i} />
                 ))
@@ -289,14 +195,27 @@ export default function HomePage({ site, basePath }: { site: Site; basePath: str
                 Array.from({ length: EMPTY_SLOT_COUNT }, (_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="relative w-fit overflow-hidden rounded-2xl border border-gold/25 shadow-card"
+                    /*
+                      The ratio lives on the cell itself rather than on a wrapper
+                      inside it. With a wrapper the cell measured roughly twice its
+                      own box, and a layout mystery is not worth shipping; here
+                      there is one box and one rule.
+
+                      `4 / 3`, not `75%`. Two things were wrong with the old
+                      value. `aspect-ratio` takes a ratio, and a bare percentage
+                      is invalid, so the browser discarded it and the box
+                      collapsed to whatever its content happened to be. And the
+                      direction: PixelTransition's `aspectRatio="75%"` is applied
+                      as `padding-top`, so its cards are height = width × 0.75 — a
+                      landscape box. These slots have to match them.
+                    */
+                    style={{ aspectRatio: "4 / 3" }}
+                    className="relative w-full overflow-hidden rounded-2xl border border-gold/25 shadow-card"
                   >
-                    <div style={{ aspectRatio: "75%" }}>
-                      <MediaPlaceholder
-                        kind="image"
-                        className="!border-0 !rounded-none !min-h-0"
-                      />
-                    </div>
+                    <MediaPlaceholder
+                      kind="image"
+                      className="!border-0 !rounded-none !min-h-0 h-full"
+                    />
                   </div>
                 ))
               )}
@@ -332,7 +251,16 @@ function MomentCard({ moment, index }: { moment: Site["home"]["moments"][number]
   return (
     <div
       data-tilt-card
-      className="relative w-fit overflow-hidden border rounded-2xl border-gold/25 shadow-card group"
+      /*
+        No `w-fit` here, and that is load-bearing rather than an omission.
+        `PixelTransition` takes its height from a spacer div using
+        `padding-top: 75%`, which resolves against the parent's *definite* width.
+        `width: fit-content` is not definite and the card's own child is
+        `width: 100%` of it — circular, so both resolved to zero and the whole
+        card collapsed to its 1px border. Filling the grid cell is both correct
+        and what the two-column grid wants.
+      */
+      className="relative w-full overflow-hidden border rounded-2xl border-gold/25 shadow-card group"
     >
       <PixelTransition
         firstContent={

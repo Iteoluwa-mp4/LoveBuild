@@ -233,6 +233,36 @@ every one of those switches is a way for the preview to drift from what visitors
 actually see. The draft is posted in over `postMessage` after a 400ms pause, and
 the frame announces itself on mount so the first update is not lost.
 
+## Scroll reveals
+
+Content below the hero fades up as you scroll it into view.
+
+It is **IntersectionObserver**, not GSAP ScrollTrigger, and that is not a
+preference. ScrollTrigger built valid triggers with sensible start and end
+positions and never fired — progress stayed at zero at every scroll offset. Because
+``fromTo`` still applies its "from" state, every revealed block sat at
+``autoAlpha: 0`` and stayed there. The moments, the closing section and its clip
+cards were all present in the DOM and invisible, on the published site, with
+nothing in the console. Three fixes did not change it (consistent imports, a Vite
+dedupe, removing ``gsap.context``) and a bare ``ScrollTrigger.create`` in the same
+page tracked the scroll perfectly, which is what localised it.
+
+Three properties matter more than the animation:
+
+- **Nothing is hidden unless JavaScript says so.** The hidden state is a class
+  added by ``useScrollReveal``. No class, no rule, so no JavaScript means visible
+  content.
+- **A broken observer cannot hide the page.** After ``REVEAL_FAILSAFE_MS`` (1.2s),
+  anything still pending is revealed regardless. Measured, not assumed: in a
+  headless browser IntersectionObserver callbacks did not fire at all — a control
+  observer created in the page stayed silent too — and CSS transitions sat frozen
+  at ``currentTime: 0``. With the old arrangement that is a page where the content
+  of someone's gift is invisible. The worst case is now bounded and small.
+- **One decision, one place.** There is deliberately no
+  ``prefers-reduced-motion`` override in the CSS. There was one, and it
+  disagreed with the hook — the browser reported no-preference while the override
+  applied anyway, leaving elements marked pending and yet fully visible.
+
 ## Editing on the page
 
 **Edit on page** in the preview bar. Click any text on the page, type, click away.

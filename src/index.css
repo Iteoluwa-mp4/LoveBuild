@@ -259,6 +259,57 @@
 }
 
 /* ------------------------------------------------------------------
+   Scroll reveals.
+
+   The hidden state lives entirely in the `.js-reveal-pending` class, which only
+   `useScrollReveal` adds from JavaScript. That is the whole design: with no
+   class, no rule, so a visitor with no JavaScript — or a hook that throws, or an
+   IntersectionObserver that never fires — sees the content rather than an empty
+   page.
+
+   This is the opposite of the arrangement it replaced. Those elements were hidden
+   by a GSAP `from` state that only the animation itself could undo, so when the
+   animation did not run they stayed at zero opacity. The moments, the closing
+   section and its clip cards were all invisible on the published site, with
+   nothing in the console to say why.
+
+   The stagger on `.js-reveal-shown` is per-element via `transition-delay`, set
+   from `--reveal-delay` below, which the hook assigns by position.
+   ------------------------------------------------------------------ */
+.js-reveal-pending {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.js-reveal-shown {
+  opacity: 1;
+  transform: none;
+}
+
+/* Moment cards came in with a slight rotation. Kept, as a transform on the
+   class rather than a GSAP tween. */
+[data-tilt-card].js-reveal-pending {
+  transform: translateY(50px) rotate(var(--reveal-tilt, 0deg));
+}
+
+/* The closing card fan slid up from below. */
+[data-cta-card].js-reveal-pending {
+  transform: translateY(140px) rotate(var(--reveal-tilt, 0deg));
+}
+
+/*
+  Deliberately no `prefers-reduced-motion` override here.
+  There was one, and it was a second source of truth for a decision the hook
+  already makes. It could disagree with it — and it did: the browser reported
+  no-preference while the override applied anyway, leaving elements that were
+  marked pending and yet rendered fully visible. One decision, one place.
+*/
+
+/* ------------------------------------------------------------------
    Editing on the page.
 
    Only ever active inside the dashboard's preview iframe. The rule is scoped to

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import gsap from "gsap";
+import { gsap } from "gsap";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import { ArrowUp } from "lucide-react";
 
