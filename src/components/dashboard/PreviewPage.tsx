@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import { EditingProvider } from "../site/EditableText";
 import GalleryPage from "../site/GalleryPage";
 import HomePage from "../site/HomePage";
 import SiteShell from "../site/SiteShell";
-import { MESSAGES, MSG_PREVIEW_CONFIG, MSG_PREVIEW_READY } from "../../lib/site/brand";
+import {
+  MESSAGES,
+  MSG_PREVIEW_CONFIG,
+  MSG_PREVIEW_EDIT,
+  MSG_PREVIEW_EDITING,
+  MSG_PREVIEW_READY,
+} from "../../lib/site/brand";
 import { isInternalPageLink } from "../../lib/site/paths";
 import { emptySite } from "../../lib/site/default";
 import { siteSchema, type Site } from "../../lib/site/schema";
@@ -20,12 +27,26 @@ import { siteSchema, type Site } from "../../lib/site/schema";
  * It lives under `/preview` rather than `/s/:slug` so it can never be a route
  * someone shares, and so a published site is only ever rendered from stored
  * config.
+ *
+ * ## Editing happens here
+ *
+ * This frame is also where editing on the page takes place, because the frame is
+ * where the page is. `EditableText` renders inert unless an `EditingProvider` says
+ * otherwise, and only this route mounts one — so the same components produce an
+ * ordinary read-only site at `/s/:slug` and an editable one at `/preview`.
+ *
+ * Edits are reported *up* to the dashboard rather than applied here. That is the
+ * important part: the frame holds no config of its own beyond the copy the parent
+ * posted, so letting it own an edit would create a second source of truth. The
+ * dashboard applies it through the same `draft.set` the form uses.
  */
 
 type Outgoing = { type: typeof MSG_PREVIEW_CONFIG; config: Site };
 type Incoming = { type: typeof MSG_PREVIEW_READY };
+type EditMessage = { type: typeof MSG_PREVIEW_EDIT; path: string; value: string };
 
 const HANDOFF_KEY = `${MESSAGES}handoff`;
+const EDITING_KEY = `${MESSAGES}editing`;
 
 /**
  * Restores the last posted draft so a manual frame reload comes back populated.
@@ -44,41 +65,90 @@ function initialConfig(slug: string | undefined): Site {
   }
 }
 
+/**
+ * Whether this frame was last asked to render editable.
+ *
+ * Read from sessionStorage on mount, because switching between the phone and wide
+ * device replaces the iframe outright — and losing editing because you flipped to
+ * phone would be baffling. The parent sends it again on every config post, so this
+ * only has to survive the remount.
+ */
+function initiallyEditing(): boolean {
+  try {
+    return sessionStorage.getItem(EDITING_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
 export default function PreviewPage({ variant }: { variant: "home" | "gallery" }) {
   const { slug } = useParams();
   const [site, setSite] = useState<Site>(() => initialConfig(slug));
+  const [editing, setEditing] = useState(initiallyEditing);
 
   // Tell the parent we are listening. Sent from both the initial paint and
   // whenever the frame is remounted, since a device switch replaces the iframe.
-  const announce = () => {
-    window.parent?.postMessage({ type: MSG_PREVIEW_READY } satisfies Incoming, window.location.origin);
-  };
+  const announce = useCallback(() => {
+    window.parent?.postMessage(
+      { type: MSG_PREVIEW_READY } satisfies Incoming,
+      window.location.origin,
+    );
+  }, []);
 
   useEffect(() => {
     announce();
-  }, []);
+  }, [announce]);
 
   useWheelContainment();
   useInertNavigation();
+
+  /**
+   * Scopes every editing style in the document to this frame.
+   *
+   * On the root element rather than a class on a wrapper: the template renders
+   * fragments, a fixed background layer and a portal-ish footer, and a wrapper div
+   * would miss some of them. `html[data-editing]` also makes the question "can a
+   * visitor ever see this?" answerable by reading one attribute.
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    if (editing) root.setAttribute("data-editing", "");
+    else root.removeAttribute("data-editing");
+    return () => root.removeAttribute("data-editing");
+  }, [editing]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
 
       const data = event.data as Partial<Outgoing>;
-      if (data?.type !== MSG_PREVIEW_CONFIG) return;
 
-      // Validate what arrives. The dashboard is the only sender, but this is the
-      // boundary where an unvalidated object would reach the renderer.
-      const parsed = siteSchema.safeParse(data.config);
-      if (parsed.success) {
-        setSite(parsed.data);
-        // A handoff key lets a hard refresh of the frame come back populated
-        // rather than blank, since postMessage alone is lost on reload.
+      if (data?.type === MSG_PREVIEW_CONFIG) {
+        // Validate what arrives. The dashboard is the only sender, but this is the
+        // boundary where an unvalidated object would reach the renderer.
+        const parsed = siteSchema.safeParse(data.config);
+        if (parsed.success) {
+          setSite(parsed.data);
+          // A handoff key lets a hard refresh of the frame come back populated
+          // rather than blank, since postMessage alone is lost on reload.
+          try {
+            sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(parsed.data));
+          } catch {
+            /* preview only; losing this is survivable */
+          }
+        }
+        return;
+      }
+
+      // A bare "editing on/off" message, so the dashboard can offer the mode
+      // without also having to change the config to trigger a post.
+      if (data?.type === MSG_PREVIEW_EDITING) {
+        const next = Boolean((data as { editing?: unknown }).editing);
+        setEditing(next);
         try {
-          sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(parsed.data));
+          sessionStorage.setItem(EDITING_KEY, next ? "1" : "0");
         } catch {
-          /* preview only; losing this is survivable */
+          /* survives a remount only when sessionStorage works */
         }
       }
     };
@@ -87,17 +157,34 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  /**
+   * Sends an edit up to the dashboard.
+   *
+   * A new message type rather than reusing the config post: this is one field
+   * changing, and the parent decides what to do with it. It never mutates local
+   * state, because the parent will post the whole config straight back and this
+   * frame has no authority over the draft.
+   */
+  const reportEdit = useCallback((path: string, value: string) => {
+    window.parent?.postMessage(
+      { type: MSG_PREVIEW_EDIT, path, value } satisfies EditMessage,
+      window.location.origin,
+    );
+  }, []);
+
   // Restored once, so a manual frame reload keeps showing the draft.
   const basePath = `/s/${site.slug}`;
 
   return (
-    <SiteShell site={site}>
-      {variant === "home" ? (
-        <HomePage site={site} basePath={basePath} />
-      ) : (
-        <GalleryPage site={site} basePath={basePath} />
-      )}
-    </SiteShell>
+    <EditingProvider enabled={editing} report={reportEdit}>
+      <SiteShell site={site}>
+        {variant === "home" ? (
+          <HomePage site={site} basePath={basePath} />
+        ) : (
+          <GalleryPage site={site} basePath={basePath} />
+        )}
+      </SiteShell>
+    </EditingProvider>
   );
 }
 
@@ -108,15 +195,19 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
  * iframe to that page — which, for the gallery button, meant throwing away the
  * draft being previewed and rendering a real site inside a 400px box.
  *
- * The preview is for looking at, not clicking through, so internal links are
- * swallowed. Off-site links, `mailto:`, and plain `#fragment` links are left
- * alone — a fragment does not leave the page and is useful to be able to try.
+ * The preview is for looking at and editing, not clicking through, so internal
+ * links are swallowed. Off-site links, `mailto:`, and plain `#fragment` links are
+ * left alone — a fragment does not leave the page and is useful to be able to try.
  *
  * Registered in the **capture** phase, and that is the whole trick. React Router
  * hands clicks to a listener on the app's root element, which sits *inside*
  * `document` — so a bubbling listener on `document` runs afterwards, by which
  * point the navigation has already been scheduled and `defaultPrevented` is
  * already true. Capturing on `document` is the only place that runs first.
+ *
+ * Note this also means an editable word inside a button never navigates. That is
+ * correct here — the point of clicking it is to place a caret — and the dashboard
+ * keeps its own "View site" link for actually opening the page.
  */
 function useInertNavigation() {
   useEffect(() => {
@@ -138,6 +229,7 @@ function useInertNavigation() {
     return () => document.removeEventListener("click", onClick, true);
   }, []);
 }
+
 /**
  * Keeps the wheel inside the preview.
  *

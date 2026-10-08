@@ -259,6 +259,58 @@
 }
 
 /* ------------------------------------------------------------------
+   Editing on the page.
+
+   Only ever active inside the dashboard's preview iframe. The rule is scoped to
+   `html[data-editing]`, which PreviewPage sets and nothing else does — so a
+   published site cannot inherit any of it, and the check that matters ("does the
+   visitor's page behave differently") is answerable by reading the attribute.
+
+   The affordance is deliberately quiet. A dashed outline on everything would make
+   the preview look like a form, which is the opposite of the point; a hairline on
+   hover, and a stronger one while typing, is enough to say "this is a word you can
+   change".
+
+   The placeholder is CSS rather than content, so it is never stored in the config
+   and never reaches a visitor's page.
+   ------------------------------------------------------------------ */
+html[data-editing] [contenteditable] {
+  cursor: text;
+  outline: 1px solid transparent;
+  outline-offset: 3px;
+  border-radius: 2px;
+  transition:
+    outline-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+html[data-editing] [contenteditable]:hover {
+  outline-color: color-mix(in srgb, var(--theme-gold) 45%, transparent);
+}
+
+html[data-editing] [contenteditable]:focus {
+  outline: 1px solid var(--theme-gold-bright);
+  outline-offset: 3px;
+  background-color: color-mix(in srgb, var(--theme-gold) 10%, transparent);
+}
+
+html[data-editing] [contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--theme-lavender);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Buttons are one big target; a caret inside them should not look accidental. */
+html[data-editing] button [contenteditable] {
+  display: inline-block;
+}
+
+html[data-editing] [contenteditable] a,
+html[data-editing] a [contenteditable] {
+  text-decoration: none;
+}
+/* ------------------------------------------------------------------
    Empty media slots.
 
    Shared by the moment cards, the gallery photographs and the film

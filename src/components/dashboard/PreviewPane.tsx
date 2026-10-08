@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { MSG_PREVIEW_CONFIG, MSG_PREVIEW_READY } from "../../lib/site/brand";
+import {
+  MSG_PREVIEW_CONFIG,
+  MSG_PREVIEW_EDIT,
+  MSG_PREVIEW_EDITING,
+  MSG_PREVIEW_READY,
+} from "../../lib/site/brand";
 import type { Site } from "../../lib/site/schema";
 
 /**
@@ -14,13 +19,21 @@ import type { Site } from "../../lib/site/schema";
  *
  * The draft is posted in after a pause, so typing does not thrash a page that is
  * reloading and re-animating on every keystroke.
+ *
+ * ## Editing on the page
+ *
+ * The frame is bidirectional. Config flows down; single-field edits come back up.
+ * `onEdit` is deliberately the *same* `draft.set` the form uses, so an edit typed
+ * on the page and a character typed into a field are the same event from the
+ * draft's point of view — there is no second code path that could treat them
+ * differently.
  */
-
 
 const PREVIEW_PATH = "/preview";
 
 type Incoming = { type: typeof MSG_PREVIEW_READY };
-type Outgoing = { type: typeof MSG_PREVIEW_CONFIG; config: Site };
+type EditMessage = { type: typeof MSG_PREVIEW_EDIT; path: string; value: string };
+type EditingMessage = { type: typeof MSG_PREVIEW_EDITING; editing: boolean };
 
 const DEVICE_WIDTH = { desktop: "100%", phone: "390px" } as const;
 type Device = keyof typeof DEVICE_WIDTH;
@@ -30,28 +43,54 @@ export default function PreviewPane({
   basePath,
   device,
   onDeviceChange,
+  onEdit,
+  editing,
+  onEditingChange,
 }: {
   site: Site;
   /** Where the preview reads the config from, e.g. "/preview". */
   basePath: string;
   device: Device;
   onDeviceChange: (device: Device) => void;
+  /** One field changed on the page. */
+  onEdit: (path: string, value: string) => void;
+  editing: boolean;
+  onEditingChange: (editing: boolean) => void;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const timer = useRef<number | undefined>(undefined);
 
-  // Written in an effect rather than during render: the message listener below
-  // is subscribed once, and needs to reach the newest config without being
+  // Written in an effect rather than during render: the message listener below is
+  // subscribed once, and needs to reach the newest config without being
   // re-subscribed on every keystroke.
   const latest = useRef<Site | null>(null);
   useEffect(() => {
     latest.current = site;
   }, [site]);
 
+  // The same reason, for the edit and editing handlers: subscribed once, so they
+  // must read the newest closure rather than being dependencies of the listener.
+  const editRef = useRef(onEdit);
+  useEffect(() => {
+    editRef.current = onEdit;
+  }, [onEdit]);
+
+  const editingRef = useRef(editing);
+  useEffect(() => {
+    editingRef.current = editing;
+  }, [editing]);
+
   const post = useCallback((config: Site) => {
     frameRef.current?.contentWindow?.postMessage(
-      { type: MSG_PREVIEW_CONFIG, config } satisfies Outgoing,
+      { type: MSG_PREVIEW_CONFIG, config } satisfies { type: typeof MSG_PREVIEW_CONFIG; config: Site },
+      window.location.origin,
+    );
+  }, []);
+
+  const postEditing = useCallback((next: boolean) => {
+    frameRef.current?.contentWindow?.postMessage(
+      { type: MSG_PREVIEW_EDITING, editing: next } satisfies EditingMessage,
       window.location.origin,
     );
   }, []);
@@ -62,16 +101,32 @@ export default function PreviewPane({
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      const data = event.data as Partial<Incoming>;
+
+      // A union, not an intersection. `Partial<Incoming & EditMessage>` would type
+// `type` as the *intersection* of two distinct string literals, which is `never`,
+// so every comparison below would be a type error rather than a narrowing.
+const data = event.data as Partial<Incoming> | Partial<EditMessage>;
+
       if (data?.type === MSG_PREVIEW_READY) {
         setReady(true);
         if (latest.current) post(latest.current);
+        // Re-assert the mode on every mount. Switching device replaces the iframe
+        // outright, and a frame that came up in read-only mode would silently
+        // swallow the next click.
+        postEditing(editingRef.current);
+        return;
+      }
+
+      if (data?.type === MSG_PREVIEW_EDIT) {
+        if (typeof data.path !== "string" || typeof data.value !== "string") return;
+        editRef.current(data.path, data.value);
+        return;
       }
     };
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [post]);
+  }, [post, postEditing]);
 
   useEffect(() => {
     if (!ready) return;
@@ -79,6 +134,14 @@ export default function PreviewPane({
     timer.current = window.setTimeout(() => post(site), 400);
     return () => window.clearTimeout(timer.current);
   }, [ready, site, post]);
+
+  // Toggling the mode posts immediately rather than waiting for the debounce,
+  // since it is a change of mode and not of content.
+  const toggleEditing = () => {
+    const next = !editing;
+    onEditingChange(next);
+    postEditing(next);
+  };
 
   // Switching devices remounts the frame, so wait to be told it is ready again.
   const reload = () => setReady(false);
@@ -90,6 +153,15 @@ export default function PreviewPane({
           Preview
         </span>
         <span className="btn-row">
+          <button
+            type="button"
+            className="btn btn-icon"
+            aria-pressed={editing}
+            onClick={toggleEditing}
+            title="Click any text on the page to change it"
+          >
+            {editing ? "Editing…" : "Edit on page"}
+          </button>
           <button
             type="button"
             className="btn btn-icon"
@@ -106,12 +178,26 @@ export default function PreviewPane({
           >
             Phone
           </button>
-          <button type="button" className="btn btn-icon" onClick={() => { reload(); frameRef.current?.contentWindow?.location.reload(); }}>
+          <button
+            type="button"
+            className="btn btn-icon"
+            onClick={() => {
+              reload();
+              frameRef.current?.contentWindow?.location.reload();
+            }}
+          >
             Reload
           </button>
         </span>
         {!ready && <span className="badge">Loading…</span>}
       </div>
+
+      {editing && (
+        <p className="preview-hint">
+          Click any text on the page to change it. Enter or click away to save,
+          Escape to undo.
+        </p>
+      )}
 
       <div className="preview-stage">
         <iframe

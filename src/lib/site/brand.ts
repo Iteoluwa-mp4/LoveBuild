@@ -31,3 +31,22 @@ export const MSG_PREVIEW_CONFIG = `${MESSAGES}config`;
 
 /** Frame to parent: "I am listening, send the config". */
 export const MSG_PREVIEW_READY = `${MESSAGES}ready`;
+
+/**
+ * Parent to frame: "editing is on, or off".
+ *
+ * Separate from the config post so the mode can be toggled without also having to
+ * change a field to trigger a re-render — and so switching it on does not look,
+ * to the frame, like a save.
+ */
+export const MSG_PREVIEW_EDITING = `${MESSAGES}editing`;
+
+/**
+ * Frame to parent: "somebody typed into the page".
+ *
+ * The third leg of the handshake. Editing on the page means the frame is not only
+ * receiving the config, it is reporting edits back — and the dashboard applies them
+ * through the same `draft.set` the form uses, so there is one path into the config
+ * rather than two that can disagree.
+ */
+export const MSG_PREVIEW_EDIT = `${MESSAGES}edit`;

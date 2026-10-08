@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Quote, Sparkles } from "lucide-react";
+import EditableText from "./EditableText";
 import GlossyButton from "./GlossyButton";
 import MediaPlaceholder from "./MediaPlaceholder";
 import PixelTransition from "./PixelTransition";
@@ -210,24 +211,40 @@ export default function HomePage({ site, basePath }: { site: Site; basePath: str
                   {site.home.hero.lines.map((line, i) => {
                     const isLast = i === site.home.hero.lines.length - 1;
                     return (
-                      <span key={i} className={`block overflow-hidden ${isLast ? "h-20" : "h-20"}`}>
-                        <span
+                      <span key={i} className="block overflow-hidden h-20">
+                        <EditableText
+                          as="span"
+                          path={`home.hero.lines.${i}`}
+                          value={line}
+                          maxLength={90}
+                          placeholder={`Headline line ${i + 1}`}
                           className={`fh-line lg:text-7xl text-4xl md:text-4xl block ${
                             isLast ? "text-transparent bg-clip-text bg-(image:--theme-grad-title)" : ""
                           }`}
-                        >
-                          {line}
-                        </span>
+                        />
                       </span>
                     );
                   })}
                 </h1>
 
-                <p className="fh-sub text-gold text-lg sm:text-xl max-w-lg mt-7">
-                  {site.home.hero.subline}
-                </p>
+                <EditableText
+                  as="p"
+                  path="home.hero.subline"
+                  value={site.home.hero.subline}
+                  maxLength={500}
+                  placeholder="A line about why this is for her"
+                  className="fh-sub text-gold text-lg sm:text-xl max-w-lg mt-7"
+                />
 
                 <div className="flex flex-wrap items-center gap-4 mt-10">
+                  {/*
+                    The label is editable but the button is wrapped in a link, and
+                    `useInertNavigation` swallows clicks on links in the preview. So
+                    the text takes the click; the navigation does not follow. That
+                    is the right trade for editing and the wrong one for using the
+                    preview as a page, which is why the dashboard keeps its own
+                    "View site" button.
+                  */}
                   {site.home.hero.primaryCta && (
                     <Link to={ctaTarget("gallery", basePath)} className="fh-cta">
                       <GlossyButton size="lg">{site.home.hero.primaryCta}</GlossyButton>
@@ -361,7 +378,14 @@ function MomentCard({ moment, index }: { moment: Site["home"]["moments"][number]
             </div>
             {moment.caption && (
               <p className="font-display text-lg sm:text-xl text-content italic leading-relaxed my-auto">
-                "{moment.caption}"
+                &ldquo;
+                <EditableText
+                  path={`home.moments.${index}.caption`}
+                  value={moment.caption}
+                  maxLength={300}
+                  placeholder="A caption she reads before she taps"
+                />
+                &rdquo;
               </p>
             )}
             <span className="text-xs text-lavender/60">Click again to close</span>
@@ -437,15 +461,41 @@ function QuotePanel({ site }: { site: Site }) {
                     </div>
                   </div>
                   <div>
-                    <p className="font-semibold text-gold-bright text-base tracking-wide">{author}</p>
-                    <p className="text-xs text-lavender/60 mt-0.5">{authorSub}</p>
+                    <p className="font-semibold text-gold-bright text-base tracking-wide">
+                      <EditableText
+                        path="home.quote.author"
+                        value={author}
+                        maxLength={120}
+                        placeholder="Your name"
+                      />
+                    </p>
+                    <p className="text-xs text-lavender/60 mt-0.5">
+                      <EditableText
+                        path="home.quote.authorSub"
+                        value={authorSub}
+                        maxLength={200}
+                        placeholder="A small line"
+                      />
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-void/60 border border-gold/20 text-xs text-gold">
                   <span className="text-[11px] tracking-wider uppercase text-lavender/70">
-                    {verdictLabel}
+                    <EditableText
+                      path="home.quote.verdictLabel"
+                      value={verdictLabel}
+                      maxLength={60}
+                      placeholder="Verdict:"
+                    />
                   </span>
-                  <span className="font-semibold text-gold-bright">{verdictValue}</span>
+                  <span className="font-semibold text-gold-bright">
+                    <EditableText
+                      path="home.quote.verdictValue"
+                      value={verdictValue}
+                      maxLength={60}
+                      placeholder="10 / 10"
+                    />
+                  </span>
                 </div>
               </div>
             </div>
@@ -489,13 +539,25 @@ function FooterCta({ site, basePath }: { site: Site; basePath: string }) {
       <div className="absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_100%,rgba(217,169,78,0.18),transparent_70%)]" />
 
       <div className="relative z-10 max-w-3xl mx-auto px-6 sm:px-10 pt-28 sm:pt-36 text-center">
-        <h2 data-reveal className="font-display text-[clamp(2rem,4.5vw,3.4rem)] balance">
-          {heading}
-        </h2>
+        <EditableText
+          as="h2"
+          attributes={{ "data-reveal": "" }}
+          path="home.footer.heading"
+          value={heading}
+          maxLength={200}
+          placeholder="The last thing she reads"
+          className="font-display text-[clamp(2rem,4.5vw,3.4rem)] balance"
+        />
         {subline && (
-          <p data-reveal className="text-lavender mt-4 text-lg max-w-xl mx-auto">
-            {subline}
-          </p>
+          <EditableText
+            as="p"
+            attributes={{ "data-reveal": "" }}
+            path="home.footer.subline"
+            value={subline}
+            maxLength={300}
+            placeholder="A line under it"
+            className="text-lavender mt-4 text-lg max-w-xl mx-auto"
+          />
         )}
 
         {ctaLabel && (
@@ -523,10 +585,22 @@ function FooterCta({ site, basePath }: { site: Site; basePath: string }) {
                 }}
               >
                 <div className="text-[10px] sm:text-xs font-semibold tracking-widest text-gold/70 uppercase mb-2">
-                  {card.tag}
+                  <EditableText
+                    path={`home.footer.cards.${i}.tag`}
+                    value={card.tag}
+                    maxLength={40}
+                    placeholder={`Clip ${String(i + 1).padStart(2, "0")}`}
+                  />
                 </div>
                 <p className="font-display text-xs sm:text-sm italic text-content/90 leading-snug">
-                  &ldquo;{card.quote}&rdquo;
+                  &ldquo;
+                  <EditableText
+                    path={`home.footer.cards.${i}.quote`}
+                    value={card.quote}
+                    maxLength={400}
+                    placeholder="A short line about this clip"
+                  />
+                  &rdquo;
                 </p>
                 {/* Light sweep — fires once after the card lands */}
                 <div className="fh-cta-shine pointer-events-none absolute inset-0 opacity-0 bg-[image:var(--theme-grad-shine)]" />

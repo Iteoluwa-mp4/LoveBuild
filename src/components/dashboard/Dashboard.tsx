@@ -44,6 +44,17 @@ export default function Dashboard() {
   const [device, setDevice] = useState<"desktop" | "phone">("desktop");
   const [previewPage, setPreviewPage] = useState<"home" | "gallery">("home");
 
+  /**
+   * Whether the preview lets you type on the page itself.
+   *
+   * Off by default, and that is a deliberate choice rather than a default to
+   * inherit. With it off the preview behaves exactly like the published site, which
+   * is what you want when you are checking how something *looks*. Turning it on is
+   * an explicit act by someone who wants to change words, so nobody types into
+   * their own site by accident and finds the headline rewritten.
+   */
+  const [editing, setEditing] = useState(false);
+
   const site = draft.site;
 
   // findIssues, not findSubmissionIssues: a site with every field filled and every
@@ -321,6 +332,13 @@ export default function Dashboard() {
             basePath={previewBasePath(previewPage)}
             device={device}
             onDeviceChange={setDevice}
+            // The same call the form uses. An edit typed on the page and one typed
+            // into a field are indistinguishable from here down, which is the
+            // point: one path into the config, so nothing can treat them
+            // differently.
+            onEdit={(path, value) => draft.set(path, value)}
+            editing={editing}
+            onEditingChange={setEditing}
           />
 
           <div className="btn-row">

@@ -233,6 +233,42 @@ every one of those switches is a way for the preview to drift from what visitors
 actually see. The draft is posted in over `postMessage` after a 400ms pause, and
 the frame announces itself on mount so the first update is not lost.
 
+## Editing on the page
+
+**Edit on page** in the preview bar. Click any text on the page, type, click away.
+No form.
+
+The design rests on three things:
+
+- **One path into the config.** An edit made on the page and one typed into a
+  field are the same `draft.set` call. `EditableText` reports up through
+  `postMessage`; `PreviewPane` forwards to `draft.set`. There is no second
+  code path that could treat them differently.
+- **Commit on blur.** A controlled `contentEditable` moves the cursor to the end
+  on every keystroke, which makes writing a sentence impossible. The browser owns
+  the node while it is focused and the result is read afterwards. Enter commits,
+  Escape reverts.
+- **The DOM is synced back.** Being uncontrolled means being able to drift: an
+  early version reported edits but never rewrote the node, so a later commit sent
+  stale browser text into the config and overwrote a field nobody had touched.
+  `EditableText` now has a ref and an effect that reconciles the DOM with the
+  config whenever they disagree and the element is not focused.
+
+**Deliberately not editable this way:** buttons and links, and anything the design
+splits across elements. Clicking a button to place a caret in it is ambiguous with
+clicking it to use it, and `"Open the gallery"` has an obvious home in the form.
+The quote panel highlights its last sentence, so its stored string spans three
+nodes and a caret cannot cross the tag boundary. Those stay in the form — editing
+on the page is a way *in*, not the only way.
+
+Structure always stays in the form. On-page editing cannot invent a moment that
+does not exist, and a mechanism that tried would be far more machinery than the
+idea is worth.
+
+A published site is unaffected: `EditableText` renders inert unless an
+`EditingProvider` is mounted, and only `/preview` mounts one. `/s/:slug` renders
+zero `[contenteditable]` nodes — worth keeping true.
+
 ## Navigation
 
 The footer is **chrome** — it is always there, even on a site with nothing in
