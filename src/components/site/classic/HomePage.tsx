@@ -2,17 +2,17 @@ import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { gsap } from "gsap";
 import { Quote, Sparkles } from "lucide-react";
-import EditableText from "./EditableText";
+import EditableText from "../shared/EditableText";
 import GlossyButton from "./GlossyButton";
-import MediaPlaceholder from "./MediaPlaceholder";
+import MediaPlaceholder from "../shared/MediaPlaceholder";
 import PixelTransition from "./PixelTransition";
 import ScrollToTop from "./ScrollToTop";
 import SiteFooter from "./SiteFooter";
 import SiteNav from "./SiteNav";
-import useScrollReveal from "../../hooks/useScrollReveal";
-import { EMPTY_SLOT_COUNT, ctaTarget, emphasisParts, momentTag, visibleBlocks } from "../../lib/site/derive";
-import type { Site } from "../../lib/site/schema";
-import { blocky, glassPurple } from "../../lib/shape";
+import useScrollReveal from "../../../hooks/useScrollReveal";
+import { EMPTY_SLOT_COUNT, ctaTarget, emphasisParts, momentTag, visibleBlocks } from "../../../lib/site/derive";
+import type { Site } from "../../../lib/site/schema";
+import { blocky, glassPurple } from "../../../lib/shape";
 
 /** three.js is lazy so it never lands in the initial bundle. */
 const HeartDiamond = lazy(() => import("./ornaments/HeartDiamond"));
@@ -105,13 +105,13 @@ export default function HomePage({ site, basePath }: { site: Site; basePath: str
 
             <SiteNav name={site.identity.name} basePath={basePath} />
 
-            <div className="relative z-10 h-full max-w-6xl mx-auto px-6 sm:px-10 flex flex-col md:flex-row items-start md:items-center justify-end md:justify-between pb-20 sm:pb-24 pt-20">
+            <div className="relative z-10 h-full max-w-6xl mx-auto px-6 sm:px-10 flex flex-col md:flex-row items-start md:items-center justify-end md:justify-between pb-20 sm:pb-24 pt-28 md:pt-20">
               <div className="relative z-10 max-w-2xl">
                 <h1 className="font-display leading-[0.98] tracking-tight max-w-3xl flex flex-col md:gap-2 gap-0">
                   {site.home.hero.lines.map((line, i) => {
                     const isLast = i === site.home.hero.lines.length - 1;
                     return (
-                      <span key={i} className="block overflow-hidden h-20">
+                      <span key={i} className="block overflow-hidden h-14 md:h-16 lg:h-20">
                         <EditableText
                           as="span"
                           path={`home.hero.lines.${i}`}

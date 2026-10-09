@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 
-import { useSession } from "../../hooks/useSession";
-import { buildSitemap, editUrl } from "../../lib/site/sitemap";
-import type { Site } from "../../lib/site/schema";
+import { useSession } from "../../../hooks/useSession";
+import { buildSitemap, editUrl } from "../../../lib/site/sitemap";
+import type { Site } from "../../../lib/site/schema";
 
 /**
  * The site footer: navigation, not content.

@@ -8,8 +8,8 @@ import {
   useRef,
 } from "react";
 
-import { EditingContext, useEditing } from "../../lib/site/editing";
-import type { EditingContextValue } from "../../lib/site/editing";
+import { EditingContext, useEditing } from "../../../lib/site/editing";
+import type { EditingContextValue } from "../../../lib/site/editing";
 
 /**
  * Editing on the page.

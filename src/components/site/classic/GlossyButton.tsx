@@ -1,6 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 
-import { blocky, glossyGold } from "../../lib/shape";
+import { blocky, glossyGold } from "../../../lib/shape";
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "gold" | "ghost";

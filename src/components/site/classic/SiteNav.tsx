@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
-import { sitePaths } from "../../lib/site/paths";
-import { blockySm, monogramGradient } from "../../lib/shape";
+import { sitePaths } from "../../../lib/site/paths";
+import { blockySm, monogramGradient } from "../../../lib/shape";
 
 /**
  * Site nav.

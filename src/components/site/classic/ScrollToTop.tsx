@@ -3,7 +3,7 @@ import { gsap } from "gsap";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import { ArrowUp } from "lucide-react";
 
-import { blockySm, glossyGold } from "../../lib/shape";
+import { blockySm, glossyGold } from "../../../lib/shape";
 
 gsap.registerPlugin(ScrollToPlugin);
 

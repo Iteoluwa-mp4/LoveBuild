@@ -2,17 +2,17 @@ import { lazy, Suspense, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-import EditableText from "./EditableText";
+import EditableText from "../shared/EditableText";
 import FilmFrame from "./FilmFrame";
-import MediaPlaceholder from "./MediaPlaceholder";
+import MediaPlaceholder from "../shared/MediaPlaceholder";
 import ScrollToTop from "./ScrollToTop";
 import SiteFooter from "./SiteFooter";
 import SiteNav from "./SiteNav";
 import { Eyebrow, Reveal } from "./primitives";
-import { chapterLabel, hasContent, visibleBlocks } from "../../lib/site/derive";
-import { countLabel } from "../../lib/format";
-import type { Chapter, Site } from "../../lib/site/schema";
-import { blocky, glossyGold } from "../../lib/shape";
+import { chapterLabel, hasContent, visibleBlocks } from "../../../lib/site/derive";
+import { countLabel } from "../../../lib/format";
+import type { Chapter, Site } from "../../../lib/site/schema";
+import { blocky, glossyGold } from "../../../lib/shape";
 
 /** three.js is lazy so it never lands in the initial bundle. */
 const GoldParticles = lazy(() => import("./ornaments/GoldParticles"));

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import MediaPlaceholder from "./MediaPlaceholder";
+import MediaPlaceholder from "../shared/MediaPlaceholder";
 
 /**
  * The widest frame we'll open the portrait layout to. A clip that's squarer or

@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo } from "react";
 
-import type { Site } from "../../lib/site/schema";
-import { resolveTheme } from "../../lib/site/themes";
+import type { Site } from "../../../lib/site/schema";
+import { resolveTheme } from "../../../lib/site/themes";
 
 /**
  * Roots a site: resolves the theme and publishes its tokens.

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import useReveal from "../../hooks/useReveal";
+import useReveal from "../../../hooks/useReveal";
 
 /**
  * Small shared pieces for the site template.
