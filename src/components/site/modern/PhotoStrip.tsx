@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Memory } from "./shared";
 import { MODERN_STRIP_CSS } from "./strip-css";
@@ -10,20 +10,22 @@ import { MODERN_STRIP_CSS } from "./strip-css";
  * read as a band of colour and light rather than a portrait. That is the whole
  * effect — the strip is a texture you scroll along, not a gallery you read.
  *
- * ## Why it does not advance itself
+ * ## It advances itself
  *
- * The reference it came from moved on a timer. This one does not, and that is a
- * deliberate reversal.
+ * Every `ADVANCE_MS` the focus moves on. That is the default because a strip of
+ * photographs that sits still reads as a row of thumbnails rather than as
+ * something alive.
  *
- * A site like this is something a person keeps open on their phone, sometimes for
- * a long time, and they are looking at photographs of their partner. Motion that
- * nobody asked for is the difference between a page that feels considered and one
- * that makes you want to close the tab. It is also the kind of thing a client
- * notices immediately and cannot un-notice.
+ * But it stops the instant anyone touches it — on hover, on keyboard focus, and
+ * while the tab is in the background. A timer that keeps advancing while you are
+ * reading one particular photograph is the failure mode, and it is why the
+ * interval is built to lose to interaction rather than to fight it. Touching the
+ * strip also restarts the count, so a deliberate click is never overridden a
+ * moment later by the timer moving on without being asked.
  *
- * So: click, tap, or use the arrow keys. If auto-play is wanted later it is one
- * prop and a timer — the state model here already assumes focus moves one at a
- * time.
+ * Reduced motion is honoured by not advancing at all. Auto-advancing content is
+ * precisely what that setting is about, so a reader who has asked for stillness
+ * gets a strip they move themselves.
  *
  * ## Keyboard and screen readers
  *
@@ -34,29 +36,53 @@ import { MODERN_STRIP_CSS } from "./strip-css";
  * region, because a selection that is only communicated visually would be
  * invisible to a screen reader.
  *
- * ## Scrolling
+ * ## Centring
  *
- * Selecting scrolls the slice into view, but only horizontally, and only when it
- * is genuinely off-screen. Calling `scrollIntoView` unconditionally on a focused
- * slice drags the page vertically too, which on a full-height strip means the
- * section jumps every time you click a photo — the kind of small wrongness that
- * makes a page feel cheap.
+ * The row is centred rather than left-aligned, which does two things at once.
+ *
+ * A short row — four slices in a wide window — sits in the middle instead of
+ * hugging the left edge with a third of the screen empty beside it. And because
+ * the track centres, the active slice's growth is taken equally from both sides,
+ * so it opens out of the middle of the strip rather than shoving everything to
+ * its right.
+ *
+ * Centring a scrollable flex row has a classic trap: `justify-content: center`
+ * overflows in *both* directions, and the overflow on the left cannot be scrolled
+ * to, so the first slice becomes unreachable. The auto margins on the first and
+ * last children are the fix — they resolve to the centring when there is spare
+ * room and to zero when there is not.
  */
 
 export type PhotoStripProps = {
   memories: Memory[];
-  /** Optional gold badge in the corner, as in the reference. */
+  /** Optional badge in the corner, as in the reference. */
   badge?: React.ReactNode;
   /** Accessible name for the group. */
   label?: string;
+  /** How long each slice holds the focus. */
+  advanceMs?: number;
 };
+
+/** How long a slice stays in focus before the strip moves on. */
+export const ADVANCE_MS = 3000;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
 
 export default function PhotoStrip({
   memories,
   badge,
   label = "Photographs",
+  advanceMs = ADVANCE_MS,
 }: PhotoStripProps) {
   const [chosen, setChosen] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [hidden, setHidden] = useState(false);
+
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -73,46 +99,77 @@ export default function PhotoStrip({
   const active = count === 0 ? 0 : Math.min(chosen, count - 1);
 
   /**
-   * Brings a slice into view horizontally only, and only if it is off-screen.
+   * Holds the active slice in the middle of the visible row.
    *
-   * `scrollIntoView` with `block: "nearest"` still moves the page vertically when
-   * the element is taller than the viewport, which this one nearly is. Measuring
-   * the list and scrolling it by hand is the version that cannot.
+   * Driven by `active` rather than by the handler that changed it, so the row
+   * follows the timer, the keyboard and a click equally — three routes into the
+   * same state should not need three copies of the scrolling.
+   *
+   * Measured from `offsetLeft`, which is a layout position and therefore does not
+   * move when the container scrolls, so the delta is genuinely "how far is this
+   * from centre" rather than a value that chases itself.
    */
-  const revealHorizontally = useCallback((index: number) => {
+  const centreActive = useCallback(() => {
     const list = listRef.current;
-    const item = itemRefs.current[index];
+    const item = itemRefs.current[active];
     if (!list || !item) return;
 
-    const listBox = list.getBoundingClientRect();
-    const itemBox = item.getBoundingClientRect();
+    const delta =
+      item.offsetLeft + item.offsetWidth / 2 - (list.scrollLeft + list.clientWidth / 2);
 
-    if (itemBox.left < listBox.left) {
-      list.scrollBy({ left: itemBox.left - listBox.left - 24, behavior: "smooth" });
-    } else if (itemBox.right > listBox.right) {
-      list.scrollBy({ left: itemBox.right - listBox.right + 24, behavior: "smooth" });
-    }
+    // Under a pixel is not worth a scroll event.
+    if (Math.abs(delta) < 2) return;
+    list.scrollBy({ left: delta, behavior: "smooth" });
+  }, [active]);
+
+  useEffect(() => {
+    centreActive();
+  }, [centreActive]);
+
+  /**
+   * The advance.
+   *
+   * Keyed on `tick` as well, so a deliberate selection restarts the count rather
+   * than being cut short by a timer that was already running. That is the
+   * difference between the strip feeling responsive and feeling like it is
+   * fighting you.
+   */
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (paused || hidden || count <= 1) return;
+    if (prefersReducedMotion()) return;
+
+    const id = window.setInterval(() => {
+      setChosen((current) => (current + 1) % count);
+    }, advanceMs);
+
+    return () => window.clearInterval(id);
+  }, [paused, hidden, count, advanceMs, tick]);
+
+  // A backgrounded tab should not come back to a strip that has moved on.
+  useEffect(() => {
+    const onVisibility = () => setHidden(document.hidden);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
-  const select = useCallback(
-    (index: number, focus = false) => {
-      if (index < 0 || index >= count) return;
-      setChosen(index);
-      revealHorizontally(index);
-      if (focus) itemRefs.current[index]?.focus();
-    },
-    [count, revealHorizontally],
-  );
+  /** Everything that changes the selection restarts the timer. */
+  const select = useCallback((index: number, focus = false) => {
+    if (index < 0 || index >= count) return;
+    setChosen(index);
+    setTick((n) => n + 1);
+    if (focus) itemRefs.current[index]?.focus();
+  }, [count]);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    const keys: Record<string, number> = {
+    const targets: Record<string, number> = {
       ArrowRight: active + 1,
       ArrowLeft: active - 1,
       Home: 0,
       End: count - 1,
     };
 
-    const next = keys[event.key];
+    const next = targets[event.key];
     if (next === undefined) return;
 
     event.preventDefault();
@@ -120,17 +177,27 @@ export default function PhotoStrip({
     select((next + count) % count, true);
   };
 
-  /**
-   * A narrow viewport shows fewer slices, so scrolling can change which one is on
-   * screen without changing which is selected. Nothing is reported as an error —
-   * the selection is deliberately independent of what happens to be visible.
-   */
   if (count === 0) return null;
 
   const current = memories[active];
 
   return (
-    <div className="strip">
+    <div
+      className="strip"
+      // Hover and focus both hold the strip still. Without this the photographs
+      // move while someone is looking at one, which is the thing that makes an
+      // auto-advancing carousel feel cheap.
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={(event) => {
+        // Only un-pause once focus has left the strip entirely, or tabbing
+        // between two slices would restart the timer under the reader.
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setPaused(false);
+        }
+      }}
+    >
       <style>{MODERN_STRIP_CSS}</style>
 
       <div className="strip-frame">

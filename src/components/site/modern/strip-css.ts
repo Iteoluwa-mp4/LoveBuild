@@ -29,9 +29,24 @@ export const MODERN_STRIP_CSS = `
   overflow-x:auto;
   overflow-y:hidden;
   scrollbar-width:none;
-  scroll-snap-type:x proximity;
 }
-.strip-track::-webkit-scrollbar { display:none; }
+
+/*
+  Centring, without justify-content.
+
+  justify-content:center would do this in one line and break the scroll: a
+  centred flex row that overflows spills equally on both sides, and the spill on
+  the left cannot be scrolled to, so the first slice becomes permanently
+  unreachable. Measured with four slices in a 420px track, it sat 60px off the left
+  edge at scrollLeft 0.
+
+  Auto margins on the two ends do the same job safely. They absorb all the free
+  space when there is any, which centres a short row, and collapse to zero when
+  there is not, which restores ordinary left-to-right scrolling. The second rule
+  only matters when there is exactly one slice, where it is both first and last.
+*/
+.strip-track > :first-child { margin-left:auto; }
+.strip-track > :last-child { margin-right:auto; }
 
 .strip-slice {
   position:relative;
@@ -75,7 +90,7 @@ export const MODERN_STRIP_CSS = `
 }
 
 /*
-  The white box from the reference. An inset shadow rather than a border, so it
+  The white box from the reference. An inset outline rather than a border, so it
   does not change the slice's width when it appears and shove the row sideways.
 */
 .strip-slice.is-active::after {
