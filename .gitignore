@@ -12,6 +12,7 @@ dist-ssr
 .DS_Store
 *.log
 .originkit/
+.opencode/
 
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
