@@ -2,7 +2,9 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 import type { GalleryItem } from "../../originkit/ui/sphere-gallery-3d";
+import type { ModernMemory } from "../../../lib/site/derive";
 import type { ModernPaths } from "./paths";
+import { cssColorNumber } from "../classic/ornaments/themeColor";
 
 /**
  * Pieces shared by the modern template's pages.
@@ -16,80 +18,20 @@ import type { ModernPaths } from "./paths";
  * above, and every page adds only its own sections on top.
  */
 
-export type Memory = GalleryItem & {
-  label: string;
-  caption: string;
-  /** Shown in the gallery's expanded index. */
-  note: string;
-};
-
-/**
- * Builds a memory frame.
- *
- * The artwork is a generated SVG rather than a photograph, so the page has
- * something to show without shipping anyone else's pictures. The gradient stops
- * and the dark base are passed in so each frame keeps the palette.
- */
-export const makeMemory = (
-  label: string,
-  caption: string,
-  note: string,
-  start: string,
-  end: string,
-  number: string,
-): Memory => ({
-  label,
-  caption,
-  note,
-  image: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='640' viewBox='0 0 900 640'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%23${start}'/%3E%3Cstop offset='1' stop-color='%23${end}'/%3E%3C/linearGradient%3E%3Cfilter id='blur'%3E%3CfeGaussianBlur stdDeviation='42'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='900' height='640' fill='%23090814'/%3E%3Ccircle cx='170' cy='150' r='170' fill='%23${start}' opacity='.42' filter='url(%23blur)'/%3E%3Ccircle cx='720' cy='500' r='240' fill='%23${end}' opacity='.34' filter='url(%23blur)'/%3E%3Cpath d='M0 500 C230 360 390 690 900 300 L900 640 L0 640Z' fill='url(%23g)' opacity='.54'/%3E%3Ctext x='72' y='108' font-family='Arial,sans-serif' font-size='22' letter-spacing='5' fill='white' opacity='.74'%3E${label.toUpperCase()}%3E/text%3E%3Ctext x='72' y='565' font-family='Arial,sans-serif' font-size='120' font-weight='700' fill='white' opacity='.94'%3E${number}%3E/text%3E%3C/svg%3E`,
-  link: "",
-});
-
-export const MEMORIES: Memory[] = [
-  makeMemory(
-    "first orbit",
-    "The night everything quietly changed.",
-    "Before this, the whole thing was hypothetical. Afterwards it had a date on it.",
-    "ff5e86",
-    "6e3bff",
-    "01",
-  ),
-  makeMemory(
-    "soft launch",
-    "Coffee, rain, and a two-hour goodbye.",
-    "Neither of us mentioned the train. Both of us noticed it was late.",
-    "fa8d68",
-    "ffcf70",
-    "02",
-  ),
-  makeMemory(
-    "our frequency",
-    "Somehow, we always find the same song.",
-    "Four playlists, three years, one song on both of ours.",
-    "3a71ff",
-    "43d8bd",
-    "03",
-  ),
-  makeMemory(
-    "future file",
-    "Still my favorite place to be is next to you.",
-    "Nothing exotic in this one. Just the ordinary version, which is the point.",
-    "a15cff",
-    "ff6aa5",
-    "04",
-  ),
-];
-
 /**
  * Just the bits the sphere needs.
  *
- * `link` is only ever an empty string here, so it is spread rather than passed
- * as `{ link }`. With `exactOptionalPropertyTypes` on, passing a `string` to an
- * optional `string` is fine but passing `undefined` is not, and mapping
- * `link` directly produced `string | undefined` the moment `Memory['link']` was
- * left off a record.
+ * Takes the site's moments rather than importing its own, so the modern
+ * template shows the same photographs the classic one does and a template
+ * switch cannot strand an upload. See `modernMemories` in `derive.ts`.
+ *
+ * `link` is only ever an empty string here, so it is set rather than spread.
+ * With `exactOptionalPropertyTypes` on, passing `undefined` to an optional
+ * `string` is not allowed, and mapping `link` straight through produced
+ * `string | undefined` the moment `ModernMemory` had no `link` field.
  */
-export const sphereItems = (): GalleryItem[] => MEMORIES.map((m) => ({ ...m }));
+export const sphereItems = (memories: ModernMemory[]): GalleryItem[] =>
+  memories.map((m) => ({ ...m, link: "" }));
 
 /**
  * The drifting starfield behind everything.
@@ -119,8 +61,17 @@ export function AmbientField() {
       positions[i + 2] = (Math.random() - 0.5) * 13;
     }
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    /*
+      Reads the accent from the published tokens rather than repeating the
+      template's old hardcoded pink.
+
+      three.js wants a number and CSS custom properties are strings, so this
+      cannot be `var(--pink)`. `cssColorNumber` resolves the computed value,
+      which is what keeps the starfield on-theme when the palette changes —
+      with a fallback so the field still renders if the token is missing.
+    */
     const material = new THREE.PointsMaterial({
-      color: 0xffb8cb,
+      color: cssColorNumber("gold-bright", 0xffb8cb),
       size: 0.018,
       transparent: true,
       opacity: 0.58,
@@ -214,15 +165,34 @@ export function ModernFooter() {
  */
 export const MODERN_BASE_CSS = `
 :root {
-  --ink:#f7f2f3;
-  --muted:#aaa0aa;
-  --faint:#837887;
-  --pink:#ffb8cb;
-  --hot:#ff6f9c;
-  --violet:#aa8bff;
-  --bg:#090810;
-  --tint:#21132b;
-  --line:rgba(255,255,255,.1);
+  /*
+    Aliased, not hardcoded.
+
+    Every colour below used to be a literal here — one pink, propagated into
+    thirty rgba() values across both pages and into the WebGL core colour. The
+    aliases below are what let a palette change reach this template: the page
+    keeps its own vocabulary, but every value now resolves to the active theme.
+
+    The mapping is role-for-role, not literal-for-literal. The accent alias
+    takes goldBright, the hotter accent takes gold, and the page ground
+    takes void.
+
+    Each has a fallback because these tokens are published by SiteShell onto
+    <html>, and a themed fragment rendered on its own — the dev screens, a
+    future partial — must not collapse to transparent.
+  */
+  --ink: var(--theme-text, #f7f2f3);
+  --muted: var(--theme-dim, #aaa0aa);
+  --faint: var(--theme-faint, #837887);
+  --pink: var(--theme-gold-bright, #ffb8cb);
+  --hot: var(--theme-gold, #ff6f9c);
+  --violet: var(--theme-lavender, #aa8bff);
+  --bg: var(--theme-void, #090810);
+  --tint: var(--theme-ink, #21132b);
+  --line: var(--theme-line, rgba(255,255,255,.1));
+  /* The tints of the accent that used to be written out by hand. */
+  --accent-edge: var(--theme-accent-edge, rgba(255,184,203,.75));
+  --accent-wash: var(--theme-accent-wash, rgba(255,184,203,.08));
 }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
@@ -235,6 +205,9 @@ a { color:inherit; text-decoration:none; }
   overflow:hidden;
   background:radial-gradient(circle at 70% 12%, var(--tint) 0, transparent 32%), var(--bg);
   position:relative;
+  /* This template's own ground, so it does not depend on the shell's class. */
+  color:var(--ink);
+  font-family:'Manrope',sans-serif;
 }
 .ambient-field { position:fixed; inset:0; width:100%; height:100%; opacity:.75; pointer-events:none; z-index:0; }
 .grain {
@@ -257,6 +230,11 @@ a { color:inherit; text-decoration:none; }
 .topnav a[aria-current='page'] { color:var(--pink); border-bottom-color:var(--pink); }
 
 .status { color:var(--muted); }
+/*
+  The status dot is green in every palette, and deliberately so: it means
+  "this site is live", not "this is an accent". A theme that recoloured it
+  would be making a claim about the design that the author never asked for.
+*/
 .status i { display:inline-block; width:6px; height:6px; border-radius:50%; background:#74e0ad; margin-right:8px; box-shadow:0 0 14px #74e0ad; }
 
 .eyebrow {
@@ -277,10 +255,10 @@ a { color:inherit; text-decoration:none; }
 
 .scroll-icon {
   display:inline-flex; justify-content:center; align-items:center;
-  border:1px solid #716776; width:26px; height:26px; border-radius:50%; margin-right:8px;
+  border:1px solid var(--faint); width:26px; height:26px; border-radius:50%; margin-right:8px;
 }
 
-.footer { padding:24px 5vw; display:flex; justify-content:space-between; color:#6f6572; border-top:1px solid var(--line); font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:.12em; font-size:10px; }
+.footer { padding:24px 5vw; display:flex; justify-content:space-between; color:var(--faint); border-top:1px solid var(--line); font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:.12em; font-size:10px; }
 
 @media (max-width:760px) {
   .topbar { padding:24px 6vw; }

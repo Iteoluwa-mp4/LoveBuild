@@ -1,7 +1,14 @@
 import { useCallback, useState } from "react";
 
 import type { DraftSite } from "../../hooks/useDraftSite";
-import { EmptyNote, Item, Section, TextAreaField, TextField, ToggleField } from "./fields";
+import {
+  EmptyNote,
+  Item,
+  Section,
+  TextAreaField,
+  TextField,
+  ToggleField,
+} from "./fields";
 import MediaUploader from "./MediaUploader";
 import { hasContent, chapterLabel } from "../../lib/site/derive";
 import { countLabel } from "../../lib/format";
@@ -87,7 +94,7 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
           onChange={(v) => draft.set("identity.name", v)}
           placeholder="Her name, or a nickname only she would recognise"
           hint="Shown in the corner and in the browser tab."
-          maxLength={60}
+          maxLength={120}
         />
       </Section>
 
@@ -131,7 +138,7 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
             label="Big button label"
             value={site.home.hero.primaryCta}
             onChange={(v) => draft.set("home.hero.primaryCta", v)}
-            maxLength={60}
+            maxLength={120}
             hint="Opens the gallery"
             placeholder="Open the gallery"
           />
@@ -139,65 +146,101 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
             label="Second button label"
             value={site.home.hero.secondaryCta}
             onChange={(v) => draft.set("home.hero.secondaryCta", v)}
-            maxLength={60}
+            maxLength={120}
             hint="Scrolls down the page. Leave blank to hide it."
             placeholder="Keep scrolling"
           />
         </div>
       </Section>
 
-      <Section title={`Moments (${site.home.moments.length})`} hint="Photos that flip when tapped">
-        {site.home.moments.length === 0 && (
-          <EmptyNote>No moments yet. Add one and it appears on the front page.</EmptyNote>
-        )}
-
-        {site.home.moments.map((moment, i) => (
-          <MomentEditor
-            key={moment.id}
-            moment={moment}
-            index={i}
-            total={site.home.moments.length}
-            draft={draft}
-            open={openMoments.isOpen(moment.id)}
-            onToggle={(next) => openMoments.setOpen(moment.id, next)}
-          />
-        ))}
-
-        <div className="btn-row">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              const id = newId();
-              draft.append("home.moments", {
-                id,
-                tag: "",
-                date: "",
-                caption: "",
-                secret: "",
-                image: {
-                  id: newId(),
-                  publicId: null,
-                  url: "",
-                  alt: "",
-                  caption: "",
-                  width: null,
-                  height: null,
-                  durationMs: null,
-                },
-              } satisfies Moment);
-              // Otherwise the new row lands collapsed and the button looks dead.
-              openMoments.reveal(id);
-            }}
-          >
-            Add a moment
-          </button>
-        </div>
-      </Section>
+      <MomentsEditor draft={draft} open={openMoments} />
 
       <QuoteEditor draft={draft} />
       <FooterEditor draft={draft} />
     </>
+  );
+}
+
+/**
+ * The photographs, shared by both templates.
+ *
+ * Extracted from `HomeEditor` so the modern editor can show the same list. This
+ * is what makes a template switch safe: there is one list of photographs, one
+ * uploader, and whichever template is selected reads it. Editing them under
+ * "Classic" and then switching to "Modern" shows the same pictures, arranged as
+ * a strip and a sphere instead of a grid.
+ *
+ * The `hint` varies with the template because the same photo behaves
+ * differently — the classic card flips to reveal the secret, the modern strip
+ * just advances — and that difference should not be a surprise.
+ */
+function MomentsEditor({
+  draft,
+  open,
+  modern = false,
+}: {
+  draft: DraftSite;
+  open: ReturnType<typeof useOpenItems>;
+  modern?: boolean;
+}) {
+  const site = draft.site;
+  if (!site) return null;
+
+  return (
+    <Section
+      title={`Photographs (${site.home.moments.length})`}
+      hint={modern ? "Shown as a strip and an orbit" : "Photos that flip when tapped"}
+    >
+      {site.home.moments.length === 0 && (
+        <EmptyNote>
+          No photographs yet. Add one and it appears on the site in whichever template you
+          have selected.
+        </EmptyNote>
+      )}
+
+      {site.home.moments.map((moment, i) => (
+        <MomentEditor
+          key={moment.id}
+          moment={moment}
+          index={i}
+          total={site.home.moments.length}
+          draft={draft}
+          open={open.isOpen(moment.id)}
+          onToggle={(next) => open.setOpen(moment.id, next)}
+        />
+      ))}
+
+      <div className="btn-row">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            const id = newId();
+            draft.append("home.moments", {
+              id,
+              tag: "",
+              date: "",
+              caption: "",
+              secret: "",
+              image: {
+                id: newId(),
+                publicId: null,
+                url: "",
+                alt: "",
+                caption: "",
+                width: null,
+                height: null,
+                durationMs: null,
+              },
+            } satisfies Moment);
+            // Otherwise the new row lands collapsed and the button looks dead.
+            open.reveal(id);
+          }}
+        >
+          Add a photograph
+        </button>
+      </div>
+    </Section>
   );
 }
 
@@ -267,7 +310,7 @@ function MomentEditor({
               label="Small label"
               value={moment.tag}
               onChange={(v) => draft.set(`${base}.tag`, v)}
-              maxLength={40}
+              maxLength={120}
               placeholder={`Moment ${String(index + 1).padStart(2, "0")}`}
               hint="Leave blank for the default"
             />
@@ -275,7 +318,7 @@ function MomentEditor({
               label="Date"
               value={moment.date}
               onChange={(v) => draft.set(`${base}.date`, v)}
-              maxLength={60}
+              maxLength={120}
               placeholder="October 14"
             />
           </div>
@@ -349,7 +392,7 @@ function QuoteEditor({ draft }: { draft: DraftSite }) {
           label="Score label"
           value={quote.verdictLabel}
           onChange={(v) => draft.set("home.quote.verdictLabel", v)}
-          maxLength={60}
+          maxLength={120}
           hint="The little score beside the quote. Both blank hides it."
           placeholder="Verdict:"
         />
@@ -357,7 +400,7 @@ function QuoteEditor({ draft }: { draft: DraftSite }) {
           label="Score"
           value={quote.verdictValue}
           onChange={(v) => draft.set("home.quote.verdictValue", v)}
-          maxLength={60}
+          maxLength={120}
           placeholder="10 / 10"
         />
       </div>
@@ -372,14 +415,14 @@ function QuoteEditor({ draft }: { draft: DraftSite }) {
               label="Reveal button"
               value={quote.toggleReveal}
               onChange={(v) => draft.set("home.quote.toggleReveal", v)}
-              maxLength={40}
+              maxLength={120}
               placeholder="Show the letter"
             />
             <TextField
               label="Close button"
               value={quote.toggleBack}
               onChange={(v) => draft.set("home.quote.toggleBack", v)}
-              maxLength={40}
+              maxLength={120}
               placeholder="Back to the quote"
             />
           </div>
@@ -423,7 +466,7 @@ function FooterEditor({ draft }: { draft: DraftSite }) {
         label="Button label"
         value={footer.ctaLabel}
         onChange={(v) => draft.set("home.footer.ctaLabel", v)}
-        maxLength={60}
+        maxLength={120}
         hint="Opens the gallery. Leave blank to hide the button."
         placeholder="Watch the gallery"
       />
@@ -444,7 +487,7 @@ function FooterEditor({ draft }: { draft: DraftSite }) {
             label="Label"
             value={card.tag}
             onChange={(v) => draft.set(`home.footer.cards.${i}.tag`, v)}
-            maxLength={40}
+            maxLength={120}
             placeholder={`Clip ${String(i + 1).padStart(2, "0")}`}
           />
           <TextAreaField
@@ -551,7 +594,7 @@ export function GalleryEditor({ draft }: { draft: DraftSite }) {
           label="Small label at the top"
           value={gallery.hero.eyebrow}
           onChange={(v) => draft.set("gallery.hero.eyebrow", v)}
-          maxLength={60}
+          maxLength={120}
           placeholder="The gallery"
         />
         <TextAreaField
@@ -605,7 +648,7 @@ export function GalleryEditor({ draft }: { draft: DraftSite }) {
           label="Back button"
           value={gallery.outro.backLabel}
           onChange={(v) => draft.set("gallery.outro.backLabel", v)}
-          maxLength={60}
+          maxLength={120}
           placeholder="Back to the beginning"
         />
       </Section>
@@ -873,19 +916,292 @@ export function AppearanceEditor({ draft }: { draft: DraftSite }) {
   if (!site) return null;
 
   return (
-    <Section title="Extras" hint="Heavy 3D — can slow older phones">
-      <ToggleField
-        label="Spinning gold heart"
-        value={site.ornaments.hero3d}
-        onChange={(v) => draft.set("ornaments.hero3d", v)}
-        hint="Large animated 3D object on the front page"
-      />
-      <ToggleField
-        label="Drifting gold particles"
-        value={site.ornaments.particles}
-        onChange={(v) => draft.set("ornaments.particles", v)}
-        hint="Animated background on the gallery"
-      />
-    </Section>
+    <>
+      {/*
+        The template and colour pickers live in `Dashboard.tsx`, above this — they
+        decide what the fields below are for, so they have to be visible before
+        the author scrolls into a long form. What is left here is the editor for
+        whichever template is currently selected, plus the 3D ornaments.
+
+        Switching template is non-destructive: `home.moments` holds the
+        photographs for both, so nothing is lost either way.
+      */}
+      {site.template === "modern" ? (
+        <ModernEditor draft={draft} />
+      ) : (
+        <ClassicEditor draft={draft} />
+      )}
+
+      <Section title="Extras" hint="Heavy 3D — can slow older phones">
+        <ToggleField
+          label="Spinning gold heart"
+          value={site.ornaments.hero3d}
+          onChange={(v) => draft.set("ornaments.hero3d", v)}
+          hint="Large animated 3D object on the front page"
+        />
+        <ToggleField
+          label="Drifting gold particles"
+          value={site.ornaments.particles}
+          onChange={(v) => draft.set("ornaments.particles", v)}
+          hint="Animated background on the home and gallery"
+        />
+      </Section>
+    </>
+  );
+}
+
+/* ================================================================== *
+ * TEMPLATE-SPECIFIC EDITORS
+ * ================================================================== */
+
+/**
+ * The classic template's fields.
+ *
+ * Split out of `AppearanceEditor` purely so the template switch reads as one
+ * conditional rather than two sets of fields interleaved. Nothing here is
+ * template-aware; these are the sections the modern template does not use.
+ */
+function ClassicEditor({ draft }: { draft: DraftSite }) {
+  return (
+    <>
+      <HomeEditor draft={draft} />
+      <GalleryEditor draft={draft} />
+    </>
+  );
+}
+
+/**
+ * The modern template's copy.
+ *
+ * Photographs are not here on purpose — they are `home.moments`, and the
+ * moments editor below edits them for both templates. Duplicating an uploader
+ * would mean uploading each photo twice and would leave the two lists free to
+ * disagree.
+ */
+function ModernEditor({ draft }: { draft: DraftSite }) {
+  // Hooks first, before the early return. The original site carried the same
+  // guard and got away with it; this one is rendered conditionally by the
+  // template switch, which is exactly the case React's rule is about — the hook
+  // count would change with the template.
+  const site = draft.site;
+  const openMoments = useOpenItems(
+    (site?.home.moments ?? []).filter((m) => !m.image.url).map((m) => m.id),
+  );
+
+  if (!site) return null;
+
+  const modern = site.modern;
+
+  return (
+    <>
+      <MomentsEditor draft={draft} open={openMoments} modern />
+
+      <Section title="First impression" hint="The first thing she sees">
+        <TextField
+          label="Small label above the headline"
+          value={modern.hero.eyebrow}
+          onChange={(v) => draft.set("modern.hero.eyebrow", v)}
+          placeholder="A small universe"
+          maxLength={120}
+        />
+        <TextField
+          label="Headline, line 1"
+          value={modern.hero.lines[0] ?? ""}
+          onChange={(v) => draft.set("modern.hero.lines.0", v)}
+          placeholder="For"
+          hint="Short. This is set very large."
+          maxLength={120}
+        />
+        <TextField
+          label="Headline, line 2"
+          value={modern.hero.lines[1] ?? ""}
+          onChange={(v) => draft.set("modern.hero.lines.1", v)}
+          placeholder="someone"
+          hint="This line renders in the serif accent."
+          maxLength={120}
+        />
+        <TextField
+          label="Headline, line 3"
+          value={modern.hero.lines[2] ?? ""}
+          onChange={(v) => draft.set("modern.hero.lines.2", v)}
+          placeholder="worth everything"
+          maxLength={120}
+        />
+        <TextAreaField
+          label="Under the headline"
+          value={modern.hero.subline}
+          onChange={(v) => draft.set("modern.hero.subline", v)}
+          rows={3}
+          maxLength={300}
+          hint="One or two lines about why this is for her."
+        />
+        <div className="field-row field-row-2">
+          <TextField
+            label="Button"
+            value={modern.hero.ctaLabel}
+            onChange={(v) => draft.set("modern.hero.ctaLabel", v)}
+            placeholder="Open the note"
+            maxLength={120}
+          />
+          <TextField
+            label="Scroll link"
+            value={modern.hero.scrollHint}
+            onChange={(v) => draft.set("modern.hero.scrollHint", v)}
+            placeholder="Drift through"
+            maxLength={120}
+          />
+        </div>
+      </Section>
+
+      <Section title="Her note" hint="Opens when she taps the button">
+        <TextField
+          label="Small label"
+          value={modern.letter.kicker}
+          onChange={(v) => draft.set("modern.letter.kicker", v)}
+          placeholder="Private note"
+          maxLength={120}
+        />
+        <TextAreaField
+          label="The note"
+          value={modern.letter.text}
+          onChange={(v) => draft.set("modern.letter.text", v)}
+          rows={6}
+          maxLength={2000}
+          hint="Set in the serif italic. This is the thing she reads twice."
+        />
+        <TextField
+          label="Sign-off"
+          value={modern.letter.signoff}
+          onChange={(v) => draft.set("modern.letter.signoff", v)}
+          placeholder="Yours, always"
+          maxLength={200}
+        />
+      </Section>
+
+      <Section title="Photo strip" hint="The row of narrow slices">
+        <TextField
+          label="Small label"
+          value={modern.strip.eyebrow}
+          onChange={(v) => draft.set("modern.strip.eyebrow", v)}
+          placeholder="Contact sheet"
+          maxLength={120}
+        />
+        <TextField
+          label="Heading"
+          value={modern.strip.heading}
+          onChange={(v) => draft.set("modern.strip.heading", v)}
+          placeholder="Pick one. Stay a while."
+          maxLength={120}
+        />
+        <TextAreaField
+          label="Note beside it"
+          value={modern.strip.note}
+          onChange={(v) => draft.set("modern.strip.note", v)}
+          rows={2}
+          maxLength={200}
+        />
+      </Section>
+
+      <Section title="Archive" hint="The drifting sphere on the home page">
+        <TextField
+          label="Small label"
+          value={modern.archive.eyebrow}
+          onChange={(v) => draft.set("modern.archive.eyebrow", v)}
+          placeholder="Memory archive"
+          maxLength={120}
+        />
+        <TextField
+          label="Heading"
+          value={modern.archive.heading}
+          onChange={(v) => draft.set("modern.archive.heading", v)}
+          placeholder="A few favorite signals."
+          maxLength={120}
+        />
+        <TextAreaField
+          label="Note beside it"
+          value={modern.archive.note}
+          onChange={(v) => draft.set("modern.archive.note", v)}
+          rows={2}
+          maxLength={200}
+        />
+        <TextField
+          label="Button"
+          value={modern.archive.ctaLabel}
+          onChange={(v) => draft.set("modern.archive.ctaLabel", v)}
+          placeholder="Open the archive"
+          maxLength={120}
+        />
+      </Section>
+
+      <Section title="Archive page" hint="What she sees at /gallery" defaultOpen={false}>
+        <TextField
+          label="Small label"
+          value={modern.gallery.eyebrow}
+          onChange={(v) => draft.set("modern.gallery.eyebrow", v)}
+          placeholder="The archive"
+          maxLength={120}
+        />
+        <TextField
+          label="Headline, line 1"
+          value={modern.gallery.lines[0] ?? ""}
+          onChange={(v) => draft.set("modern.gallery.lines.0", v)}
+          placeholder="Every"
+          maxLength={120}
+        />
+        <TextField
+          label="Headline, line 2"
+          value={modern.gallery.lines[1] ?? ""}
+          onChange={(v) => draft.set("modern.gallery.lines.1", v)}
+          placeholder="orbit"
+          hint="This line renders in the serif accent."
+          maxLength={120}
+        />
+        <TextField
+          label="Headline, line 3"
+          value={modern.gallery.lines[2] ?? ""}
+          onChange={(v) => draft.set("modern.gallery.lines.2", v)}
+          placeholder="we ran"
+          maxLength={120}
+        />
+        <TextAreaField
+          label="Under the headline"
+          value={modern.gallery.blurb}
+          onChange={(v) => draft.set("modern.gallery.blurb", v)}
+          rows={3}
+          maxLength={500}
+        />
+        <TextField
+          label="Back button"
+          value={modern.gallery.backLabel}
+          onChange={(v) => draft.set("modern.gallery.backLabel", v)}
+          placeholder="Return home"
+          maxLength={120}
+        />
+      </Section>
+
+      <Section title="Closing" hint="The last thing she reads" defaultOpen={false}>
+        <TextAreaField
+          label="Heading"
+          value={modern.closing.heading}
+          onChange={(v) => draft.set("modern.closing.heading", v)}
+          rows={2}
+          maxLength={200}
+        />
+        <TextAreaField
+          label="A line under it"
+          value={modern.closing.copy}
+          onChange={(v) => draft.set("modern.closing.copy", v)}
+          rows={3}
+          maxLength={500}
+        />
+        <TextField
+          label="Signature"
+          value={modern.closing.signature}
+          onChange={(v) => draft.set("modern.closing.signature", v)}
+          placeholder="With love"
+          maxLength={80}
+        />
+      </Section>
+    </>
   );
 }

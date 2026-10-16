@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { EditingProvider } from "../site/EditableText";
-import GalleryPage from "../site/GalleryPage";
-import HomePage from "../site/HomePage";
-import SiteShell from "../site/SiteShell";
+import { EditingProvider } from "../site/shared/EditableText";
+import ClassicGalleryPage from "../site/classic/GalleryPage";
+import ClassicHomePage from "../site/classic/HomePage";
+import ModernTemplate from "../site/modern/HomePage";
+import ModernGallery from "../site/modern/GalleryPage";
+import SiteShell from "../site/shared/SiteShell";
 import {
   MESSAGES,
   MSG_PREVIEW_CONFIG,
@@ -178,11 +180,20 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
   return (
     <EditingProvider enabled={editing} report={reportEdit}>
       <SiteShell site={site}>
-        {variant === "home" ? (
-          <HomePage site={site} basePath={basePath} />
-        ) : (
-          <GalleryPage site={site} basePath={basePath} />
-        )}
+        {/*
+          Mirrors the routing table in `App.tsx` rather than importing it, for
+          one reason: this frame is where editing happens, and it is the surface
+          the author changes `template` on. Both have to agree or the preview
+          would show one template while the published site renders another — so
+          the switch is written the same way in both, off the same field.
+        */}
+        {site.template === "modern"
+          ? variant === "home"
+            ? <ModernTemplate site={site} basePath={basePath} />
+            : <ModernGallery site={site} basePath={basePath} />
+          : variant === "home"
+            ? <ClassicHomePage site={site} basePath={basePath} />
+            : <ClassicGalleryPage site={site} basePath={basePath} />}
       </SiteShell>
     </EditingProvider>
   );

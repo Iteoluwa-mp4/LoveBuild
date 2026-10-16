@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { Memory } from "./shared";
+import type { ModernMemory } from "../../../lib/site/derive";
 import { MODERN_STRIP_CSS } from "./strip-css";
 
 /**
@@ -54,7 +54,7 @@ import { MODERN_STRIP_CSS } from "./strip-css";
  */
 
 export type PhotoStripProps = {
-  memories: Memory[];
+  memories: ModernMemory[];
   /** Optional badge in the corner, as in the reference. */
   badge?: React.ReactNode;
   /** Accessible name for the group. */
@@ -211,7 +211,10 @@ export default function PhotoStrip({
             const isActive = index === active;
             return (
               <button
-                key={memory.label}
+                // Indexed, not by label: a label is author-supplied and editable,
+                // so keying on it would remount the slice and reset its image
+                // mid-typing.
+                key={`${index}-${memory.label}`}
                 ref={(node) => {
                   itemRefs.current[index] = node;
                 }}

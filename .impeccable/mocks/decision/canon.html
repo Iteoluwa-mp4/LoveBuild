@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:wght@300..800&display=swap');
+  :root{
+    --void:#150A22; --cardDeep:#0E0518; --ink:#1F0F33; --gold:#D9A94E; --goldBright:#F4D98A;
+    --lavender:#C9A6E8; --text:#EFE3FA;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{background:var(--void);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;
+    position:relative;text-align:center}
+  .wash{position:absolute;inset:0;background:
+    radial-gradient(120% 100% at 20% 0%, #3A1B5C 0%, #1F0F33 50%, #0E0518 100%)}
+  .glow{position:absolute;inset:0;background:radial-gradient(70% 60% at 85% 85%, rgba(217,169,78,.18), transparent 70%)}
+  .dust{position:absolute;inset:0;opacity:.5;background-image:
+    radial-gradient(circle, rgba(244,217,138,.55) 1.2px, transparent 1.4px);
+    background-size:180px 150px}
+
+  header{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;
+    padding:34px 56px}
+  header b{font-family:'Playfair Display',serif;font-size:21px;font-weight:600}
+  header nav{display:flex;gap:30px;font-size:15px;font-weight:500;color:rgba(201,166,232,.8)}
+  header nav span:first-child{color:var(--text)}
+
+  main{position:relative;z-index:3;padding:64px 0 0}
+  h1{font-family:'Playfair Display',serif;font-weight:800;font-size:92px;line-height:1.02;
+    letter-spacing:-.02em;max-width:900px;margin:0 auto}
+  h1 em{font-style:italic;background:linear-gradient(120deg,#F4D98A,#D9A94E,#C9A6E8);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  p.sub{margin:30px auto 0;max-width:520px;font-size:18px;line-height:1.6;color:rgba(201,166,232,.9)}
+  .cta{margin-top:40px}
+  .btn{display:inline-block;padding:19px 46px;border-radius:16px 40px 40px 16px;
+    background:linear-gradient(155deg,#F4D98A 0%,#D9A94E 38%,#B4842E 60%,#8A6417 100%);
+    color:#3A2408;font-size:16px;font-weight:700;letter-spacing:.04em;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.65), inset 0 -6px 10px rgba(138,100,23,.45), 0 10px 24px -8px rgba(138,100,23,.55)}
+  .btn.ghost{background:rgba(21,10,34,.4);color:#F4D98A;border:1px solid rgba(217,169,78,.4);
+    border-radius:16px 40px 40px 16px;margin-left:14px}
+
+  .cards{position:relative;z-index:3;display:flex;gap:24px;justify-content:center;margin:64px 56px 0}
+  .card{width:296px;border-radius:24px 24px 24px 8px;overflow:hidden;
+    border:1px solid rgba(217,169,78,.25);
+    background:radial-gradient(120% 100% at 30% 20%, #4B1F73 0%, #1F0F33 70%);
+    box-shadow:0 20px 40px -15px rgba(14,5,24,.75)}
+  .card .ph{height:150px;background:linear-gradient(150deg,#2B1547,#150A22)}
+  .card .in{padding:22px;text-align:left}
+  .card b{display:block;font-size:11px;letter-spacing:.2em;color:rgba(217,169,78,.9);text-transform:uppercase}
+  .card p{margin-top:12px;font-family:'Playfair Display',serif;font-size:17px;line-height:1.45;color:var(--text)}
+</style>
+</head>
+<body>
+  <div class="wash"></div><div class="glow"></div><div class="dust"></div>
+  <header>
+    <b>Sarah</b>
+    <nav><span>Home</span><span>The gallery</span></nav>
+  </header>
+  <main>
+    <h1>Happy Birthday, <em>Sarah</em></h1>
+    <p class="sub">A few of the moments, and a letter I could not say out loud at the table. Start anywhere you like.</p>
+    <div class="cta"><span class="btn">Open the gallery</span><span class="btn ghost">Read the letter</span></div>
+    <div class="cards">
+      <div class="card"><div class="ph"></div><div class="in"><b>Moment 01</b><p>The pier, too cold, the wind taking the napkins.</p></div></div>
+      <div class="card"><div class="ph"></div><div class="in"><b>Moment 02</b><p>She opened the box and did not say anything for a while.</p></div></div>
+      <div class="card"><div class="ph"></div><div class="in"><b>Moment 03</b><p>Fell asleep in the car before we reached the bridge.</p></div></div>
+    </div>
+  </main>
+</body>
+</html>

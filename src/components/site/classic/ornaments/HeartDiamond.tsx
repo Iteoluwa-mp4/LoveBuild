@@ -11,10 +11,16 @@ import { cssColorNumber } from "./themeColor";
  * No react-three-fiber — raw three.js in a useEffect, so it drops into any TSX
  * project.
  *
- * Transparent background, passive pointer parallax (never blocks page
- * scrolling), faceted "cut gem" look via flat shading, gold glass material.
- * Rendered without postprocessing so the canvas keeps its alpha over the page
- * gradient.
+ * Transparent background, a small eased lean toward the pointer and nothing
+ * else (never blocks page scrolling), faceted "cut gem" look via flat shading,
+ * gold glass material. Rendered without postprocessing so the canvas keeps its
+ * alpha over the page gradient.
+ *
+ * It carries no sparkle field. There was one — 260 additive points twinkling in a
+ * shell around the gem — and it was the wrong effect here twice over: it read as
+ * glitter rather than as a cut stone, and the drifting gold particles already
+ * on the page behind it did the same job at the right scale. The gem is now the
+ * only lit object in the frame.
  *
  * Colours are read from the active theme rather than hardcoded, so the gem
  * belongs to whatever preset the site uses.
@@ -24,13 +30,16 @@ import { cssColorNumber } from "./themeColor";
  */
 export default function HeartDiamond({
   className,
-  autoRotate = true,
   pointerParallax = true,
 }: {
   className?: string;
-  /** Turn the turntable spin on/off. */
-  autoRotate?: boolean;
-  /** Let the gem lean toward the pointer. */
+  /**
+   * Let the gem lean toward the pointer.
+   *
+   * This is the gem's only gesture. It used to take an `autoRotate` as well,
+   * which spun continuously; the spin is gone, so the prop went with it rather
+   * than staying behind as a switch for a behaviour that no longer exists.
+   */
   pointerParallax?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,11 +89,9 @@ export default function HeartDiamond({
 
     /* ---------- pointer parallax (passive — never blocks scrolling) ---------- */
     let mouseX = 0;
-    let mouseY = 0;
     const handlePointer = (e: PointerEvent) => {
       const rect = container.getBoundingClientRect();
       mouseX = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-      mouseY = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
     };
     if (pointerParallax) window.addEventListener("pointermove", handlePointer);
 
@@ -175,57 +182,6 @@ export default function HeartDiamond({
     underLight.position.set(0, -1.5, 0);
     scene.add(underLight);
 
-    /* ---------- sparkle field ---------- */
-    const SPARKLE_COUNT = 260;
-    const sparklePositions = new Float32Array(SPARKLE_COUNT * 3);
-    const sparkleRandom = new Float32Array(SPARKLE_COUNT);
-
-    for (let i = 0; i < SPARKLE_COUNT; i++) {
-      const radius = 2.3 + Math.random() * 2.4;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(Math.random() * 2 - 1);
-      sparklePositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      sparklePositions[i * 3 + 1] = radius * Math.cos(phi) * 0.6 + 0.2;
-      sparklePositions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
-      sparkleRandom[i] = Math.random() * 10;
-    }
-
-    const sparkleGeo = new THREE.BufferGeometry();
-    sparkleGeo.setAttribute("position", new THREE.BufferAttribute(sparklePositions, 3));
-    sparkleGeo.setAttribute("aRandom", new THREE.BufferAttribute(sparkleRandom, 1));
-
-    const sparkleMat = new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      uniforms: { uTime: { value: 0 } },
-      vertexShader: `
-        attribute float aRandom;
-        uniform float uTime;
-        varying float vTwinkle;
-        void main() {
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          float twinkle = 0.5 + 0.5 * sin(uTime * (1.5 + aRandom * 0.3) + aRandom * 6.28);
-          vTwinkle = twinkle;
-          gl_PointSize = (2.0 + twinkle * 5.0) * (12.0 / -mvPosition.z);
-          gl_Position = projectionMatrix * mvPosition;
-        }
-      `,
-      fragmentShader: `
-        varying float vTwinkle;
-        void main() {
-          vec2 c = gl_PointCoord - vec2(0.5);
-          float d = length(c);
-          float alpha = smoothstep(0.5, 0.0, d) * vTwinkle;
-          vec3 color = mix(vec3(1.0, 0.78, 0.35), vec3(1.0, 0.95, 0.8), vTwinkle);
-          gl_FragColor = vec4(color, alpha * 0.9);
-        }
-      `,
-    });
-
-    const sparkles = new THREE.Points(sparkleGeo, sparkleMat);
-    scene.add(sparkles);
-
     /* ---------- resize ---------- */
     const resizeObserver = new ResizeObserver(() => {
       const w = container.clientWidth;
@@ -239,23 +195,43 @@ export default function HeartDiamond({
     /* ---------- animation ---------- */
     const clock = new THREE.Clock();
     let frameId: number;
+    let last = performance.now();
+    /** The eased tilt, which is what actually gets applied to the gem. */
+    let tilt = 0;
 
     const animate = () => {
       frameId = requestAnimationFrame(animate);
+
+      const now = performance.now();
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+
       const t = clock.getElapsedTime();
 
-      // Turntable spin + pointer tilt — kept off a continuous X tumble so the
-      // heart silhouette stays readable from the front
-      gem.rotation.x = (pointerParallax ? mouseY * 0.25 : 0) + Math.sin(t * 0.4) * 0.05;
-      gem.rotation.y = (autoRotate ? t * 0.3 : 0) + (pointerParallax ? mouseX * 0.35 : 0);
+      /*
+        No turntable.
+
+        A gem that rotates on its own is showing off its facets rather than
+        being looked at, and on a page whose subject is a letter it read as a
+        spinning trophy. So the only motion is a small lean toward the pointer,
+        eased so it arrives rather than snaps, and a fixed resting angle that
+        keeps the heart silhouette readable.
+
+        `mouseY` is deliberately unused: up-and-down tilt turned the gem away from
+        the reader at exactly the moment they looked at it.
+      */
+      const target = pointerParallax ? mouseX * 0.26 : 0;
+      tilt += (target - tilt) * Math.min(1, dt * 3.5);
+
+      gem.rotation.y = tilt;
+      gem.rotation.x = -0.05 + Math.sin(t * 0.4) * 0.018;
       core.rotation.copy(gem.rotation);
+
       gem.position.y = 0.45 + Math.sin(t * 0.7) * 0.04;
       core.position.y = gem.position.y;
 
       keyLight.position.x = Math.sin(t * 0.3) * 5;
       keyLight.position.z = Math.cos(t * 0.3) * 5;
-
-      sparkleMat.uniforms.uTime.value = t;
 
       renderer.render(scene, camera);
     };
@@ -280,15 +256,13 @@ export default function HeartDiamond({
       coreGeo.dispose();
       diamondMaterial.dispose();
       coreMat.dispose();
-      sparkleGeo.dispose();
-      sparkleMat.dispose();
 
       renderer.dispose();
       if (renderer.domElement.parentElement === container) {
         container.removeChild(renderer.domElement);
       }
     };
-  }, [autoRotate, pointerParallax]);
+  }, [pointerParallax]);
 
   // className-only root: sizing/opacity come from the slot's Tailwind classes,
   // and there is deliberately no background — the page gradient shows through

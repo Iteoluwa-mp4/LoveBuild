@@ -128,8 +128,9 @@ export const MODERN_STRIP_CSS = `
   display:grid;
   place-items:center;
   border-radius:14px;
-  background:rgba(255,184,203,.14);
-  border:1px solid rgba(255,184,203,.42);
+  /* Themed, with the template's original values as fallbacks. */
+  background:var(--theme-accent-wash, rgba(255,184,203,.14));
+  border:1px solid var(--theme-accent-edge, rgba(255,184,203,.42));
   color:var(--pink);
   backdrop-filter:blur(8px);
 }

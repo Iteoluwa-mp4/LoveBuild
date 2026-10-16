@@ -32,6 +32,12 @@ describe("schema", () => {
     expect(site.gallery.outro.lineOne).toBe("");
     expect(site.identity.name).toBe("");
     expect(site.ornaments).toEqual({ hero3d: true, particles: true });
+    // A blank site carries no template-specific copy either, so switching to
+    // modern shows empty slots rather than placeholder wording.
+    expect(site.template).toBe("classic");
+    expect(site.modern.hero.lines).toEqual(["", "", ""]);
+    expect(site.modern.hero.subline).toBe("");
+    expect(site.modern.closing.heading).toBe("");
   });
 
   /**
@@ -257,6 +263,65 @@ describe("the sample content", () => {
     const b = createDraft("two");
     expect(a.home.moments[0].id).not.toBe(b.home.moments[0].id);
     expect(a.gallery.chapters[0].id).not.toBe(b.gallery.chapters[0].id);
+  });
+});
+
+/**
+ * Templates.
+ *
+ * The field has to be forgiving in both directions, because a config can arrive
+ * from before it existed and from a build that knew a template this one does
+ * not. Neither is a reason to refuse to render somebody's site.
+ */
+describe("templates", () => {
+  it("defaults to classic when the key is absent", () => {
+    const legacy: Record<string, unknown> = { ...defaultSite() };
+    delete legacy.template;
+    expect(siteSchema.parse(legacy).template).toBe("classic");
+  });
+
+  it("keeps a template it recognises", () => {
+    expect(siteSchema.parse({ ...defaultSite(), template: "modern" }).template).toBe("modern");
+  });
+
+  it("falls back to classic for one it does not", () => {
+    expect(siteSchema.parse({ ...defaultSite(), template: "scrapbook" }).template).toBe("classic");
+  });
+
+  /**
+   * Both templates read `home.moments`, so switching cannot strand an upload.
+   * This is the guarantee behind the dashboard's template picker, so it is
+   * asserted on the config rather than left to the UI.
+   */
+  it("stores the photographs once, for whichever template is selected", () => {
+    // Built rather than pushed onto the sample, so this test does not depend on
+    // the sample's own wording. Only the image is asserted on; the text fields
+    // have their own limits and are not what this is about.
+    const site = emptySite("t");
+    site.template = "modern";
+    site.home.moments.push({
+      id: "m1",
+      tag: "orbit",
+      date: "",
+      caption: "One",
+      secret: "Two",
+      image: { ...emptyMedia(), url: "https://example.test/a.jpg" },
+    });
+
+    const switched = siteSchema.parse(site);
+    expect(switched.template).toBe("modern");
+    expect(switched.home.moments[0].image.url).toBe("https://example.test/a.jpg");
+  });
+
+  /**
+   * `modern` holds copy only. A media field here would be a second place to
+   * upload the same photograph, and the two lists could disagree.
+   */
+  it("keeps media out of the modern block", () => {
+    const modern = defaultSite().modern as Record<string, unknown>;
+    const serialised = JSON.stringify(modern);
+    expect(serialised).not.toContain("publicId");
+    expect(serialised).not.toContain('"url"');
   });
 });
 

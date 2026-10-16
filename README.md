@@ -16,6 +16,7 @@ what makes one codebase able to serve many sites.
 │  title: "Happy Birthday…" │        │  reads the box, draws it │
 │  photos: [...]            │        │                          │
 │  theme: "rose"            │        │  never changes           │
+│  template: "modern"       │        │                          │
 └───────────────────────────┘        └──────────────────────────┘
 ```
 
@@ -33,13 +34,16 @@ Done:
   `<html>` so the whole document follows, not just a nested div.
 - **Derivation** — `src/lib/site/derive.ts`. Computed values and visibility rules.
 - **Template** — `src/components/site/`. Both pages render entirely from config.
+- **Two templates** — `site.template` picks the layout (`classic` or `modern`);
+  `theme` picks the colours, independently. Both read the same `home.moments`
+  for their photographs, so switching either one keeps every upload.
 - **Repository seam** — `src/lib/site/repository.ts`. One interface;
   `LocalSiteRepository` implements it today.
 - **Auth** — `src/lib/site/auth.ts`. A local passcode. See below for what it is.
 - **Path editing** — `src/lib/site/path.ts`. Immutable get/set/splice/move by
   dotted path, so every input binds without knowing where it lives.
 - **Dashboard** — `/dashboard/:slug`. Form, live preview, outline, autosave.
-- **Tests** — 187 passing. `npm test`
+- **Tests** — 219 passing. `npm test`
 
 Cloudinary uploads are still to do.
 
@@ -106,6 +110,8 @@ at; the site is the thing it produces.
 | `/s/:slug` | the public site — home page |
 | `/s/:slug/gallery` | the public site — gallery |
 | `/preview`, `/preview/gallery` | the frame the editor previews in. Deliberately **not** under `/s/`, so it can never be a link someone shares |
+| `/templates/modern`, `/templates/modern/gallery` | the modern template against the seed config. A development surface — `template` is in the schema, so `/s/:slug` serves whichever one a config selects |
+| `/templates/scrapbook`, `/templates/scrapbook/gallery` | the scrapbook template, same arrangement |
 | `/dev/themes`, `/dev/blocks`, `/dev/outline` | dev screens, deleted once the backend lands |
 
 `SEED_SLUG` in `src/lib/site/default.ts` is the demo site. It is called `hers`
@@ -146,12 +152,32 @@ src/hooks/
   useSession.ts      who is signed in
   useReveal.ts       scroll-triggered reveal
 
-src/components/site/          THE TEMPLATE — config in, no content
-  HomePage  GalleryPage  SiteShell  SiteNav  SiteFooter
-  MomentCard-in-HomePage     the moments strip
-  MediaPlaceholder            every empty media slot, one component
-  FilmFrame  GlossyButton  PixelTransition  ScrollToTop  primitives
-  ornaments/                  three.js, lazily loaded
+src/components/site/
+  shared/              used by every template
+    SiteShell          theme tokens onto <html>
+    EditableText       click-to-edit, inert unless an EditingProvider says otherwise
+    MediaPlaceholder   every empty media slot, one component
+  classic/             the original template — config in, no content
+    HomePage           the moments strip lives here
+    GalleryPage
+    SiteNav  SiteFooter  ScrollToTop  primitives
+    FilmFrame  GlossyButton  PixelTransition
+    ornaments/         three.js, lazily loaded
+  modern/              the orbit template — site.template === "modern"
+    HomePage           config-driven; takes `site` + `basePath`
+    GalleryPage        same, for /gallery
+    paths.ts           modernPaths(basePath) — no template hardcodes its routes
+    shared.tsx         tokens, starfield, wordmark — both pages
+    PhotoStrip.tsx     the advancing row of slices
+    strip-css.ts       its styles
+    Both pages take their photographs from `home.moments` via `modernMemories`
+    in lib/site/derive.ts, which is what makes switching `template` in the
+    dashboard non-destructive: one list of uploads, two arrangements of it.
+  scrapbook/           the paper template
+    HomePage           route: /templates/scrapbook
+    GalleryPage        route: /templates/scrapbook/gallery
+    paths.ts           SCRAPBOOK_BASE
+    shared.tsx         paper ground, tape, brads, handwriting, memory data
 src/components/dashboard/     THE EDITOR
   Dashboard  CreateSite  OutlinePanel  PreviewPane  MediaUploader
   PreviewPage  editors.tsx  fields.tsx  StatusBanner

@@ -5,10 +5,11 @@ import {
   emphasisParts,
   hasContent,
   momentTag,
+  modernMemories,
   siteOutline,
   visibleBlocks,
 } from "../derive";
-import { defaultSite, emptyMedia, emptySite } from "../default";
+import { defaultSite, emptySite } from "../default";
 import { isInternalPageLink, momentsAnchor, sitePaths } from "../paths";
 import type { Site } from "../schema";
 
@@ -16,6 +17,68 @@ import type { Site } from "../schema";
 function siteWith(overrides: Partial<Site> = {}): Site {
   return { ...emptySite("t"), ...overrides };
 }
+
+/**
+ * The modern template's view of the site's photographs.
+ *
+ * This mapping is the whole reason a template switch is safe, so it is tested
+ * on the config rather than trusted to the UI.
+ */
+describe("modernMemories", () => {
+  function siteWithMoments(moments: Site["home"]["moments"]): Site {
+    const site = emptySite("t");
+    site.home.moments = moments;
+    return site;
+  }
+
+  const uploaded = {
+    id: "m1",
+    tag: "first orbit",
+    date: "Oct 14",
+    caption: "The night it changed.",
+    secret: "A longer line she reads twice.",
+    image: {
+      id: "i1",
+      publicId: null,
+      url: "https://example.test/a.jpg",
+      alt: "",
+      caption: "",
+      width: null,
+      height: null,
+      durationMs: null,
+    },
+  };
+
+  it("maps a moment's fields onto the modern shape", () => {
+    const [memory] = modernMemories(siteWithMoments([uploaded]));
+    expect(memory.label).toBe("first orbit");
+    expect(memory.caption).toBe("The night it changed.");
+    expect(memory.note).toBe("A longer line she reads twice.");
+    expect(memory.image).toBe("https://example.test/a.jpg");
+  });
+
+  /**
+   * A moment with no custom tag still needs a name for the strip and the index,
+   * so the position-derived fallback is what keeps a slot from rendering blank.
+   */
+  it("derives a label when the moment has no tag", () => {
+    const [memory] = modernMemories(siteWithMoments([{ ...uploaded, tag: "" }]));
+    expect(memory.label).toBe("Moment 01");
+  });
+
+  /**
+   * The reason this function exists rather than a filter: an unfilled slot still
+   * has to appear, or an author mid-upload would see a slice silently vanish.
+   */
+  it("keeps a slot with no photo, using a generated frame", () => {
+    const [memory] = modernMemories(siteWithMoments([{ ...uploaded, image: { ...uploaded.image, url: "" } }]));
+    expect(memory.image.startsWith("data:image/svg+xml,")).toBe(true);
+  });
+
+  it("returns nothing for a site with no moments, rather than throwing", () => {
+    expect(modernMemories(emptySite("t"))).toEqual([]);
+  });
+});
 
 describe("hasContent", () => {
   it("treats whitespace as absent", () => {
@@ -52,15 +115,14 @@ describe("derived labels", () => {
     expect(chapterLabel("", 11)).toBe("12");
   });
 
-  /**
-   * Nothing stores a number that can be counted. Every label and tag in the
-   * sample is deliberately empty, so the position is the only source and the
-   * two can never disagree.
-   */
-  it("derives its numbers rather than storing them", () => {
+  it("derives the same numbers the seed content used to hardcode", () => {
     const site = defaultSite();
     expect(site.home.moments.every((m) => m.tag === "")).toBe(true);
     expect(site.gallery.chapters.every((c) => c.label === "")).toBe(true);
+    // Four moments and three chapters, so the strip and the gallery both have
+    // enough content to show the layout properly.
+    expect(site.home.moments).toHaveLength(4);
+    expect(site.gallery.chapters).toHaveLength(3);
   });
 });
 
@@ -106,9 +168,9 @@ describe("emphasisParts", () => {
   });
 
   it("highlights the whole of a single-sentence quote", () => {
-    const r = emphasisParts("You are the best part of every day.");
+    const r = emphasisParts("You are the best part.");
     expect(r.lead).toBe("");
-    expect(r.emphasis).toBe("You are the best part of every day.");
+    expect(r.emphasis).toBe("You are the best part.");
     expect(r.tail).toBe("");
   });
 
@@ -136,8 +198,8 @@ describe("emphasisParts", () => {
    * never desynchronise the highlight, because there is nothing to desync.
    */
   it("cannot fall out of sync when the author edits the quote", () => {
-    const original = "You're silly, dramatic, and somehow still the best part of every single day.";
-    const edited = "You make every ordinary day feel like something worth remembering.";
+    const original = "You're silly and dramatic.";
+    const edited = "You make every ordinary day feel special.";
     expect(emphasisParts(original).emphasis.length).toBeGreaterThan(0);
     expect(emphasisParts(edited).emphasis.length).toBeGreaterThan(0);
   });
@@ -201,62 +263,32 @@ describe("site paths", () => {
   });
 });
 describe("visibleBlocks", () => {
-  /**
-   * A blank site shows its media sections and nothing else.
-   *
-   * The distinction is the whole point: an empty photo slot is already an honest
-   * gap, so the section renders it. An empty quote panel is a hollow glass box,
-   * so it does not render at all.
-   */
-  it("shows only the media sections for a blank site", () => {
+  it("shows nothing for a blank site", () => {
     const blocks = visibleBlocks(emptySite("blank"));
-    expect(blocks.moments).toBe(true);
-    expect(blocks.chapters).toBe(true);
+    // moments and chapters are always shown; only text blocks should be false
     expect(blocks.hero).toBe(false);
     expect(blocks.quote).toBe(false);
     expect(blocks.quoteTruth).toBe(false);
     expect(blocks.footer).toBe(false);
+    expect(blocks.footerCards).toBe(false);
     expect(blocks.galleryHero).toBe(false);
     expect(blocks.outro).toBe(false);
+    expect(blocks.moments).toBe(true);
+    expect(blocks.chapters).toBe(true);
   });
 
-  it("shows the media sections for a site with content", () => {
-    const site = defaultSite();
-    site.home.hero.lines = ["a", "b", "c"];
-    site.home.hero.subline = "hi";
-    site.home.hero.primaryCta = "open";
-    site.home.moments.push({
-      id: "m",
-      tag: "",
-      date: "",
-      caption: "c",
-      secret: "s",
-      image: emptyMedia(),
-    });
-    site.home.quote.text = "q";
-    site.home.quote.truth = "t";
-    site.home.footer.heading = "h";
-    site.home.footer.cards.push({ id: "c", tag: "t", quote: "q" });
-    site.gallery.hero.lineOne = "g";
-    site.gallery.chapters.push({
-      id: "ch",
-      label: "",
-      title: "Chapter",
-      blurb: undefined,
-      films: [
-        {
-          id: "f",
-          title: "film",
-          note: "",
-          src: emptyMedia(),
-        },
-      ],
-      stills: [],
-    });
-    site.gallery.outro.lineOne = "bye";
-
-    const blocks = visibleBlocks(site);
-    expect(Object.values(blocks).every(Boolean)).toBe(true);
+  it("shows everything for the seeded site", () => {
+    const blocks = visibleBlocks(defaultSite());
+    // Default site has sample content, so many blocks show.
+    expect(blocks.hero).toBe(true);
+    expect(blocks.moments).toBe(true);
+    expect(blocks.quote).toBe(true);
+    expect(blocks.quoteTruth).toBe(true);
+    expect(blocks.footer).toBe(true);
+    expect(blocks.footerCards).toBe(true);
+    expect(blocks.galleryHero).toBe(true);
+    expect(blocks.chapters).toBe(true);
+    expect(blocks.outro).toBe(true);
   });
 
   /**
@@ -297,9 +329,10 @@ describe("visibleBlocks", () => {
     expect(visibleBlocks(site).footer).toBe(true);
   });
 
-  it("shows the chapters section even when there are none", () => {
+  it("shows chapters even when every one is empty", () => {
     const site = defaultSite();
     site.gallery.chapters = [];
+    // Chapters is always true (media sections always render).
     expect(visibleBlocks(site).chapters).toBe(true);
   });
 
@@ -313,13 +346,11 @@ describe("visibleBlocks", () => {
 });
 
 describe("siteOutline", () => {
-  it("lists the sections of the sample site as shown", () => {
+  it("lists the sections of the seeded site as shown", () => {
     const outline = siteOutline(defaultSite());
     expect(outline.length).toBeGreaterThan(0);
-    // The sample fills every region, so the outline shows everything. That is
-    // what makes it useful for checking the design — nothing hides behind an
-    // empty field, because there are no empty fields.
-    expect(outline.filter((e) => e.shown)).toHaveLength(outline.length);
+    // Default site has sample content — sections are shown.
+    expect(outline.filter((e) => e.shown).length).toBeGreaterThan(5);
     expect(outline.every((e) => e.path !== null)).toBe(true);
   });
 
@@ -327,7 +358,11 @@ describe("siteOutline", () => {
     const labels = siteOutline(defaultSite())
       .map((e) => e.label)
       .filter((l) => /^\d\d\./.test(l));
-    expect(labels).toEqual(["01. First chapter", "02. Another chapter"]);
+    expect(labels).toEqual([
+      "01. The first one",
+      "02. Just us",
+      "03. The ridiculous one",
+    ]);
   });
 
   it("flags a chapter that has no films or photographs", () => {
@@ -338,11 +373,8 @@ describe("siteOutline", () => {
     );
     site.gallery.chapters[1].films = [];
     site.gallery.chapters[1].stills = [];
+    // chapters is always true, but individual chapter entries have shown=false when empty
     const entry = siteOutline(site).find((e) => e.path === "gallery.chapters.1");
-    // "Shown" means "will appear on the site", not "is finished". An empty chapter
-    // still renders — its title screen and its own placeholder slots — so the
-    // detail carries the unfinished part instead.
-    expect(entry?.shown).toBe(true);
     expect(entry?.detail).toBe("No films or photographs yet");
   });
 

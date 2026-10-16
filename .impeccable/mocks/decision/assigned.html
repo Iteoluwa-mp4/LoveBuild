@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Faustina:ital,wght@0,300..700;1,300..600&family=Archivo:wght@400;600;700;800&display=swap');
+  :root{
+    --void:#150A22; --cardDeep:#0E0518; --ink:#1F0F33; --ink2:#2B1547;
+    --gold:#D9A94E; --goldBright:#F4D98A; --goldPale:#FCE7A6; --goldDeep:#8A6417;
+    --lavender:#C9A6E8; --text:#EFE3FA;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{
+    background:var(--cardDeep); color:var(--text);
+    font-family:'Archivo',sans-serif; display:grid;
+    grid-template-rows:72px 1fr 92px;
+  }
+
+  /* perforation: half-round bites cut along the edge of the leaf */
+  .perf-x{background-image:radial-gradient(circle at 6px 6px, var(--cardDeep) 3.1px, transparent 3.2px);background-size:12px 12px;background-repeat:repeat-x;height:6px}
+  .perf-x.b{transform:scaleY(-1)}
+
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 46px; border-bottom:1px solid rgba(239,227,250,.13);
+  }
+  .mark{display:flex;align-items:center;gap:12px}
+  .chip{width:22px;height:26px;background:var(--goldBright);position:relative;
+    -webkit-mask-image:radial-gradient(circle at 4px 4px, transparent 3.4px, #000 3.5px);
+    mask-image:radial-gradient(circle at 4px 4px, transparent 3.4px, #000 3.5px);
+    -webkit-mask-size:8px 8px; mask-size:8px 8px;}
+  .mark b{font-family:'Cinzel',serif;font-size:15px;font-weight:800;letter-spacing:.14em}
+  .mark i{font-style:normal;font-size:11px;color:rgba(239,227,250,.42);letter-spacing:.2em}
+  nav{display:flex;gap:30px;align-items:center;font-size:11px;font-weight:700;letter-spacing:.22em;color:rgba(239,227,250,.6)}
+  nav span.act{color:var(--goldBright)}
+
+  main{display:grid;grid-template-columns:1fr 560px;gap:60px;padding:56px 46px 0}
+
+  .left{display:flex;flex-direction:column;justify-content:center;padding-bottom:24px}
+
+  .cancel{display:inline-flex;align-items:center;gap:16px;margin-bottom:34px}
+  .ring{width:78px;height:78px;border:2.5px solid var(--gold);border-radius:50%;
+    transform:rotate(-11deg);display:grid;place-items:center;position:relative;opacity:.9}
+  .ring:before{content:"";position:absolute;inset:6px;border:1px solid rgba(217,169,78,.55);border-radius:50%}
+  .ring b{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.16em;color:var(--goldBright);line-height:1.5;text-align:center}
+  .cancel p{font-size:11px;font-weight:700;letter-spacing:.26em;color:rgba(217,169,78,.8)}
+
+  h1{font-family:'Cinzel',serif;font-weight:900;line-height:.92;letter-spacing:-.005em}
+  h1 .l1{font-size:104px;color:var(--goldBright)}
+  h1 .l2{font-size:104px}
+  h1 .l3{font-size:104px;color:transparent;-webkit-text-stroke:1.6px var(--gold)}
+
+  .rule{width:100%;height:1px;background:rgba(239,227,250,.16);margin:34px 0 22px}
+  .sub{font-family:'Faustina',serif;font-size:23px;line-height:1.55;color:rgba(239,227,250,.78);max-width:520px}
+
+  .acts{display:flex;gap:18px;align-items:center;margin-top:38px}
+  .plate{background:var(--gold);color:#3A2408;padding:17px 30px;font-size:13px;font-weight:800;letter-spacing:.2em;
+    position:relative;box-shadow:5px 5px 0 rgba(138,100,23,.55)}
+  .plate.alt{background:transparent;color:var(--gold);border:1.5px solid rgba(217,169,78,.5);box-shadow:none}
+
+  /* THE STAMP */
+  .stage{position:relative;display:grid;place-items:center}
+  .stamp{width:400px;height:492px;background:var(--ink);transform:rotate(2.2deg);position:relative;
+    -webkit-mask-image:
+      radial-gradient(circle at 7px 7px, transparent 4.1px, #000 4.2px),
+      linear-gradient(#000,#000);
+    -webkit-mask-size:14px 14px, 100% 100%;
+    -webkit-mask-composite:source-in; mask-composite:intersect;
+    box-shadow:0 40px 70px -30px rgba(0,0,0,.95)}
+  .stamp-in{position:absolute;inset:15px;border:2px solid var(--gold);padding:13px;display:flex;flex-direction:column}
+  .stamp-in:before{content:"";position:absolute;inset:7px;border:1px solid rgba(217,169,78,.45);pointer-events:none}
+  .row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 4px 10px}
+  .row b{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.2em;color:var(--goldBright)}
+  .row i{font-style:normal;font-size:9px;letter-spacing:.24em;color:rgba(239,227,250,.5)}
+  .photo{flex:1;background:linear-gradient(150deg,#3B2358,#150A22 65%);border:1px solid rgba(217,169,78,.35);
+    display:grid;place-items:center;position:relative;overflow:hidden}
+  .photo:before{content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(114deg, rgba(217,169,78,.13) 0 1px, transparent 1px 7px);
+    -webkit-mask-image:radial-gradient(circle at 62% 40%, #000 8%, transparent 62%);
+    mask-image:radial-gradient(circle at 62% 40%, #000 8%, transparent 62%);}
+  .engraved{position:absolute;inset:0;background:
+    repeating-conic-gradient(from 0deg at 50% 50%, rgba(217,169,78,.16) 0deg .5deg, transparent .5deg 4deg);
+    opacity:.5;pointer-events:none}
+  .denom{font-family:'Cinzel',serif;font-size:26px;color:var(--goldBright);font-weight:800}
+  .stamp-cap{font-family:'Cinzel',serif;font-size:15px;font-weight:700;letter-spacing:.28em;color:var(--gold);text-align:center;padding-top:11px}
+  /* canceller over the corner */
+  .postmark{position:absolute;right:-52px;bottom:56px;width:190px;height:190px;transform:rotate(-17deg);
+    display:grid;place-items:center;opacity:.92}
+  .postmark .o{position:absolute;inset:0;border:3px solid var(--goldBright);border-radius:50%}
+  .postmark .i{position:absolute;inset:11px;border:1.5px solid var(--goldBright);border-radius:50%}
+  .postmark .txt{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.16em;color:var(--goldBright);text-align:center;line-height:1.9}
+  .postmark .wave{position:absolute;top:50%;left:-16px;right:-16px;height:38px;
+    background:repeating-linear-gradient(90deg, var(--goldBright) 0 2px, transparent 2px 9px);
+    -webkit-mask-image:linear-gradient(180deg,#000,#000);opacity:.85;
+    transform:skewY(-7deg)}
+
+  /* sheet ruler */
+  .ruler{border-top:1px solid rgba(239,227,250,.13);display:flex;align-items:center;gap:30px;padding:0 46px}
+  .ticks{flex:1;height:26px;position:relative;
+    background-image:repeating-linear-gradient(90deg, rgba(239,227,250,.28) 0 1px, transparent 1px 60px)}
+  .chase{position:absolute;top:-1px;left:18%;width:3px;height:26px;background:var(--goldBright);
+    box-shadow:0 0 12px rgba(244,217,138,.8)}
+  .chase:after{content:"";position:absolute;top:-5px;left:-3px;border:4.5px solid transparent;border-top-color:var(--goldBright)}
+  .ruler b{font-size:11px;font-weight:700;letter-spacing:.24em;color:rgba(239,227,250,.45)}
+  .ruler b.on{color:var(--goldBright)}
+</style>
+</head>
+<body>
+  <header>
+    <div class="mark"><span class="chip"></span><b>SARAH</b><i>&nbsp;·&nbsp;ALBUM</i></div>
+    <nav><span>THE LETTER</span><span class="act">SHEET I</span><span>THE GALLERY</span></nav>
+  </header>
+  <div style="display:flex;flex-direction:column">
+    <div class="perf-x"></div>
+    <main>
+      <section class="left">
+        <div class="cancel">
+          <span class="ring"><b>14<br>MAR</b></span>
+          <p>CANCELLED ON FIRST READING</p>
+        </div>
+        <h1><span class="l1">FOR SARAH,</span><br><span class="l2">ON HER</span><br><span class="l3">BIRTHDAY</span></h1>
+        <div class="rule"></div>
+        <p class="sub">Everything I could not say out loud at the table, printed small, cancelled, and kept in one place for you to find later.</p>
+        <div class="acts">
+          <span class="plate">OPEN THE GALLERY</span>
+          <span class="plate alt">SKIP TO THE LETTER</span>
+        </div>
+      </section>
+      <section class="stage">
+        <div class="stamp">
+          <div class="stamp-in">
+            <div class="row"><span class="denom">25</span><i>ISSUE No. 01</i></div>
+            <div class="photo"><div class="engraved"></div></div>
+            <div class="stamp-cap">HER</div>
+          </div>
+        </div>
+        <div class="postmark"><span class="o"></span><span class="i"></span><span class="wave"></span><span class="txt">FIRST DAY<br>OF ISSUE<br>2026</span></div>
+      </section>
+    </main>
+  </div>
+  <div class="ruler">
+    <b class="on">SHEET 01</b>
+    <span class="ticks"><span class="chase"></span></span>
+    <b>36 FRAMES · ONE EXPOSURE</b>
+  </div>
+</body>
+</html>

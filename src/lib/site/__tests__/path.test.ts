@@ -12,8 +12,8 @@ import type { Site } from "../schema";
 
 describe("getAtPath", () => {
   it("reads a nested value", () => {
-    expect(getAtPath(defaultSite(), "identity.name")).toBe("Sample Site");
-    expect(getAtPath(defaultSite(), "home.hero.lines.0")).toBe("Your headline here");
+    expect(getAtPath(defaultSite(), "identity.name")).toBe("Her name");
+    expect(getAtPath(defaultSite(), "home.hero.lines.0")).toBe("Annoyingly,");
   });
 
   it("returns undefined rather than throwing on a missing path", () => {
@@ -262,8 +262,31 @@ describe("paths used by the dashboard", () => {
     ["gallery.outro.aside", "string"],
     ["gallery.outro.backLabel", "string"],
     ["theme", "string"],
+    ["template", "string"],
     ["ornaments.hero3d", "boolean"],
     ["ornaments.particles", "boolean"],
+    ["modern.hero.eyebrow", "string"],
+    ["modern.hero.lines", "array"],
+    ["modern.hero.subline", "string"],
+    ["modern.hero.ctaLabel", "string"],
+    ["modern.hero.scrollHint", "string"],
+    ["modern.letter.kicker", "string"],
+    ["modern.letter.text", "string"],
+    ["modern.letter.signoff", "string"],
+    ["modern.strip.eyebrow", "string"],
+    ["modern.strip.heading", "string"],
+    ["modern.strip.note", "string"],
+    ["modern.archive.eyebrow", "string"],
+    ["modern.archive.heading", "string"],
+    ["modern.archive.note", "string"],
+    ["modern.archive.ctaLabel", "string"],
+    ["modern.gallery.eyebrow", "string"],
+    ["modern.gallery.lines", "array"],
+    ["modern.gallery.blurb", "string"],
+    ["modern.gallery.backLabel", "string"],
+    ["modern.closing.heading", "string"],
+    ["modern.closing.copy", "string"],
+    ["modern.closing.signature", "string"],
   ];
 
   it.each(cases)("%s exists and is a %s", (path, kind) => {

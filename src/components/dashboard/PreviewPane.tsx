@@ -35,7 +35,7 @@ type Incoming = { type: typeof MSG_PREVIEW_READY };
 type EditMessage = { type: typeof MSG_PREVIEW_EDIT; path: string; value: string };
 type EditingMessage = { type: typeof MSG_PREVIEW_EDITING; editing: boolean };
 
-const DEVICE_WIDTH = { desktop: "100%", phone: "390px" } as const;
+const DEVICE_WIDTH = { desktop: "100%", tablet: "768px", phone: "390px" } as const;
 type Device = keyof typeof DEVICE_WIDTH;
 
 export default function PreviewPane({
@@ -169,6 +169,14 @@ const data = event.data as Partial<Incoming> | Partial<EditMessage>;
             onClick={() => onDeviceChange("desktop")}
           >
             Wide
+          </button>
+          <button
+            type="button"
+            className="btn btn-icon"
+            aria-pressed={device === "tablet"}
+            onClick={() => onDeviceChange("tablet")}
+          >
+            Tablet
           </button>
           <button
             type="button"

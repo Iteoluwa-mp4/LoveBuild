@@ -1,0 +1,125 @@
+{
+  "title": "Choose the visual world for the classic template",
+  "question": "The roll assigned The First-Day Album. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "The First-Day Album",
+      "kicker": "THE ROLL",
+      "lineage": "engraved postage, first-day covers, hand cancellation",
+      "thesis": "Her life as a collector's album of stamps, cancelled by hand on the day each one arrived.",
+      "palette": ["#0E0518", "#D9A94E", "#F4D98A", "#C9A6E8"],
+      "materials": ["intaglio engraving", "perforated album leaf"],
+      "viewport": "A perforated leaf: her name in engraved Roman capitals at left, one enormous stamp at right carrying her photograph, canceller ring struck across its corner.",
+      "risk": "Engraved line-work drifts toward the printed-broadsheet default unless the perforation and the canceller keep working.",
+      "raised": [
+        { "from": "challenger-session-sleeve", "raise": "One flat field now owns whole regions outright and the page changes colour band by band — adopted from the session sleeve." },
+        { "from": "challenger-hand-processed-film", "raise": "Every mark belongs to one item and never to the sheet: each stamp carries its own ink weight and its own imperfection, and nothing ever washes the whole page." },
+        { "from": "challenger-colour-chords", "raise": "Two marks coinciding make a third value: where her name and his cancel over the same corner, the system holds a double-cancelled state worth more than the sum of the two." },
+        { "from": "challenger-neubrutalism", "raise": "One bounded geometry without exception: every element is a rectangle on a locked sheet grid, and the perforated edge is the only curve the page is allowed." },
+        { "from": "challenger-depot-blind", "raise": "Nothing glides: every state change snaps once, overshoots and settles — the page's single motion law." },
+        { "from": "challenger-step-row", "raise": "One travelling mark always says where you are: the canceller bar crosses the sheet ruler as she reads, and it is the only thing on the page that moves on its own." }
+      ],
+      "html": ".impeccable/mocks/decision/assigned.html"
+    },
+    {
+      "id": "model-pick",
+      "label": "The Contact Sheet",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "35mm contact sheets, grease pencil, frame numbering",
+      "thesis": "The whole gift as one sheet of numbered frames, with the frames she chose ringed in grease pencil.",
+      "palette": ["#0B0B0D", "#E8C37A", "#F2F0EC", "#B08C3E"],
+      "materials": ["photographic emulsion", "grease pencil"],
+      "viewport": "A sprocket margin down the left edge and a four-by-three grid of frames at right, one circled, the headline stacked in condensed caps beside it.",
+      "risk": "This is where most runs in this category land: a dark photographic grid is the obvious home for a site made of photographs.",
+      "html": ".impeccable/mocks/decision/model-pick.html"
+    },
+    {
+      "id": "challenger-session-sleeve",
+      "label": "The Session Sleeve",
+      "verdict": "competitive",
+      "lineage": "Blue Note session sleeves, duotone print, flat spot colour",
+      "thesis": "Each memory as a record sleeve: one flat field carrying the page, a photograph cropped hard into its corner.",
+      "palette": ["#D9A94E", "#F4D98A", "#150A22"],
+      "materials": ["duotone halftone", "flat spot colour"],
+      "viewport": "A single saturated field owns the whole viewport, the headline tilted across it, a duotone photograph cut off by a hard diagonal at the right.",
+      "case": "Fuses cleanly: the flat band maps one-to-one onto a theme accent and survives all five dark presets. Loses on audience identification — angled caps and duotone read cool and remote for a letter a man writes to his sister-in-law.",
+      "risk": "Reads as a record sleeve the moment the type tilts, which is not the register this product speaks in.",
+      "hero": "https://impeccable.style/worlds/cards/posters-covers-sleeves-blue-note-session-sleeve-hero.webp",
+      "html": ".impeccable/mocks/decision/challenger-session-sleeve.html"
+    },
+    {
+      "id": "challenger-hand-processed-film",
+      "label": "Hand-Processed 16mm",
+      "verdict": "declined",
+      "lineage": "hand-processed 16mm, sprocket margins, light leaks",
+      "thesis": "The reel as physical evidence: a strip that runs, every clip carrying its own processing damage.",
+      "palette": ["#0E0518", "#C7C2B8", "#E4551F"],
+      "materials": ["silver emulsion", "chemical stain"],
+      "case": "Declined on both axes. The schema already calls the gallery films and stills, so it fuses almost too well — and that is the failure: a film reel with sprocket margins is the world this template already has, so building it would polish the look the remodel exists to replace.",
+      "kept": "Every artifact belongs to one frame, never to the whole page — raised on the assigned direction.",
+      "hero": "https://impeccable.style/worlds/cards/cinema-cinematography-editing-hand-processed-film-bloom-hero.webp"
+    },
+    {
+      "id": "challenger-colour-chords",
+      "label": "The Colour-Chord Canopy",
+      "verdict": "declined",
+      "lineage": "overlapping dyed silk, computed chord states",
+      "thesis": "Two lives as translucent bands whose overlap produces a colour neither has alone.",
+      "palette": ["#3B2E6B", "#8A4B2A", "#D9A94E", "#F4F0E4"],
+      "materials": ["translucent silk", "crossed light"],
+      "case": "Declined on both axes. The idea of two lives overlapping is true to the product and beautiful, but an art installation with solo and align controls is not what a man opens for his sister-in-law at eleven at night.",
+      "kept": "Two marks coinciding make a third value that is more than the sum of the two — raised on the assigned direction.",
+      "hero": "https://impeccable.style/worlds/cards/generative-art-computational-color-chord-counterpoint-hero.webp"
+    },
+    {
+      "id": "challenger-neubrutalism",
+      "label": "Award-Grade Neubrutalism",
+      "verdict": "declined",
+      "lineage": "outlined blocks, hard offset shadows, locked grid",
+      "thesis": "Everything outlined, everything on the grid, nothing gliding.",
+      "palette": ["#F4F0E4", "#111111", "#E8452C", "#1B2A52"],
+      "materials": ["unmodulated poster stock", "true black outline"],
+      "case": "Declined on both axes. A loud outlined grid fights the standing commitment that the author's words lead and the interface does not compete, and its clashing solids would read as a joke inside a birthday letter.",
+      "kept": "One bounded geometry enforced without exception — raised on the assigned direction.",
+      "hero": "https://impeccable.style/worlds/cards/neubrutalism-award-grade-hero.webp"
+    },
+    {
+      "id": "challenger-depot-blind",
+      "label": "Depot Blind Courses",
+      "verdict": "declined",
+      "lineage": "destination blind, dyed duck cloth, stepped courses",
+      "thesis": "Content stepping under a fixed window on a roll, overshooting once and settling.",
+      "palette": ["#1E3A2B", "#F2C400", "#EFE9DC"],
+      "materials": ["bias-cut duck cloth", "chrome-yellow legend"],
+      "case": "Declined on both axes. This is an operating surface's costume handed to a reading one: a monitoring blind with fault states and a destination legend has no identification with a reader at all, and its vocabulary is all wrong.",
+      "kept": "Nothing glides — every change snaps one step, overshoots, and settles — raised on the assigned direction.",
+      "hero": "https://impeccable.style/worlds/cards/operate-c-depot-blind-courses-hero.webp"
+    },
+    {
+      "id": "challenger-step-row",
+      "label": "The Step Row",
+      "verdict": "declined",
+      "lineage": "early rhythm machine, pattern banks, running chase light",
+      "thesis": "The memories as a sixteen-step row with one chase light always telling you where now is.",
+      "palette": ["#17181A", "#E23A2E", "#F0B429", "#F4F2EC"],
+      "materials": ["charcoal panel", "lit LED"],
+      "case": "Declined on both axes. The chase light is a genuinely good piece of wayfinding and the keys are a fine metaphor for one thing at a time, but a sequencer running underneath a birthday letter puts a machine's pulse where a person's voice belongs.",
+      "kept": "One travelling mark that always says where you are — raised on the assigned direction.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-drum-machine-step-row-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code" },
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "What a birthday site always ships: centred serif headline on a purple wash, glossy gold button, three glass cards.",
+    "palette": ["#150A22", "#EFE3FA", "#D9A94E", "#5B2A86"],
+    "materials": ["gradient wash", "frosted glass"],
+    "viewport": "A centred hero with a gold gradient button over a row of equal rounded cards — the arrangement a visitor expects, executed without a trace of irony.",
+    "risk": "Indistinguishable from every other site in the category, by design.",
+    "html": ".impeccable/mocks/decision/canon.html"
+  },
+  "steer": true
+}

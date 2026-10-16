@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import { defaultSite, emptySite, findSampleText, isSampleText, sampleTextLabel } from "../default";
 import { findIssues, findSampleIssues, hasContent } from "../derive";
 import type { Site } from "../schema";
@@ -15,13 +14,13 @@ import type { Site } from "../schema";
 
 describe("isSampleText", () => {
   it("recognises a field still holding its wording", () => {
-    expect(isSampleText("identity.name", "Sample Site")).toBe(true);
+    expect(isSampleText("identity.name", "Her name")).toBe(true);
     expect(isSampleText("home.hero.primaryCta", "Open the gallery")).toBe(true);
   });
 
   /** Trimmed, so trailing whitespace from a paste does not defeat the check. */
   it("ignores surrounding whitespace", () => {
-    expect(isSampleText("identity.name", "  Sample Site  ")).toBe(true);
+    expect(isSampleText("identity.name", "  Her name  ")).toBe(true);
   });
 
   it("does not fire once the wording is replaced", () => {
@@ -65,7 +64,7 @@ describe("findSampleText", () => {
     const before = findSampleText(site).length;
 
     site.identity.name = "Sarah";
-    site.home.hero.lines[0] = "Annoyingly";
+    site.home.hero.lines[0] = "Annoying";
     site.home.quote.text = "Something she said";
 
     const after = findSampleText(site);

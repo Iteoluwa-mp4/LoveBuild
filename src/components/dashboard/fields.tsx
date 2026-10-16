@@ -137,6 +137,74 @@ export function ToggleField({
 }
 
 /* ------------------------------------------------------------------ *
+ * TEMPLATE
+ * ------------------------------------------------------------------ */
+
+/**
+ * The template list, defined next to the picker rather than in the schema.
+ *
+ * A template is a layout plus a sentence about what it is like, and only the
+ * dashboard needs either. The schema carries the ids alone — a `description`
+ * field there would be stored on every config forever and shown nowhere.
+ */
+const TEMPLATES: ReadonlyArray<{ id: string; label: string; note: string }> = [
+  {
+    id: "classic",
+    label: "Classic",
+    note: "Gold on deep purple. The original — headline, photos, a letter.",
+  },
+  {
+    id: "modern",
+    label: "Modern",
+    note: "Wide type and a drifting sphere. Photos become a filmstrip and an orbit.",
+  },
+];
+
+/**
+ * Which layout the site uses.
+ *
+ * Deliberately a separate control from the theme picker above it, and the two
+ * are orthogonal: any template works with any theme. Combining them into one
+ * "style" list would mean eight presets to choose between and no way to keep a
+ * layout you like while changing the colour.
+ *
+ * Switching is non-destructive and nothing is seeded on the way through. The
+ * photographs live in `home.moments` and both templates read them, so the
+ * modern template can be tried, judged, and abandoned with the uploads intact —
+ * which is the only way anyone can decide whether they prefer it.
+ */
+export function TemplatePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="field">
+      <span className="field-label">Template</span>
+      <div className="theme-grid">
+        {TEMPLATES.map((template) => (
+          <button
+            key={template.id}
+            type="button"
+            className="theme-card"
+            aria-pressed={value === template.id}
+            onClick={() => onChange(template.id)}
+          >
+            <span className="theme-name">{template.label}</span>
+            <span className="field-hint">{template.note}</span>
+          </button>
+        ))}
+      </div>
+      <p className="field-hint">
+        Colours are set separately below — any theme works with either template.
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * THEME
  * ------------------------------------------------------------------ */
 

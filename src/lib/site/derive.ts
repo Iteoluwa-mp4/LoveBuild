@@ -1,4 +1,4 @@
-import type { Issue, Site } from "./schema";
+import type { Issue, Moment, Site } from "./schema";
 import { findSampleText, sampleTextLabel } from "./default";
 import { findSubmissionIssues } from "./schema";
 import { countLabel } from "../format";
@@ -223,6 +223,64 @@ export function visibleBlocks(site: Site): SiteBlocks {
 
 /** How many empty slots to show when a media section has nothing in it yet. */
 export const EMPTY_SLOT_COUNT = 2;
+
+/* ------------------------------------------------------------------ *
+ * MODERN TEMPLATE
+ * ------------------------------------------------------------------ */
+
+/**
+ * One moment, in the shape the modern template's components expect.
+ *
+ * The mapping, and why each field lands where it does:
+ *
+ *   - `label`   <- `tag`, falling back to the position, so the strip and the
+ *                 index always have a name to show.
+ *   - `caption` <- `caption`, the short line.
+ *   - `note`    <- `secret`, the longer reveal. In the classic template this is
+ *                 what a tap uncovers; in the modern gallery it is the detail
+ *                 panel. Same words, different surface — which is the point of
+ *                 sharing the list rather than duplicating it.
+ *   - `image`   <- `url`, or the generated placeholder when there is no upload.
+ *
+ * That last one is the reason this function exists at all rather than a filter:
+ * a moment with no photo still has to appear, or an author mid-upload would see
+ * the strip silently lose a slice. The generated frame keeps its slot and its
+ * index, so filling in the photo is an edit rather than a repair.
+ */
+export type ModernMemory = {
+  label: string;
+  caption: string;
+  note: string;
+  image: string;
+};
+
+/** The placeholder frame for a moment with no photo yet. */
+function placeholderImage(moment: Moment, index: number): string {
+  const label = (momentTag(moment.tag, index) || "moment").toUpperCase();
+  const number = pad(index + 1);
+
+  // A generated SVG rather than a blank box, so an unfilled slot still reads as
+  // part of the design. Same reasoning as MediaPlaceholder, but this one has to
+  // look like a photograph because it is being handed to a WebGL texture loader
+  // that will happily render nothing at all.
+  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='640' viewBox='0 0 900 640'%3E%3Crect width='900' height='640' fill='%23090814'/%3E%3Ctext x='450' y='330' font-family='Arial,sans-serif' font-size='120' font-weight='700' fill='%23ffffff' opacity='.9' text-anchor='middle'%3E${number}%3C/text%3E%3Ctext x='450' y='390' font-family='Arial,sans-serif' font-size='24' letter-spacing='4' fill='%23ffffff' opacity='.6' text-anchor='middle'%3E${label}%3C/text%3E%3C/svg%3E`;
+}
+
+/**
+ * The site's moments, in the modern template's shape.
+ *
+ * Reads `home.moments` rather than anything under `modern`, which is what makes
+ * a template switch non-destructive: the photographs are the one thing both
+ * templates must agree on, so there is only one copy of them.
+ */
+export function modernMemories(site: Site): ModernMemory[] {
+  return site.home.moments.map((moment, index) => ({
+    label: momentTag(moment.tag, index),
+    caption: moment.caption,
+    note: moment.secret,
+    image: moment.image.url.trim() || placeholderImage(moment, index),
+  }));
+}
 
 /* ------------------------------------------------------------------ *
  * OUTLINE

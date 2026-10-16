@@ -16,6 +16,7 @@ import { blocky, glassPurple } from "../../../lib/shape";
 
 /** three.js is lazy so it never lands in the initial bundle. */
 const HeartDiamond = lazy(() => import("./ornaments/HeartDiamond"));
+const GoldParticles = lazy(() => import("./ornaments/GoldParticles"));
 
 /**
  * Everything GSAP is imported from here, by name.
@@ -90,6 +91,24 @@ export default function HomePage({ site, basePath }: { site: Site; basePath: str
   return (
     <>
       <div ref={pageRef} className="bg-void text-content overflow-hidden">
+        {/*
+          The gold particle field, as an underlay for the whole page.
+
+          `fixed`, not absolute: it has to stay behind every section rather than
+          only the hero, so the depth reads as one continuous field the reader is
+          looking through the whole way down instead of an effect that stops where
+          the first viewport ends. `pointer-events-none` because it spans the
+          document and nothing in it is interactive.
+
+          Sits above the page's own background but below every section, so the
+          hero gradients wash over it rather than it washing over the type.
+        */}
+        {site.ornaments.particles && (
+          <Suspense fallback={null}>
+            <GoldParticles className="fixed inset-0 z-0 opacity-40 pointer-events-none" />
+          </Suspense>
+        )}
+
         {blocks.hero && (
           <section className="relative h-svh min-h-170 w-full overflow-hidden">
             <div className="absolute inset-0 bg-[image:var(--theme-grad-hero-bg)]" />
@@ -164,7 +183,6 @@ export default function HomePage({ site, basePath }: { site: Site; basePath: str
                 <Suspense fallback={null}>
                   <HeartDiamond
                     className="fh-orb absolute inset-0 m-auto md:relative md:inset-auto md:m-0 h-[70vw] w-[70vw] max-w-[340px] max-h-[340px] md:h-[460px] md:w-[460px] lg:h-[540px] lg:w-[540px] pointer-events-none md:pointer-events-auto z-0 opacity-40 md:opacity-100 flex-shrink-0"
-                    pointerParallax={false}
                   />
                 </Suspense>
               )}

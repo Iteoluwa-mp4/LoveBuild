@@ -3,9 +3,9 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 import SphereGallery3D from "../../originkit/ui/sphere-gallery-3d";
+import EditableText from "../shared/EditableText";
 import {
   AmbientField,
-  MEMORIES,
   MODERN_BASE_CSS,
   MODERN_FONT_IMPORT,
   ModernFooter,
@@ -13,6 +13,9 @@ import {
   sphereItems,
 } from "./shared";
 import { modernPaths } from "./paths";
+import { modernMemories } from "../../../lib/site/derive";
+import { cssColorNumber } from "../classic/ornaments/themeColor";
+import type { Site } from "../../../lib/site/schema";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -31,12 +34,19 @@ gsap.registerPlugin(ScrollTrigger);
  * the archive reads as the same object seen from further out rather than as a
  * second gallery.
  */
-export default function ModernGallery() {
+export default function ModernGallery({ site, basePath }: { site: Site; basePath: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
 
-  const items = useMemo(() => sphereItems(), []);
-  const paths = useMemo(() => modernPaths(), []);
+  // The site's own moments, so this archive and the home page's strip are the
+  // same photographs in two arrangements.
+  // See the note on the home page: keyed on the moments, not on `site`, so the
+  // sphere's image list is not rebuilt on every keystroke in the preview.
+  const memories = useMemo(() => modernMemories(site), [site.home.moments]);
+  const items = useMemo(() => sphereItems(memories), [memories]);
+  const paths = useMemo(() => modernPaths(basePath), [basePath]);
+
+  const { gallery, closing } = site.modern;
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -71,33 +81,68 @@ export default function ModernGallery() {
   }, []);
 
   /** The memory currently opened in the detail panel. */
-  const current = active === null ? null : MEMORIES[active];
+  const current = active === null ? null : memories[active];
 
   return (
     <div ref={rootRef} className="site-shell">
       <AmbientField />
       <div className="grain" />
-      <TopBar active="gallery" status="archive open / 04 signals" paths={paths} />
+      <TopBar
+          active="gallery"
+          status={`archive open / ${String(memories.length).padStart(2, "0")} signals`}
+          paths={paths}
+        />
 
       <main id="top">
         <section className="archive-lead">
           <p className="eyebrow">
-            <span className="eyebrow-line" /> the complete archive
+            <span className="eyebrow-line" />
+            <EditableText
+              path="modern.gallery.eyebrow"
+              value={gallery.eyebrow}
+              placeholder="the complete archive"
+              maxLength={60}
+            />
           </p>
           <h1 className="archive-title">
-            <span className="word">Every</span> <em>orbit</em>
+            <EditableText
+              as="span"
+              className="word"
+              path="modern.gallery.lines.0"
+              value={gallery.lines[0] ?? ""}
+              placeholder="Every"
+              maxLength={60}
+            />{" "}
+            <em>
+              <EditableText
+                path="modern.gallery.lines.1"
+                value={gallery.lines[1] ?? ""}
+                placeholder="orbit"
+                maxLength={60}
+              />
+            </em>
             <br />
-            <span className="word">we ever</span>
-            <br />
-            <span className="word accent-word">ran.</span>
+            <EditableText
+              as="span"
+              className="word accent-word"
+              path="modern.gallery.lines.2"
+              value={gallery.lines[2] ?? ""}
+              placeholder="we ever ran."
+              maxLength={60}
+            />
           </h1>
           <div className="lead-foot">
-            <p className="lead-copy">
-              Four signals, kept in order. Drag the sphere, or open any one of
-              them below for the longer version.
-            </p>
+            <EditableText
+              as="p"
+              className="lead-copy"
+              multiline
+              path="modern.gallery.blurb"
+              value={gallery.blurb}
+              placeholder="Kept in order. Drag the sphere, or open any one for the longer version."
+              maxLength={500}
+            />
             <span className="count mono">
-              {String(MEMORIES.length).padStart(2, "0")} / total
+              {String(memories.length).padStart(2, "0")} / total
             </span>
           </div>
         </section>
@@ -122,8 +167,8 @@ export default function ModernGallery() {
               rounded={20}
               core={{
                 coreSize: 22,
-                coreColor: "#ffb8d466",
-                lineColor: "#a17baf4d",
+                coreColor: `${cssColorNumber("gold-bright", 0xffb8cb).toString(16).padStart(6, "0")}66`,
+                lineColor: `${cssColorNumber("purple", 0xa17baf).toString(16).padStart(6, "0")}4d`,
               }}
             />
           </div>
@@ -131,9 +176,9 @@ export default function ModernGallery() {
 
         <section className="archive-index reveal">
           <div className="memory-index">
-            {MEMORIES.map((memory, index) => (
+            {memories.map((memory, index) => (
               <button
-                key={memory.label}
+                key={`${index}-${memory.label}`}
                 type="button"
                 className="memory-row"
                 aria-expanded={active === index}
@@ -183,17 +228,31 @@ export default function ModernGallery() {
           <p className="eyebrow">
             <span className="eyebrow-line" /> end of archive
           </p>
-          <h2>
-            That is
-            <br />
-            <em>all of it.</em>
-          </h2>
-          <p className="closing-copy">
-            Nothing is hidden. Nothing is on a timer. Go back as often as you
-            like.
-          </p>
+          <EditableText
+            as="h2"
+            multiline
+            path="modern.closing.heading"
+            value={closing.heading}
+            placeholder="That is all of it."
+            maxLength={200}
+          />
+          <EditableText
+            as="p"
+            className="closing-copy"
+            multiline
+            path="modern.closing.copy"
+            value={closing.copy}
+            placeholder="Nothing is hidden. Nothing is on a timer. Go back as often as you like."
+            maxLength={500}
+          />
           <a className="open-button" href={paths.home}>
-            Return home <span>↗</span>
+            <EditableText
+              path="modern.gallery.backLabel"
+              value={gallery.backLabel}
+              placeholder="Return home"
+              maxLength={40}
+            />{" "}
+            <span aria-hidden="true">↗</span>
           </a>
         </section>
       </main>
@@ -210,7 +269,7 @@ export default function ModernGallery() {
                 }
                 .archive-title { font-size:clamp(58px,8.4vw,132px); letter-spacing:-.08em; line-height:.88; margin:0; font-weight:700; }
                 .archive-title em { font-family:'Playfair Display',serif; font-weight:500; letter-spacing:-.07em; color:var(--pink); }
-                .accent-word { color:#eee4e7; }
+                .accent-word { color:var(--theme-text, #eee4e7); }
                 .lead-foot { display:flex; align-items:flex-end; justify-content:space-between; gap:32px; margin:44px 0 0 8px; flex-wrap:wrap; }
                 .lead-copy { max-width:420px; margin:0; color:var(--muted); line-height:1.7; font-size:14px; }
                 .count { color:var(--pink); }
@@ -239,8 +298,8 @@ export default function ModernGallery() {
                   padding:20px 14px 34px; display:flex; flex-direction:column; gap:8px;
                   transition:background .25s, border-color .25s;
                 }
-                .memory-row:hover { background:rgba(255,184,203,.05); }
-                .memory-row[aria-expanded='true'] { background:rgba(255,184,203,.09); border-bottom-color:var(--pink); }
+                .memory-row:hover { background:var(--theme-accent-wash-2, rgba(255,184,203,.05)); }
+                .memory-row[aria-expanded='true'] { background:var(--theme-accent-wash-3, rgba(255,184,203,.09)); border-bottom-color:var(--pink); }
                 .memory-row > span:first-child { color:var(--pink); }
                 .memory-row strong { font-family:'Manrope',sans-serif; text-transform:none; letter-spacing:0; font-size:13px; font-weight:700; }
                 .memory-row small { color:var(--faint); text-transform:none; letter-spacing:0; font:12px/1.45 'Manrope',sans-serif; }
@@ -253,25 +312,25 @@ export default function ModernGallery() {
                   grid-template-columns:1fr;
                   animation:detailIn .5s ease-out;
                 }
-                .memory-detail figure { margin:0; border:1px solid var(--line); overflow:hidden; background:var(--bg); }
+                .memory-detail figure { margin:0; border:1px solid var(--line); overflow:hidden; background:var(--theme-panel-solid, var(--bg)); }
                 .memory-detail img { display:block; width:100%; height:auto; }
                 .memory-detail figcaption { display:flex; align-items:baseline; gap:14px; padding:14px 16px; border-top:1px solid var(--line); }
                 .memory-detail figcaption span { color:var(--pink); }
                 .memory-detail figcaption strong { font-family:'Manrope',sans-serif; font-size:13px; letter-spacing:0; text-transform:none; }
 
                 .detail-copy h2 { font-size:clamp(32px,4vw,58px); letter-spacing:-.06em; line-height:1; margin:0 0 20px; }
-                .detail-caption { font-family:'Playfair Display',serif; font-style:italic; font-size:clamp(19px,2vw,25px); line-height:1.4; color:#f3e8eb; margin:0 0 18px; }
+                .detail-caption { font-family:'Playfair Display',serif; font-style:italic; font-size:clamp(19px,2vw,25px); line-height:1.4; color:var(--ink); margin:0 0 18px; }
                 .detail-note { color:var(--muted); font-size:14px; line-height:1.7; max-width:44ch; margin:0 0 30px; }
 
                 .close-detail {
                   display:inline-flex; align-items:center; gap:26px;
-                  border:1px solid rgba(255,184,203,.75); color:var(--ink);
-                  background:rgba(255,184,203,.08); padding:15px 18px;
+                  border:1px solid var(--accent-edge); color:var(--ink);
+                  background:var(--accent-wash); padding:15px 18px;
                   cursor:pointer; transition:.25s; font:inherit;
                 }
-                .close-detail:hover { background:var(--pink); color:#1b0e18; }
+                .close-detail:hover { background:var(--pink); color:var(--theme-on-gold, #1b0e18); }
                 .close-detail span { color:var(--pink); }
-                .close-detail:hover span { color:#1b0e18; }
+                .close-detail:hover span { color:var(--theme-on-gold, #1b0e18); }
 
                 .closing-section {
                   max-width:1100px; text-align:center; padding:12vh 5vw 18vh; margin:auto;
@@ -285,13 +344,13 @@ export default function ModernGallery() {
 
                 .open-button {
                   display:inline-block;
-                  border:1px solid rgba(255,184,203,.75); color:var(--ink);
-                  background:rgba(255,184,203,.08); padding:15px 18px;
+                  border:1px solid var(--accent-edge); color:var(--ink);
+                  background:var(--accent-wash); padding:15px 18px;
                   cursor:pointer; transition:.25s; font:inherit;
                 }
-                .open-button:hover { background:var(--pink); color:#1b0e18; }
+                .open-button:hover { background:var(--pink); color:var(--theme-on-gold, #1b0e18); }
                 .open-button span { margin-left:26px; color:var(--pink); }
-                .open-button:hover span { color:#1b0e18; }
+                .open-button:hover span { color:var(--theme-on-gold, #1b0e18); }
 
                 @keyframes detailIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
 

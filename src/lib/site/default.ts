@@ -42,32 +42,59 @@ export function createDraft(slug: string): Site {
  * ------------------------------------------------------------------ */
 
 /**
- * Placeholder copy, so the layout can be seen with something in it.
+ * Placeholder copy, so the layout can be seen with something in it — and so
+ * whoever fills it in has something to start from.
  *
- * This is deliberately NOT one person's birthday site. That content was removed,
- * and putting equivalent wording back would defeat the point. What lives here is
- * instructional instead — each line says what belongs in that slot, which is more
- * use to whoever fills it in than lorem ipsum and far more use than the original.
+ * ## What this copy is for
  *
- * Media slots are deliberately left empty so the placeholders show. That is the
- * point of the sample: you can see where a photo or a video goes without anyone
- * else's picture ending up in the repository.
+ * Not lorem ipsum, and not field names. Every line is written as though someone
+ * who actually loves her were saying it, because that is the only version of
+ * this that helps. "Add your quote here" tells the reader nothing except that a
+ * quote belongs in the slot; a real sentence tells them the *tone* to aim for,
+ * roughly how long it should be, and that the layout will hold a whole thought
+ * rather than three words.
+ *
+ * It is written about the act of keeping a record of someone — which is what
+ * this site is — rather than about any particular relationship. That is
+ * deliberate. Earlier revisions used one person's real birthday copy, and it had
+ * to be removed: the next person should not inherit a stranger's words, and a
+ * template that ships someone else's love letter is worse than one that ships
+ * nothing.
+ *
+ * Media slots are left empty so the placeholders show. You can see where a photo
+ * or a video goes without anyone's picture ending up in the repository.
  *
  * `findSampleText` compares against this, so anything left untouched is flagged
- * rather than quietly shipped.
+ * rather than quietly shipped. The wording is deliberately specific for that
+ * reason — a real person's line will not read "Ordinary Tuesday. Nothing
+ * happened at all.", so it can never be mistaken for the placeholder.
  */
-function sample(): Site {
+/**
+ * Exported so the standalone template previews can render against it.
+ *
+ * `/templates/modern` is a development surface for the modern layout rather
+ * than a second copy of the site, and it needs a config to render. The seed is
+ * the right one: it is already instructional copy with empty media slots, which
+ * is exactly what a layout preview wants to show.
+ */
+export function sample(): Site {
   return siteSchema.parse({
     slug: SEED_SLUG,
     theme: defaultThemeId,
 
-    identity: { name: "Sample Site" },
+    identity: { name: "Her name" },
 
     home: {
       hero: {
-        lines: ["Your headline here", "A second line", "And a third"],
+        /*
+          Three lines because the layout reveals them in sequence and the last
+          one carries the accent. The rhythm — two short, then a longer one — is
+          the thing worth borrowing from; a real site usually wants two lines,
+          and the third can simply be left blank.
+        */
+        lines: ["Annoyingly,", "impossibly,", "the favourite one."],
         subline:
-          "One or two sentences about why this is for her. Keep it short — it is the first thing she reads.",
+          "Every photograph, every ridiculous moment, every reason I could not think of a better use of a weekend — all of it in one place, because you deserve better than a camera roll.",
         primaryCta: "Open the gallery",
         secondaryCta: "Keep scrolling",
       },
@@ -77,43 +104,86 @@ function sample(): Site {
           id: cryptoId(),
           tag: "",
           date: "",
-          caption: "A caption she reads before she taps",
-          secret: "The hidden message, revealed when she taps the photo.",
+          /*
+            The caption is what she reads before tapping; the secret is what is
+            underneath. Written as a matched pair so the two halves demonstrate
+            the relationship between them — a public prompt and a private aside.
+          */
+          caption: "Do you remember the night we missed the last train?",
+          secret:
+            "We blamed the timetable. Neither of us mentioned that neither of us wanted to go home yet.",
           image: emptyMedia(),
         },
         {
           id: cryptoId(),
           tag: "",
           date: "",
-          caption: "A second moment",
-          secret: "Something only the two of you would get.",
+          caption: "You, mid-argument, holding a cup of cold coffee.",
+          secret:
+            "You were completely wrong, by the way. You are still completely wrong about most things. I would not trade a single one of them.",
+          image: emptyMedia(),
+        },
+        {
+          id: cryptoId(),
+          tag: "",
+          date: "",
+          caption: "The first time you fell asleep on my shoulder.",
+          secret:
+            "I did not move for two hours. My arm went completely numb and I have never once minded.",
+          image: emptyMedia(),
+        },
+        {
+          id: cryptoId(),
+          tag: "",
+          date: "",
+          caption: "Ordinary Tuesday. Nothing happened at all.",
+          secret:
+            "That is why it is here. Most of what I love about you is nothing happening.",
           image: emptyMedia(),
         },
       ],
 
       quote: {
-        text: "Write the quote here. The last sentence is highlighted for you automatically.",
+        text: "You are ridiculous, and loud, and you have never once apologised for either.",
         truth: [
-          "Why this matters",
+          "Why I made this",
           "",
-          "This is the longer letter, hidden behind a button. A few short paragraphs is plenty — it is the part she will read twice.",
+          "There is a version of this letter that is all the big things — the year we met, the trip we took, the night I realised. I have written that letter about four times and it keeps coming out sounding like a wedding speech, which is not what this is.",
+          "",
+          "So this is the other version. The one made of ordinary afternoons and the specific things you do when you think nobody is watching. You hum when you cook and you always hum the wrong version. You text me back immediately when you say you will be late. You keep a photograph of my terrible haircut on your phone and have never once been asked to delete it.",
+          "",
+          "None of that is remarkable. That is rather the point. Most people only ever get the dramatic version of each other, and I have been lucky enough to also get the Tuesday one.",
+          "",
+          "I am not going anywhere, and you were never going to get rid of me anyway.",
         ].join("\n"),
-        author: "Your name",
-        authorSub: "A small line under your name",
+        author: "Me, obviously",
+        authorSub: "Written badly, at the right time",
         verdictLabel: "Verdict:",
         verdictValue: "10 / 10",
-        toggleReveal: "Show the letter",
+        toggleReveal: "Read the rest",
         toggleBack: "Back to the quote",
       },
 
       footer: {
         heading: "The real proof is in the videos.",
-        subline: "Press play and relive it.",
+        subline: "Press play. I have been warned about the sound.",
         ctaLabel: "Watch the gallery",
         cards: [
-          { id: cryptoId(), tag: "Clip 01", quote: "A short line about this clip." },
-          { id: cryptoId(), tag: "Clip 02", quote: "Another one-liner." },
-          { id: cryptoId(), tag: "Clip 03", quote: "And a third." },
+          {
+            id: cryptoId(),
+            tag: "Clip 01",
+            quote: "Evidence of you singing in the car, entirely convinced I cannot hear you.",
+          },
+          {
+            id: cryptoId(),
+            tag: "Clip 02",
+            quote: "The great microwave argument, settled on evidence neither of us had.",
+          },
+          {
+            id: cryptoId(),
+            tag: "Clip 03",
+            quote: "Why you have never once agreed to be filmed. I remain baffled.",
+          },
         ],
       },
     },
@@ -121,49 +191,141 @@ function sample(): Site {
     gallery: {
       hero: {
         eyebrow: "The gallery",
-        lineOne: "Every video worth",
-        lineTwo: "keeping.",
-        blurb: "A line introducing the reel. Optional, but it gives the page an opening.",
+        lineOne: "Every video",
+        lineTwo: "worth keeping.",
+        blurb:
+          "This is the part that made the whole thing worth building. A few clips, a few photographs, and one evening of me being told to stop filming.",
       },
 
       chapters: [
         {
           id: cryptoId(),
           label: "",
-          title: "First chapter",
-          blurb: "Name this part of the story. Chapters keep everything in order.",
+          title: "The first one",
+          blurb: "Where it starts, and why I could not stop talking about it.",
           films: [
             {
               id: cryptoId(),
-              title: "A video from this chapter",
-              note: "The line beside the clip. Write it to her, not about her.",
+              title: "You, on the platform, not noticing the photo",
+              note:
+                "I took about nine of these. This is the one where you are actually looking at something, which is why it is the one I kept.",
+              src: emptyMedia(),
+            },
+            {
+              id: cryptoId(),
+              title: "The terrible first toast",
+              note:
+                "You said 'to the best years of my life' and I choked on my drink laughing. Worth the cough.",
               src: emptyMedia(),
             },
           ],
-          stills: [{ id: cryptoId(), caption: "A photograph caption", src: emptyMedia() }],
+          stills: [
+            { id: cryptoId(), caption: "The receipt from that first dinner", src: emptyMedia() },
+            { id: cryptoId(), caption: "Proof that this was the good idea", src: emptyMedia() },
+          ],
         },
         {
           id: cryptoId(),
           label: "",
-          title: "Another chapter",
-          blurb: "Add as many as you like — they appear in this order.",
+          title: "Just us",
+          blurb: "The ones where nobody else was there to make it awkward.",
+          films: [],
+          stills: [
+            { id: cryptoId(), caption: "A completely ordinary morning", src: emptyMedia() },
+            { id: cryptoId(), caption: "You, asleep, not to be shared", src: emptyMedia() },
+            { id: cryptoId(), caption: "The view from the wrong side of the train", src: emptyMedia() },
+          ],
+        },
+        {
+          id: cryptoId(),
+          label: "",
+          title: "The ridiculous one",
+          blurb: "I will not be elaborating. You were there.",
           films: [
             {
               id: cryptoId(),
-              title: "And another video",
-              note: "Each clip gets its own title and note.",
+              title: "Explain the hat",
+              note:
+                "It is not an explanation, it is a list of increasingly worse excuses. You are still wearing it in the background of Clip 04.",
               src: emptyMedia(),
             },
           ],
-          stills: [],
+          stills: [
+            { id: cryptoId(), caption: "The hat, in its natural habitat", src: emptyMedia() },
+          ],
         },
       ],
 
       outro: {
-        lineOne: "That's the reel.",
+        lineOne: "That is the lot.",
         lineTwo: "For now.",
-        aside: "A small line under the closing words.",
+        aside: "Which is not a thing I would have said six years ago.",
         backLabel: "Back to the beginning",
+      },
+    },
+
+    /*
+      The modern template's copy, seeded the same way.
+
+      Instructional for the same reason the rest of this sample is, and with the
+      same caveat: `modern.hero.lines` is an array of three because the middle
+      one renders in the serif accent, so it is stored as three separate strings
+      rather than one line the layout would have to split.
+
+      No media here. The photographs come from `home.moments` above, which is the
+      point — one list, two templates, so switching between them keeps every
+      upload. Seeding a second set here would quietly reintroduce the split this
+      is meant to avoid.
+    */
+    modern: {
+      hero: {
+        /*
+          Three lines, and the middle one is what renders in the serif accent —
+          so the rhythm to copy is short, word, short. "You are / still / my
+          favourite place" is deliberately plain; the layout is doing the work.
+        */
+        eyebrow: "a small universe, for one person",
+        lines: ["You are", "still", "my favourite place."],
+        subline:
+          "A constellation of the moments, the frequencies, and the very quiet magic that make us us. Nothing here is urgent. Take your time with it.",
+        ctaLabel: "Open your note",
+        scrollHint: "Drift through",
+      },
+      letter: {
+        kicker: "Private transmission / unsealed",
+        text: [
+          "I started this about four times and stopped, because every version kept turning into a list of big moments. The year we met. The trip. The night I finally knew.",
+          "",
+          "But that is not the part I actually miss. What I miss is Tuesdays. You, complaining about the cold, then putting your cold feet on my legs anyway. The way you say a whole story with your hands and then deny doing it.",
+          "",
+          "So — this is the version that is mostly nothing happening. I think it is better.",
+          "",
+          "You make ordinary days feel like they are hiding something. Thank you for that.",
+        ].join("\n"),
+        signoff: "Yours, in every timeline",
+      },
+      strip: {
+        eyebrow: "Contact sheet",
+        heading: "Pick one. Stay a while.",
+        note: "Drag the sphere, or tap any frame.",
+      },
+      archive: {
+        eyebrow: "Full archive",
+        heading: "A few favourite signals.",
+        note: "Every one, with what actually happened.",
+        ctaLabel: "Open the album",
+      },
+      gallery: {
+        eyebrow: "The album",
+        lines: ["Every", "orbit", "we ever ran"],
+        blurb:
+          "All of it, in order, with the parts I would have forgotten otherwise. There is no timer on this page.",
+        backLabel: "Return home",
+      },
+      closing: {
+        heading: "Same team. Same orbit.",
+        copy: "No matter how far the signal travels, it always finds its way back to you.",
+        signature: "with all my heart",
       },
     },
   });
@@ -208,12 +370,12 @@ let sampleIndex: Map<string, string> | null = null;
 /**
  * Fields that are never "placeholder" no matter what they hold.
  *
- * `theme` and `slug` are settings, not copy. Ids are generated per site. All
- * are identical on a blank site and the sample, so comparing them would report
- * every new site as still holding sample text — not a useful warning, and once the
- * list cries wolf it stops being read.
+ * `theme`, `template` and `slug` are settings, not copy. Ids are generated per
+ * site. All are identical on a blank site and the sample, so comparing them
+ * would report every new site as still holding sample text — not a useful
+ * warning, and once the list cries wolf it stops being read.
  */
-const NOT_SAMPLE = new Set(["slug", "theme", "version", "id", "publicId"]);
+const NOT_SAMPLE = new Set(["slug", "theme", "template", "version", "id", "publicId"]);
 
 function getSampleIndex(): Map<string, string> {
   if (sampleIndex) return sampleIndex;
@@ -243,7 +405,7 @@ function getSampleIndex(): Map<string, string> {
  *
  * The point is that placeholder text cannot quietly ship. Someone who fills in
  * the hero but forgets the closing section should be told, rather than handing
- * over a site with "Press play and relive it" written by a developer.
+ * over a site with placeholder wording written by a developer.
  */
 export function isSampleText(path: string, value: unknown): boolean {
   if (typeof value !== "string") return false;

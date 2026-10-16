@@ -115,6 +115,32 @@ function buildTokens(p: ThemePalette): ThemeTokens {
     "--theme-scrim-mobile": `linear-gradient(180deg, ${rgba(p.cardDeep, 0.78)} 0%, ${rgba(p.cardDeep, 0.62)} 42%, ${rgba(p.cardDeep, 0.34)} 72%, ${rgba(p.cardDeep, 0.12)} 100%)`,
     "--theme-scrim-card": `linear-gradient(180deg, ${rgba(p.cardDeep, 0.72)} 0%, ${rgba(p.cardDeep, 0.25)} 45%, ${rgba(p.cardDeep, 0.8)} 100%)`,
 
+    /*
+      --- accent ramps ---
+      The modern template was built around one hardcoded pink, and every tint of
+      it — borders, washes, hover fills, the WebGL core — was written out as a
+      literal rgba. Deriving them here is what lets a palette change reach that
+      template at all: one definition per role, composed from `goldBright` and
+      `gold`, instead of thirty copies of #ffb8cb to hunt down.
+    */
+    "--theme-accent-edge": rgba(p.goldBright, 0.75),
+    "--theme-accent-line": rgba(p.goldBright, 0.24),
+    "--theme-accent-wash": rgba(p.goldBright, 0.08),
+    "--theme-accent-wash-2": rgba(p.goldBright, 0.05),
+    "--theme-accent-wash-3": rgba(p.goldBright, 0.09),
+    "--theme-accent-glow": rgba(p.gold, 0.1),
+
+    /* --- text ramp: three steps down from the body colour --- */
+    "--theme-faint": rgba(p.text, 0.55),
+    "--theme-line": rgba(p.text, 0.12),
+
+    /* --- the orbit's core, which used to be a fixed black-to-pink orb --- */
+    "--theme-grad-orb": `radial-gradient(circle at 35% 25%, ${p.goldPale} 0%, ${p.goldBright} 12%, ${p.purpleDeep} 43%, ${p.cardDeep} 70%)`,
+    "--theme-panel": rgba(p.ink, 0.74),
+    "--theme-panel-solid": p.ink,
+    /* The orbit's outer ring, which was a hardcoded translucent violet. */
+    "--theme-ring-alt": rgba(p.lavender, 0.32),
+
     /* --- glows and shadows --- */
     "--theme-glow-gold": `0 0 18px ${rgba(p.gold, 0.2)}`,
     "--theme-shadow-btn": `inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 -6px 10px ${rgba(p.goldDeep, 0.45)}, 0 10px 24px -8px ${rgba(p.goldDeep, 0.55)}`,

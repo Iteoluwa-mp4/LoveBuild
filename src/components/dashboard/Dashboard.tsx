@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import "../../dashboard.css";
-import { AppearanceEditor, GalleryEditor, HomeEditor } from "./editors";
-import { Section, ThemePicker } from "./fields";
+import { AppearanceEditor } from "./editors";
+import { Section, TemplatePicker, ThemePicker } from "./fields";
 import OutlinePanel from "./OutlinePanel";
 import PreviewPane from "./PreviewPane";
 import StatusBanner from "./StatusBanner";
@@ -41,7 +41,7 @@ export default function Dashboard() {
   const draft = useDraftSite(slug, getRepository());
   const [siteStatus, setSiteStatus] = useState<SiteStatus | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
-  const [device, setDevice] = useState<"desktop" | "phone">("desktop");
+  const [device, setDevice] = useState<"desktop" | "tablet" | "phone">("desktop");
   const [previewPage, setPreviewPage] = useState<"home" | "gallery">("home");
 
   /**
@@ -244,12 +244,30 @@ export default function Dashboard() {
             </p>
           )}
 
-          <Section title="Theme" hint="Five ready-made looks">
+          {/*
+            Template and colour, together and first.
+
+            These are the two things that decide what the site *is* — the rest of
+            the form is filling in whichever of them you picked. They were split
+            across the page: colour sat at the top where nobody could miss it,
+            and the template picker sat at the very bottom, below the Home and
+            Gallery editors. That made switching layout look like a feature that
+            was missing rather than one that was scrolled off-screen.
+
+            `AppearanceEditor` still owns the conditional editor switch, so the
+            fields below follow whatever is chosen here.
+          */}
+          <Section title="Template" hint="The layout of the whole site">
+            <TemplatePicker
+              value={site.template}
+              onChange={(id) => draft.set("template", id)}
+            />
+          </Section>
+
+          <Section title="Colours" hint="Works with either template">
             <ThemePicker value={site.theme} onChange={(id) => draft.set("theme", id)} />
           </Section>
 
-          <HomeEditor draft={draft} />
-          <GalleryEditor draft={draft} />
           <AppearanceEditor draft={draft} />
 
           <Section title="Ready to share?" defaultOpen>

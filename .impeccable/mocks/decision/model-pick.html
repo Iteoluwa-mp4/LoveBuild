@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Archivo+Narrow:wght@700;800&family=Barlow+Condensed:wght@600;700&display=swap');
+  :root{
+    --void:#0B0B0D; --deep:#050506; --ink:#17171A; --ink2:#232327;
+    --accent:#E8C37A; --accentDim:#B08C3E; --text:#F2F0EC; --dim:rgba(242,240,236,.5);
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{background:var(--deep);color:var(--text);font-family:'Archivo',sans-serif;
+    display:grid;grid-template-columns:46px 1fr;}
+
+  /* sprocket margin */
+  .perf{border-right:1px solid rgba(242,240,236,.14);background:
+    repeating-linear-gradient(180deg, var(--deep) 0 11px, transparent 11px 26px);
+    display:flex;flex-direction:column;align-items:center;justify-content:space-around;padding:18px 0}
+  .perf span{width:16px;height:20px;border-radius:3px;background:var(--deep);
+    box-shadow:inset 0 0 0 1px rgba(242,240,236,.2)}
+
+  .sheet{display:grid;grid-template-rows:64px 1fr;min-width:0}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:0 40px;
+    border-bottom:1px solid rgba(242,240,236,.13)}
+  header b{font-size:13px;font-weight:800;letter-spacing:.3em}
+  header b em{font-style:normal;color:var(--accent)}
+  nav{display:flex;gap:26px;font-size:11px;font-weight:700;letter-spacing:.22em;color:var(--dim)}
+  nav span.on{color:var(--accent)}
+
+  main{display:grid;grid-template-columns:1fr 700px;gap:0;min-height:0}
+
+  .copy{padding:66px 54px 40px 46px;display:flex;flex-direction:column;justify-content:center}
+  .meta{font-size:11px;font-weight:700;letter-spacing:.26em;color:var(--accentDim);margin-bottom:26px}
+  h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;
+    font-size:118px;line-height:.86;letter-spacing:-.015em}
+  h1 em{font-style:normal;color:var(--accent)}
+  .bars{margin-top:34px;display:flex;flex-direction:column;gap:11px}
+  .bars i{display:block;height:9px;background:rgba(242,240,236,.34)}
+  .bars i:nth-child(2){width:78%}.bars i:nth-child(3){width:52%}
+  .acts{display:flex;gap:14px;margin-top:42px}
+  .btn{font-size:12px;font-weight:800;letter-spacing:.2em;padding:16px 26px;border:1.5px solid var(--accent);color:var(--accent)}
+  .btn.solid{background:var(--accent);color:var(--deep);border-color:var(--accent)}
+
+  /* the contact grid */
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:12px;
+    padding:44px 40px 44px 0}
+  .fr{position:relative;border:1px solid rgba(242,240,236,.18);overflow:hidden;
+    background:linear-gradient(140deg,#22222A,#0C0C0F 70%)}
+  .fr span.num{position:absolute;top:5px;left:7px;font-size:10px;font-weight:700;letter-spacing:.1em;
+    color:rgba(242,240,236,.55);z-index:3}
+  .fr::after{content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(118deg, rgba(242,240,236,.07) 0 1px, transparent 1px 6px)}
+  .fr.tall{grid-row:span 2}
+  .fr.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .fr.sel .numb{position:absolute;inset:0}
+  .legend{position:absolute;right:40px;bottom:16px;font-size:10px;font-weight:700;letter-spacing:.24em;color:var(--dim);z-index:4}
+</style>
+</head>
+<body>
+  <div class="perf"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  <div class="sheet">
+    <header>
+      <b>SHEET <em>01</em> · SARAH</b>
+      <nav><span>THE PRINT</span><span class="on">THE SHEET</span><span>THE GALLERY</span></nav>
+    </header>
+    <main>
+      <section class="copy">
+        <p class="meta">35 MM · 36 EXPOSURES · NO LIGHT AFTER 9 PM</p>
+        <h1>THIRTY-SIX<br>FRAMES OF<br><em>HER</em></h1>
+        <div class="bars"><i></i><i></i><i></i></div>
+        <div class="acts"><span class="btn solid">PRINT THIS SHEET</span><span class="btn">THE LETTER</span></div>
+      </section>
+      <section class="grid" style="position:relative">
+        <div class="fr"><span class="num">01</span></div>
+        <div class="fr tall"><span class="num">02</span>
+          <svg class="numb" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <ellipse cx="50" cy="50" rx="47" ry="40" fill="none" stroke="#E8C37A" stroke-width="2.4"
+              stroke-linecap="round" opacity=".95"/>
+          </svg>
+        </div>
+        <div class="fr"><span class="num">03</span></div>
+        <div class="fr"><span class="num">04</span></div>
+        <div class="fr sel"><span class="num">05</span></div>
+        <div class="fr"><span class="num">06</span></div>
+        <div class="fr"><span class="num">07</span></div>
+        <div class="fr tall"><span class="num">08</span></div>
+        <div class="fr"><span class="num">09</span></div>
+        <div class="fr"><span class="num">10</span></div>
+        <div class="fr"><span class="num">11</span></div>
+        <div class="fr"><span class="num">12</span></div>
+        <div class="fr"><span class="num">13</span></div>
+        <div class="fr"><span class="num">14</span></div>
+        <span class="legend">ONE EXPOSURE · 4A · 1/30</span>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

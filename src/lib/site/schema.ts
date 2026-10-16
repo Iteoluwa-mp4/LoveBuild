@@ -99,13 +99,18 @@ const heroLinesSchema = z.array(z.string().max(90)).min(1).max(4).default(["", "
  * `tag` and `date` are optional on purpose. Left blank, `momentTag` derives
  * "Moment 01" and the date slot simply does not render. He can customise
  * either, but is never asked to.
+ *
+ * Shared by both templates on purpose. The modern template presents these same
+ * photographs as a strip and a sphere rather than as a grid, but storing a
+ * second list would mean every upload had to be entered twice and switching
+ * `template` could strand the one the author was not currently looking at.
  */
 const momentSchema = z.object({
   id,
   /** Small label above the card. Empty derives "Moment 01", "Moment 02"... */
   tag: z.string().max(40).default(""),
   /** Short date shown on the reverse, e.g. "October 14". Optional. */
-  date: z.string().max(60).default(""),
+  date: z.string().max(40).default(""),
   /** The prompt printed over the photo. */
   caption: z.string().max(300).default(""),
   /** The reveal text on the back. */
@@ -158,7 +163,7 @@ const homeSchema = z
     hero: z
       .object({
         lines: heroLinesSchema,
-        subline: z.string().max(500).default(""),
+        subline: z.string().max(300).default(""),
         /** Label only. The target is derived: primary opens the gallery. */
         primaryCta: z.string().max(60).default(""),
         /** Label only. The target is derived: secondary jumps to #moments. */
@@ -244,8 +249,118 @@ const gallerySchema = z
   .prefault({});
 
 /* ------------------------------------------------------------------ *
+ * MODERN TEMPLATE
+ * ------------------------------------------------------------------ */
+
+/**
+ * The modern template's own copy.
+ *
+ * ## Why images are not here
+ *
+ * Deliberately no media fields. The modern template's photographs are the same
+ * `home.moments` the classic template uses, mapped by `modernMemories` in
+ * `derive.ts`. Storing a second copy of them would mean the two templates could
+ * disagree, and — the reason this matters — switching `template` mid-config
+ * would strand every upload in whichever section was not currently on screen.
+ *
+ * One list of images, two ways of presenting it. Text is template-specific
+ * because the layouts genuinely differ: "Open the gallery" suits the classic
+ * hero and would be wrong in the modern orbit.
+ */
+const modernSchema = z
+  .object({
+    hero: z
+      .object({
+        eyebrow: z.string().max(60).default(""),
+        /** Three lines, so the middle can carry the serif accent. */
+        lines: z
+          .array(z.string().max(60))
+          .min(1)
+          .max(3)
+          .default(["", "", ""]),
+        subline: z.string().max(300).default(""),
+        ctaLabel: z.string().max(40).default(""),
+        /** Label for the in-page archive link. */
+        scrollHint: z.string().max(40).default(""),
+      })
+      .prefault({}),
+
+    /** The note behind the hero's primary button. */
+    letter: z
+      .object({
+        kicker: z.string().max(60).default(""),
+        text: z.string().max(2000).default(""),
+        signoff: z.string().max(200).default(""),
+      })
+      .prefault({}),
+
+    strip: z
+      .object({
+        eyebrow: z.string().max(60).default(""),
+        heading: z.string().max(120).default(""),
+        note: z.string().max(200).default(""),
+      })
+      .prefault({}),
+
+    archive: z
+      .object({
+        eyebrow: z.string().max(60).default(""),
+        heading: z.string().max(120).default(""),
+        note: z.string().max(200).default(""),
+        ctaLabel: z.string().max(40).default(""),
+      })
+      .prefault({}),
+
+    gallery: z
+      .object({
+        eyebrow: z.string().max(60).default(""),
+        lines: z
+          .array(z.string().max(60))
+          .min(1)
+          .max(3)
+          .default(["", "", ""]),
+        blurb: z.string().max(500).default(""),
+        backLabel: z.string().max(40).default(""),
+      })
+      .prefault({}),
+
+    closing: z
+      .object({
+        heading: z.string().max(200).default(""),
+        copy: z.string().max(500).default(""),
+        signature: z.string().max(80).default(""),
+      })
+      .prefault({}),
+  })
+  .prefault({});
+
+/* ------------------------------------------------------------------ *
  * SITE
  * ------------------------------------------------------------------ */
+
+/** Which layouts the renderer knows how to draw. */
+export const TEMPLATE_IDS = ["classic", "modern"] as const;
+export type TemplateId = (typeof TEMPLATE_IDS)[number];
+
+/**
+ * Which template renders the site.
+ *
+ * Separate from `theme` on purpose: a template is layout and copy, a theme is
+ * colour, and they are chosen independently.
+ *
+ * Written as `string` -> transform rather than `z.enum` so that a config saved
+ * before templates existed keeps parsing, and so an id this build no longer
+ * knows falls back to classic instead of rejecting the whole site. That mirrors
+ * how `theme` is stored, and the reasoning is the same: an unknown value should
+ * cost the author their choice, never their page.
+ */
+const templateSchema = z
+  .string()
+  .default("classic")
+  .catch("classic")
+  .transform((value): TemplateId =>
+    (TEMPLATE_IDS as readonly string[]).includes(value) ? (value as TemplateId) : "classic",
+  );
 
 /**
  * Three-dimensional ornaments. Both are heavy (three.js) and both are specific
@@ -255,7 +370,7 @@ const ornamentsSchema = z
   .object({
     /** The 3D hero heart. */
     hero3d: z.boolean().default(true),
-    /** Drifting gold particles behind the gallery. */
+    /** Drifting gold particles behind the home hero and the gallery. */
     particles: z.boolean().default(true),
   })
   .prefault({});
@@ -269,6 +384,9 @@ export const siteSchema = z.object({
    *  cannot invalidate an existing config; `resolveTheme` falls back safely. */
   theme: z.string().min(1),
 
+  /** Which template renders the site. Independent of `theme`. */
+  template: templateSchema,
+
   /** Only the site name lives here. Nav labels are chrome and belong to the
    *  components, not the config. */
   identity: z
@@ -281,6 +399,12 @@ export const siteSchema = z.object({
 
   home: homeSchema,
   gallery: gallerySchema,
+
+  /**
+   * The modern template's copy. Present on every config, whatever the template,
+   * so switching `template` back and forth never loses a draft.
+   */
+  modern: modernSchema,
 });
 
 export type Site = z.infer<typeof siteSchema>;
