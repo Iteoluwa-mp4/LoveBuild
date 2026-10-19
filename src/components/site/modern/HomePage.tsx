@@ -3,6 +3,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import SphereGallery3D from "../../originkit/ui/sphere-gallery-3d";
 import PhotoStrip from "./PhotoStrip";
+import { DriftBand, SignalInterlude, MODERN_INTERLUDE_CSS } from "./Interlude";
 import EditableText from "../shared/EditableText";
 import {
   AmbientField,
@@ -234,6 +235,17 @@ export default function ModernTemplate({ site, basePath }: { site: Site; basePat
         </section>
 
         {/*
+          The first break, between the letter and the strip.
+
+          The letter is the longest single piece of reading on the page and it
+          ends mid-thought. Going straight from it into another argument — the
+          strip's heading and note — gave the reader no edge to stop on, so this
+          sits between them as one: a band that moves while nothing else asks
+          them to.
+        */}
+        <DriftBand memories={memories} />
+
+        {/*
           The strip sits between the letter and the archive, on the reasoning that
           it is the page's texture: something to look at while reading, rather than
           something to read. The archive below it is where a photograph opens in
@@ -379,6 +391,21 @@ export default function ModernTemplate({ site, basePath }: { site: Site; basePat
           </div>
         </section>
 
+        {/*
+          The second break, before the close.
+
+          The archive is the densest section on the page — a live 3D scene, an
+          index of rows, a button — and the closing section asks the reader to
+          stop and feel something. Going straight from one to the other meant the
+          ending arrived while the archive was still in the eye. This is the
+          quiet before it, and it restates the only thing on the page that is
+          always true: whose it is, and how many signals came with it.
+        */}
+        <SignalInterlude
+          name={site.identity.name || "ours"}
+          count={memories.length}
+        />
+
         <section className="closing-section reveal">
           <div className="closing-mark">
             O<span>+</span>Y
@@ -424,6 +451,7 @@ export default function ModernTemplate({ site, basePath }: { site: Site; basePat
       <style>{`
                 ${MODERN_FONT_IMPORT}
                 ${MODERN_BASE_CSS}
+                ${MODERN_INTERLUDE_CSS}
 
                 .hero-section { min-height:calc(100vh - 84px); max-width:1400px; margin:auto; padding:12vh 8vw 10vh; position:relative; display:flex; align-items:center; }
                 .hero-copy-wrap { max-width:730px; position:relative; z-index:2; }

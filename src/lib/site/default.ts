@@ -157,7 +157,7 @@ export function sample(): Site {
           "I am not going anywhere, and you were never going to get rid of me anyway.",
         ].join("\n"),
         author: "Me, obviously",
-        authorSub: "Written badly, at the right time",
+        authorSub: "Written badly",
         verdictLabel: "Verdict:",
         verdictValue: "10 / 10",
         toggleReveal: "Read the rest",
