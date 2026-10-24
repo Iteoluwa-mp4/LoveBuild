@@ -285,7 +285,7 @@ describe("templates", () => {
   });
 
   it("falls back to classic for one it does not", () => {
-    expect(siteSchema.parse({ ...defaultSite(), template: "scrapbook" }).template).toBe("classic");
+    expect(siteSchema.parse({ ...defaultSite(), template: "not-a-template" }).template).toBe("classic");
   });
 
   /**

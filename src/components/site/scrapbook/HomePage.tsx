@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 
+import type { Site } from "../../../lib/site/schema";
+
 import {
   MEMORIES,
   SCRAPBOOK_BASE_CSS,
@@ -23,9 +25,9 @@ import { scrapbookPaths } from "./paths";
  *
  * The album below is a preview; the gallery holds every photo with its note.
  */
-export default function ScrapbookHomePage() {
+export default function ScrapbookHomePage({ site: _site, basePath }: { site: Site; basePath: string }) {
   const [openNote, setOpenNote] = useState<number | null>(null);
-  const paths = useMemo(() => scrapbookPaths(), []);
+  const paths = useMemo(() => scrapbookPaths(basePath), [basePath]);
 
   /** The four photos shown on the cover. */
   const cover = useMemo(() => MEMORIES.slice(0, 4), []);

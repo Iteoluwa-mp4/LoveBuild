@@ -85,8 +85,8 @@ export default function App() {
         */}
         <Route path={MODERN_BASE} element={<ModernPreviewPage variant="home" />} />
         <Route path={`${MODERN_BASE}/gallery`} element={<ModernPreviewPage variant="gallery" />} />
-        <Route path={SCRAPBOOK_BASE} element={<ScrapbookHomePage />} />
-        <Route path={`${SCRAPBOOK_BASE}/gallery`} element={<ScrapbookGalleryPage />} />
+        <Route path={SCRAPBOOK_BASE} element={<ScrapbookPreviewPage variant="home" />} />
+        <Route path={`${SCRAPBOOK_BASE}/gallery`} element={<ScrapbookPreviewPage variant="gallery" />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -156,6 +156,15 @@ function ModernPreviewPage({ variant }: { variant: "home" | "gallery" }) {
   );
 }
 
+function ScrapbookPreviewPage({ variant }: { variant: "home" | "gallery" }) {
+  const site = useMemo(() => sample(), []);
+  return (
+    <SiteShell site={site}>
+      <SitePages site={site} basePath={SCRAPBOOK_BASE} variant={variant} />
+    </SiteShell>
+  );
+}
+
 /** Loads a site by slug and hands it to the right page. */
 function SiteRoute({ variant }: { variant: "home" | "gallery" }) {
   const { slug } = useParams();
@@ -221,6 +230,14 @@ function SitePages({
       <ModernTemplate site={site} basePath={basePath} />
     ) : (
       <ModernGallery site={site} basePath={basePath} />
+    );
+  }
+
+  if (site.template === "scrapbook") {
+    return variant === "home" ? (
+      <ScrapbookHomePage site={site} basePath={basePath} />
+    ) : (
+      <ScrapbookGalleryPage site={site} basePath={basePath} />
     );
   }
 

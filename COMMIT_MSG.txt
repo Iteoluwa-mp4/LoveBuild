@@ -1,0 +1,15 @@
+Add scrapbook template to dashboard
+
+Add scrapbook as a third template option alongside classic and modern:
+- Add 'scrapbook' to TEMPLATE_IDS in schema.ts
+- Add scrapbook entry to the TemplatePicker in fields.tsx
+- Wire up scrapbook routes in App.tsx with ScrapbookPreviewPage
+- Make scrapbook HomePage and GalleryPage accept site/basePath props
+- Add scrapbook to SitePages template switch
+
+Also remove two text-change items from LOVEBUILD_TODO.md that were
+marked as done/not mandatory:
+- 'Stale copy' (review step/reword message - not mandatory)
+- 'Stale comments' (Dashboard doc comment about no login)
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>

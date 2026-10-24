@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 
+import type { Site } from "../../../lib/site/schema";
+
 import Flipbook, { FLIPBOOK_CSS } from "./Flipbook";
 import {
   MEMORIES,
@@ -22,8 +24,8 @@ import { scrapbookPaths } from "./paths";
  * photograph off the page was the earlier approach and it fought the turn: both
  * wanted to own the same gesture.
  */
-export default function ScrapbookGalleryPage() {
-  const paths = useMemo(() => scrapbookPaths(), []);
+export default function ScrapbookGalleryPage({ site: _site, basePath }: { site: Site; basePath: string }) {
+  const paths = useMemo(() => scrapbookPaths(basePath), [basePath]);
   const [shown, setShown] = useState<(typeof MEMORIES)[number] | null>(null);
 
   return (

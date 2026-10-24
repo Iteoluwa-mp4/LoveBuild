@@ -339,7 +339,7 @@ const modernSchema = z
  * ------------------------------------------------------------------ */
 
 /** Which layouts the renderer knows how to draw. */
-export const TEMPLATE_IDS = ["classic", "modern"] as const;
+export const TEMPLATE_IDS = ["classic", "modern", "scrapbook"] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
 /**
@@ -427,10 +427,44 @@ export type Issue = {
   message: string;
 };
 
-export function findSubmissionIssues(site: Site): Issue[] {
-  const issues: Issue[] = [];
+/**
+ * One requirement a site has to meet, and whether it currently meets it.
+ *
+ * Split out from `findSubmissionIssues` so the dashboard can report progress as
+ * well as problems. "19 of 32 done" needs the 32, and a list of failures alone
+ * cannot say what the total was — so the total and the failures come from the
+ * same walk and cannot disagree.
+ */
+export type SubmissionCheck = {
+  /** Dotted path to the offending field, for the dashboard to highlight. */
+  path: string;
+  /** What is wrong with it, if anything. */
+  message: string;
+  /** True when the site satisfies this requirement. */
+  ok: boolean;
+};
+
+/**
+ * Every requirement the current site is measured against.
+ *
+ * Flat, and one entry per requirement, so the count of entries is the count of
+ * things to do. An "at least one moment" requirement is present whether or not
+ * there are moments — it passes once there are — so the total grows as content
+ * is added and the meter can honestly say that adding a moment adds work.
+ *
+ * The alternative, counting only what is currently broken, cannot produce a
+ * progress figure at all: the denominator would move every time a field was
+ * fixed, and a bar whose denominator is the thing it is measuring is not a
+ * bar.
+ */
+export function submissionChecks(site: Site): SubmissionCheck[] {
+  const checks: SubmissionCheck[] = [];
   const need = (path: string, value: string, label: string) => {
-    if (!value.trim()) issues.push({ path, message: `${label} is empty` });
+    checks.push({
+      path,
+      message: `${label} is empty`,
+      ok: value.trim().length > 0,
+    });
   };
 
   need("identity.name", site.identity.name, "Site name");
@@ -438,14 +472,20 @@ export function findSubmissionIssues(site: Site): Issue[] {
   need("home.hero.subline", site.home.hero.subline, "Hero subtitle");
   need("home.hero.primaryCta", site.home.hero.primaryCta, "Main button label");
 
-  if (!site.home.moments.length) {
-    issues.push({ path: "home.moments", message: "Add at least one moment" });
-  }
+  checks.push({
+    path: "home.moments",
+    message: "Add at least one moment",
+    ok: site.home.moments.length > 0,
+  });
 
   // Every media entry needs a reachable URL. A dropped upload leaves a null
   // publicId and an empty url, which would render as a broken frame.
   const checkMedia = (media: Media, path: string) => {
-    if (!media.url.trim()) issues.push({ path: `${path}.url`, message: "File is missing" });
+    checks.push({
+      path: `${path}.url`,
+      message: "File is missing",
+      ok: media.url.trim().length > 0,
+    });
   };
 
   site.home.moments.forEach((m, i) => {
@@ -453,18 +493,19 @@ export function findSubmissionIssues(site: Site): Issue[] {
     checkMedia(m.image, `home.moments.${i}.image`);
   });
 
-  if (!site.gallery.chapters.length) {
-    issues.push({ path: "gallery.chapters", message: "Add at least one chapter" });
-  }
+  checks.push({
+    path: "gallery.chapters",
+    message: "Add at least one chapter",
+    ok: site.gallery.chapters.length > 0,
+  });
 
   site.gallery.chapters.forEach((chapter, ci) => {
     need(`gallery.chapters.${ci}.title`, chapter.title, "Chapter title");
-    if (!chapter.films.length && !chapter.stills.length) {
-      issues.push({
-        path: `gallery.chapters.${ci}`,
-        message: `"${chapter.title || `Chapter ${ci + 1}`}" has no films or photographs`,
-      });
-    }
+    checks.push({
+      path: `gallery.chapters.${ci}`,
+      message: `"${chapter.title || `Chapter ${ci + 1}`}" has no films or photographs`,
+      ok: chapter.films.length > 0 || chapter.stills.length > 0,
+    });
     chapter.films.forEach((film, fi) => {
       need(`gallery.chapters.${ci}.films.${fi}.title`, film.title, "Film title");
       checkMedia(film.src, `gallery.chapters.${ci}.films.${fi}.src`);
@@ -474,5 +515,11 @@ export function findSubmissionIssues(site: Site): Issue[] {
     });
   });
 
-  return issues;
+  return checks;
+}
+
+export function findSubmissionIssues(site: Site): Issue[] {
+  return submissionChecks(site)
+    .filter((check) => !check.ok)
+    .map(({ path, message }) => ({ path, message }));
 }

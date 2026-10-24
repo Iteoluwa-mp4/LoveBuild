@@ -158,6 +158,11 @@ const TEMPLATES: ReadonlyArray<{ id: string; label: string; note: string }> = [
     label: "Modern",
     note: "Wide type and a drifting sphere. Photos become a filmstrip and an orbit.",
   },
+  {
+    id: "scrapbook",
+    label: "Scrapbook",
+    note: "Taped polaroids at odd angles, paper ground, handwriting face.",
+  },
 ];
 
 /**
@@ -248,11 +253,23 @@ export function ThemePicker({ value, onChange }: { value: string; onChange: (id:
  * LAYOUT
  * ------------------------------------------------------------------ */
 
-/** A collapsible group. Advanced groups start closed. */
+/**
+ * A collapsible group.
+ *
+ * Closed by default. Every section was open at once, and a form where all of
+ * the sections are open is a form where the author cannot see the shape of it —
+ * they get one long column of fields with no indication of what belongs to
+ * what, and the only way to find a heading is to scroll past every field under
+ * it.
+ *
+ * The summary line still shows what is inside, so a closed form is navigable
+ * rather than a list of mysterious bars. `defaultOpen` remains for the one or
+ * two groups that genuinely want to be open on arrival.
+ */
 export function Section({
   title,
   hint,
-  defaultOpen = true,
+  defaultOpen = false,
   children,
 }: {
   title: string;
