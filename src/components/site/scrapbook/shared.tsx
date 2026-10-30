@@ -1,4 +1,5 @@
 import type { ScrapbookPaths } from "./paths";
+import type { ScrapbookMemory } from "../../../lib/site/derive";
 
 /**
  * Pieces shared by the scrapbook template's pages.
@@ -9,113 +10,13 @@ import type { ScrapbookPaths } from "./paths";
  * objects. So it gets its own family, and `shared.tsx` holds the parts the two
  * of its pages agree on.
  *
- * The memory data is generated rather than photographic, so the template can be
- * judged as a design without shipping anyone else's pictures.
+ * The photographs are not held here. They come from `home.moments` through
+ * `scrapbookMemories` in `derive.ts`, the same single list the classic and
+ * modern templates read — a fixed set of generated pictures meant the scrapbook
+ * could be judged as a design but never used as a site. The type is re-exported
+ * so the pages and the flipbook still import it from one place.
  */
-
-export type ScrapbookMemory = {
-  /** Printed on the polaroid's white border. */
-  caption: string;
-  /** The longer note, shown when a photo is opened. */
-  note: string;
-  /** A short date, stamped. */
-  date: string;
-  /**
-   * Degrees of tilt.
-   *
-   * The rotation is data rather than CSS because it is the one thing that makes
-   * a grid of identical cards read as scattered rather than aligned — and it has
-   * to be stable across renders, or the layout jumps on every state change.
-   */
-  tilt: number;
-  /** Which strip of tape holds this one down, and how it sits. */
-  tape: "top-left" | "top-right" | "top-center" | "none";
-  /** The generated photograph. */
-  image: string;
-};
-
-/**
- * Builds a washed, slightly faded photograph.
- *
- * Deliberately low-contrast and warm. A crisp gradient looks like a screenshot;
- * these need to look like something printed years ago and stuck in a book.
- */
-const makePhoto = (date: string, start: string, end: string): string => {
-  const svg =
-    `<svg xmlns='http://www.w3.org/2000/svg' width='720' height='720' viewBox='0 0 720 720'>` +
-    `<defs>` +
-    `<linearGradient id='sky' x1='0' y1='0' x2='0' y2='1'>` +
-    `<stop offset='0' stop-color='%23${start}'/><stop offset='1' stop-color='%23${end}'/>` +
-    `</linearGradient>` +
-    `<filter id='soft'><feGaussianBlur stdDeviation='30'/></filter>` +
-    `<filter id='fade'><feColorMatrix type='saturate' values='.55'/></filter>` +
-    `<filter id='grain'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/>` +
-    `<feColorMatrix type='matrix' values='0 0 0 0 .35 0 0 0 0 .3 0 0 0 0 .22 0 0 0 .18 0'/></filter>` +
-    `</defs>` +
-    `<rect width='720' height='720' fill='url(%23sky)'/>` +
-    // Two blurred blooms, so the frame has depth rather than being a flat ramp.
-    `<circle cx='220' cy='200' r='190' fill='%23ffffff' opacity='.3' filter='url(%23soft)'/>` +
-    `<circle cx='520' cy='540' r='230' fill='%23${end}' opacity='.45' filter='url(%23soft)'/>` +
-    // A horizon, which reads as "outdoors" without depicting anything.
-    `<path d='M0 520 C200 470 320 560 720 500 L720 720 L0 720Z' fill='%23${start}' opacity='.38'/>` +
-    `<rect width='720' height='720' fill='%23e8dcc8' opacity='.22' filter='url(%23fade)'/>` +
-    `<rect width='720' height='720' filter='url(%23grain)'/>` +
-    `<text x='36' y='684' font-family='Georgia,serif' font-size='26' fill='%23ffffff' opacity='.72'>` +
-    `${date}</text>` +
-    `</svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-};
-
-export const MEMORIES: ScrapbookMemory[] = [
-  {
-    caption: "the first one",
-    note: "I still have the ticket. You kept the flowers.",
-    date: "OCT 2019",
-    tilt: -3.2,
-    tape: "top-center",
-    image: makePhoto("OCT 2019", "d9a86c", "b47b52"),
-  },
-  {
-    caption: "rain, and you",
-    note: "We missed the last bus and neither of us mentioned it.",
-    date: "MAR 2020",
-    tilt: 2.6,
-    tape: "top-left",
-    image: makePhoto("MAR 2020", "8fa9b8", "5d7d92"),
-  },
-  {
-    caption: "our song",
-    note: "Three playlists deep and we still had only ever needed the one.",
-    date: "JUN 2021",
-    tilt: -1.8,
-    tape: "top-right",
-    image: makePhoto("JUN 2021", "a3b98a", "6f8a5c"),
-  },
-  {
-    caption: "the ordinary one",
-    note: "Nothing happened. That is the whole point of it.",
-    date: "JAN 2023",
-    tilt: 3.4,
-    tape: "top-center",
-    image: makePhoto("JAN 2023", "c9a3a3", "9c6f6f"),
-  },
-  {
-    caption: "still my favourite",
-    note: "Every other room I would have to be talked into.",
-    date: "NOW",
-    tilt: -2.4,
-    tape: "top-left",
-    image: makePhoto("NOW", "b9a3c9", "8a6f9c"),
-  },
-  {
-    caption: "next one",
-    note: "Same place, more years, better weather.",
-    date: "SOON",
-    tilt: 1.9,
-    tape: "top-right",
-    image: makePhoto("SOON", "dcc9a3", "b39a6f"),
-  },
-];
+export type { ScrapbookMemory };
 
 /** Whether this page is the home page or the gallery. */
 export function ScrapbookTopBar({

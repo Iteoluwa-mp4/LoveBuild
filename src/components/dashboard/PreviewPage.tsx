@@ -6,6 +6,8 @@ import ClassicGalleryPage from "../site/classic/GalleryPage";
 import ClassicHomePage from "../site/classic/HomePage";
 import ModernTemplate from "../site/modern/HomePage";
 import ModernGallery from "../site/modern/GalleryPage";
+import ScrapbookHomePage from "../site/scrapbook/HomePage";
+import ScrapbookGalleryPage from "../site/scrapbook/GalleryPage";
 import SiteShell from "../site/shared/SiteShell";
 import {
   MESSAGES,
@@ -177,24 +179,45 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
   // Restored once, so a manual frame reload keeps showing the draft.
   const basePath = `/s/${site.slug}`;
 
+  /*
+    The same three-way switch as `SitePages` in `App.tsx`, written as an
+    if-chain rather than a nested ternary so that it reads line for line like
+    the routing table it mirrors. The two have to agree: this frame is where the
+    author changes `template`, and a preview that renders a different template
+    from the one that publishes is worse than no preview at all.
+
+    That is not hypothetical — scrapbook was added to `SitePages` and missed
+    here, so choosing it rendered classic while the published site rendered
+    scrapbook. A third branch in a two-way ternary fails silently, which is why
+    this is written out rather than collapsed.
+  */
+  let page;
+  if (site.template === "modern") {
+    page =
+      variant === "home" ? (
+        <ModernTemplate site={site} basePath={basePath} />
+      ) : (
+        <ModernGallery site={site} basePath={basePath} />
+      );
+  } else if (site.template === "scrapbook") {
+    page =
+      variant === "home" ? (
+        <ScrapbookHomePage site={site} basePath={basePath} />
+      ) : (
+        <ScrapbookGalleryPage site={site} basePath={basePath} />
+      );
+  } else {
+    page =
+      variant === "home" ? (
+        <ClassicHomePage site={site} basePath={basePath} />
+      ) : (
+        <ClassicGalleryPage site={site} basePath={basePath} />
+      );
+  }
+
   return (
     <EditingProvider enabled={editing} report={reportEdit}>
-      <SiteShell site={site}>
-        {/*
-          Mirrors the routing table in `App.tsx` rather than importing it, for
-          one reason: this frame is where editing happens, and it is the surface
-          the author changes `template` on. Both have to agree or the preview
-          would show one template while the published site renders another — so
-          the switch is written the same way in both, off the same field.
-        */}
-        {site.template === "modern"
-          ? variant === "home"
-            ? <ModernTemplate site={site} basePath={basePath} />
-            : <ModernGallery site={site} basePath={basePath} />
-          : variant === "home"
-            ? <ClassicHomePage site={site} basePath={basePath} />
-            : <ClassicGalleryPage site={site} basePath={basePath} />}
-      </SiteShell>
+      <SiteShell site={site}>{page}</SiteShell>
     </EditingProvider>
   );
 }

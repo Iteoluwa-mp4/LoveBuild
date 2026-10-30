@@ -3,10 +3,15 @@ import {
   chapterLabel,
   ctaTarget,
   emphasisParts,
+  findIssues,
   hasContent,
   momentTag,
   modernMemories,
+  scrapbookMemories,
+  uploadItems,
+  readiness,
   siteOutline,
+  uploadProgress,
   visibleBlocks,
 } from "../derive";
 import { defaultSite, emptySite } from "../default";
@@ -77,6 +82,99 @@ describe("modernMemories", () => {
 
   it("returns nothing for a site with no moments, rather than throwing", () => {
     expect(modernMemories(emptySite("t"))).toEqual([]);
+  });
+});
+
+/**
+ * The scrapbook used to render six generated photographs and ignore the site
+ * entirely, so choosing it swapped the author's work for a demo. This mapping
+ * is what makes it a template rather than a fixed picture, so it is tested on
+ * the config in the same way `modernMemories` is.
+ */
+describe("scrapbookMemories", () => {
+  function siteWithMoments(moments: Site["home"]["moments"]): Site {
+    const site = emptySite("t");
+    site.home.moments = moments;
+    return site;
+  }
+
+  const uploaded = {
+    id: "m1",
+    tag: "the first one",
+    date: "Oct 14",
+    caption: "We kept the ticket.",
+    secret: "You kept the flowers.",
+    image: {
+      id: "i1",
+      publicId: null,
+      url: "https://example.test/a.jpg",
+      alt: "",
+      caption: "",
+      width: null,
+      height: null,
+      durationMs: null,
+    },
+  };
+
+  it("maps a moment's fields onto the scrapbook shape", () => {
+    const [memory] = scrapbookMemories(siteWithMoments([uploaded]));
+    expect(memory.caption).toBe("We kept the ticket.");
+    expect(memory.note).toBe("You kept the flowers.");
+    expect(memory.date).toBe("Oct 14");
+    expect(memory.image).toBe("https://example.test/a.jpg");
+  });
+
+  /**
+   * The caption is printed on the white border, which is the card. An empty
+   * caption would leave a blank strip where every other card has handwriting,
+   * so the position-derived label stands in — the same fallback the modern
+   * template uses for its strip label.
+   */
+  it("derives a caption when the moment has none, so no border is blank", () => {
+    const [memory] = scrapbookMemories(
+      siteWithMoments([{ ...uploaded, caption: "   ", tag: "" }]),
+    );
+    expect(memory.caption).toBe("Moment 01");
+  });
+
+  /**
+   * The tag still wins over the position. "the first one" is handwriting the
+   * author already wrote, so replacing it with "Moment 01" would throw away
+   * real copy in order to fill a gap that was not there.
+   */
+  it("prefers the moment's tag over its position when the caption is empty", () => {
+    const [memory] = scrapbookMemories(siteWithMoments([{ ...uploaded, caption: "" }]));
+    expect(memory.caption).toBe("the first one");
+  });
+
+  it("keeps a slot with no photo, using a generated frame", () => {
+    const [memory] = scrapbookMemories(
+      siteWithMoments([{ ...uploaded, image: { ...uploaded.image, url: "" } }]),
+    );
+    expect(memory.image.startsWith("data:image/svg+xml,")).toBe(true);
+  });
+
+  /**
+   * Tilt and tape are the whole reason a grid of cards reads as scattered
+   * rather than aligned — and they are recomputed on every render. If they
+   * were not a pure function of position, every state change would re-lay the
+   * page under the reader.
+   */
+  it("gives each position a stable tilt and tape", () => {
+    const site = siteWithMoments([uploaded, { ...uploaded, id: "m2" }, { ...uploaded, id: "m3" }]);
+    const once = scrapbookMemories(site);
+    const twice = scrapbookMemories(site);
+    expect(once).toEqual(twice);
+    for (const memory of once) {
+      expect(typeof memory.tilt).toBe("number");
+      expect(["top-left", "top-right", "top-center", "none"]).toContain(memory.tape);
+    }
+    // Not all identical, or the "scattered" look is a fiction.
+    expect(new Set(once.map((memory) => memory.tilt)).size).toBeGreaterThan(1);
+  });
+
+  it("returns nothing for a site with no moments, rather than throwing", () => {
+    expect(scrapbookMemories(emptySite("t"))).toEqual([]);
   });
 });
 
@@ -423,5 +521,336 @@ describe("derived values survive a save", () => {
 
   it("never throws on a site with only a slug", () => {
     expect(() => siteOutline(siteWith())).not.toThrow();
+  });
+});
+
+describe("readiness", () => {
+  /**
+   * The readiness meter is the one number the dashboard shows, so it has to be
+   * derived from the same walk that reports the problems. If the two were
+   * computed separately they would disagree, and the bar would promise progress
+   * the issue list did not.
+   */
+  it("counts the same work items the issue list reports", () => {
+    const site = emptySite("blank");
+    const state = readiness(site);
+    const issues = findIssues(site);
+
+    // Every outstanding item is a real, unmet requirement, so the number of
+    // things left must equal the number of items not yet done.
+    expect(state.missing).toBe(state.total - state.done);
+    expect(state.done + state.missing).toBe(state.total);
+    expect(issues.length).toBeGreaterThan(0);
+    expect(state.complete).toBe(false);
+  });
+
+  it("never reports a percentage outside 0–100", () => {
+    for (const site of [emptySite("blank"), defaultSite()]) {
+      const state = readiness(site);
+      expect(state.percent).toBeGreaterThanOrEqual(0);
+      expect(state.percent).toBeLessThanOrEqual(100);
+    }
+  });
+
+  /**
+   * A structurally complete site is still not done while it holds the sample
+   * wording — that is the whole reason `findSampleIssues` exists separately.
+   */
+  it("is not complete while the sample text is still there", () => {
+    const state = readiness(defaultSite());
+    expect(state.placeholder).toBeGreaterThan(0);
+    expect(state.complete).toBe(false);
+  });
+
+  it("is complete when every requirement passes and no sample text remains", () => {
+    const site = emptySite("real");
+    site.identity.name = "Sarah";
+    site.home.hero.lines = ["One", "Two", "Three"];
+    site.home.hero.subline = "Why";
+    site.home.hero.primaryCta = "Look";
+    site.home.moments = [
+      {
+        id: "m1",
+        tag: "",
+        date: "",
+        caption: "A moment",
+        secret: "",
+        image: {
+          id: "i",
+          publicId: "p",
+          url: "https://x.test/a.jpg",
+          alt: "",
+          caption: "",
+          width: null,
+          height: null,
+          durationMs: null,
+        },
+      },
+    ];
+    site.gallery.chapters = [
+      {
+        id: "c1",
+        label: "",
+        title: "Us",
+        blurb: undefined,
+        films: [],
+        stills: [
+          {
+            id: "s1",
+            caption: "",
+            src: {
+              id: "s",
+              publicId: "p",
+              url: "https://x.test/s.jpg",
+              alt: "",
+              caption: "",
+              width: null,
+              height: null,
+              durationMs: null,
+            },
+          },
+        ],
+      },
+    ];
+
+    const state = readiness(site);
+    expect(state.missing).toBe(0);
+    expect(state.placeholder).toBe(0);
+    expect(state.complete).toBe(true);
+    expect(state.percent).toBe(100);
+  });
+
+  it("adds work to the total when content is added, so the meter cannot cheat", () => {
+    const before = readiness(emptySite("x"));
+    const after = readiness(defaultSite());
+    expect(after.total).toBeGreaterThan(before.total);
+  });
+});
+
+describe("uploadProgress", () => {
+  /**
+   * The ring counts uploads and the words that belong to them, and nothing
+   * else. These tests pin the distinction down, because the whole reason this
+   * is a separate number from `readiness` is that a heading is not a task.
+   */
+  it("ignores layout copy entirely", () => {
+    const site = emptySite("layout");
+    const before = uploadProgress(site);
+
+    // The site name, the headline, the button label: none of them is a
+    // photograph and none of them moves the ring.
+    site.identity.name = "Sarah";
+    site.home.hero.lines = ["One", "Two", "Three"];
+    site.home.hero.subline = "Why";
+    site.home.hero.primaryCta = "Look";
+
+    const after = uploadProgress(site);
+    expect(after.total).toBe(before.total);
+    expect(after.done).toBe(before.done);
+    expect(after.percent).toBe(before.percent);
+  });
+
+  it("counts a photograph and its caption, and a clip and its title", () => {
+    const site = emptySite("media");
+    const before = uploadProgress(site);
+
+    site.home.moments = [
+      {
+        id: "m1",
+        tag: "",
+        date: "",
+        caption: "The night it changed.",
+        secret: "",
+        image: {
+          id: "i",
+          publicId: "p",
+          url: "https://x.test/a.jpg",
+          alt: "",
+          caption: "",
+          width: null,
+          height: null,
+          durationMs: null,
+        },
+      },
+    ];
+
+    const after = uploadProgress(site);
+    /*
+      The total grows by two: the photograph and the caption.
+      The "at least one moment" item was already in the empty site's total — it
+      is a thing to satisfy, not a thing that appears when a moment does — so
+      adding the moment satisfies it rather than adding to the count. Which is
+      why `done` grows by three and `total` by two.
+    */
+    expect(after.total).toBe(before.total + 2);
+    expect(after.done).toBe(before.done + 3);
+  });
+
+  it("counts a photograph with no caption as not finished", () => {
+    const site = emptySite("nocaption");
+    site.home.moments = [
+      {
+        id: "m1",
+        tag: "",
+        date: "",
+        caption: "",
+        secret: "",
+        image: {
+          id: "i",
+          publicId: "p",
+          url: "https://x.test/a.jpg",
+          alt: "",
+          caption: "",
+          width: null,
+          height: null,
+          durationMs: null,
+        },
+      },
+    ];
+
+    const state = uploadProgress(site);
+    expect(state.complete).toBe(false);
+    expect(state.missing).toBeGreaterThan(0);
+  });
+
+  /**
+   * A caption still holding the sample wording has not been written, so the
+   * photograph it belongs to is not finished either. The words under a
+   * photograph are the one piece of text that cannot be boilerplate.
+   */
+  it("treats a caption still holding the sample text as unfinished", () => {
+    const site = defaultSite();
+    const state = uploadProgress(site);
+    expect(state.complete).toBe(false);
+  });
+
+  it("never reports a percentage outside 0–100", () => {
+    for (const site of [emptySite("blank"), defaultSite()]) {
+      const state = uploadProgress(site);
+      expect(state.percent).toBeGreaterThanOrEqual(0);
+      expect(state.percent).toBeLessThanOrEqual(100);
+      expect(state.done + state.missing).toBe(state.total);
+    }
+  });
+
+  it("adds work to the total when content is added, so the ring cannot cheat", () => {
+    const before = uploadProgress(emptySite("x"));
+    const after = uploadProgress(defaultSite());
+    expect(after.total).toBeGreaterThan(before.total);
+  });
+});
+
+/**
+ * The list behind the "Still to do" header.
+ *
+ * It exists because the header used to be driven by `findIssues`, which counts
+ * every empty field and every field still holding the sample wording — 97 things
+ * on the seed site, nearly all of them headings and button labels the author
+ * never agreed to rewrite. A to-do list that demands work nobody owes is one
+ * people learn to stop reading.
+ */
+describe("uploadItems", () => {
+  /**
+   * The point of splitting the list out of `uploadProgress` rather than
+   * writing a second walk: the number in the header and the rows under it come
+   * from the same array, so they cannot drift apart.
+   */
+  it("counts exactly the items it lists", () => {
+    for (const site of [emptySite("x"), defaultSite()]) {
+      const items = uploadItems(site);
+      const progress = uploadProgress(site);
+      expect(progress.total).toBe(items.length);
+      expect(progress.done).toBe(items.filter((item) => item.ok).length);
+      expect(progress.missing).toBe(items.filter((item) => !item.ok).length);
+    }
+  });
+
+  /**
+   * The whole reason this list is not `findIssues`. The seed site carries 84
+   * fields of sample wording — the headline, the eyebrow, the button labels,
+   * the modern template's letter — and replacing any of it is a preference, not
+   * a task. None of those paths may appear here, however empty they are.
+   */
+  it("never lists layout copy, however empty it is", () => {
+    const layoutPrefixes = [
+      "identity",
+      "home.hero",
+      "home.quote",
+      "home.footer",
+      "gallery.hero",
+      "gallery.outro",
+      "modern",
+    ];
+    const paths = uploadItems(defaultSite()).map((item) => item.path);
+    expect(paths.length).toBeGreaterThan(0);
+    for (const path of paths) {
+      const isLayout = layoutPrefixes.some(
+        (prefix) => path === prefix || path.startsWith(`${prefix}.`),
+      );
+      expect(isLayout).toBe(false);
+    }
+  });
+
+  it("says what is outstanding, not merely that something is", () => {
+    const outstanding = uploadItems(emptySite("x")).filter((item) => !item.ok);
+    expect(outstanding.length).toBeGreaterThan(0);
+    for (const item of outstanding) {
+      expect(item.message.trim().length).toBeGreaterThan(0);
+      expect(item.path.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * A caption still holding the sample wording reads as finished, which is
+   * exactly why it is worth naming differently from an empty one: "is empty"
+   * would send the author looking for a gap that is not visibly there.
+   */
+  it("tells a sample caption apart from an empty one", () => {
+    const sample = uploadItems(defaultSite()).find(
+      (item) => item.path.endsWith(".caption") && !item.ok,
+    );
+    expect(sample?.message).toContain("placeholder");
+  });
+
+  /**
+   * The case that motivated getting media off localhost.
+   *
+   * A `blob:` URL is a non-empty string pointing at nothing — it belonged to
+   * the tab that created it and died with it — so a length test calls it
+   * finished while every photograph on the site is broken for everyone except
+   * the person who uploaded it. Of all the ways a site can be unfinished, this
+   * is the only one where it looks finished, so the list has to name it.
+   */
+  it("reports a stale blob URL as needing re-uploading, not as done", () => {
+    const site = emptySite("blob");
+    site.home.moments = [
+      {
+        id: "m1",
+        tag: "",
+        date: "",
+        caption: "Written by hand.",
+        secret: "",
+        image: {
+          id: "i",
+          publicId: null,
+          url: "blob:https://lovebuilds.test/0f8e4a1b-0000-4000-8000-000000000000",
+          alt: "",
+          caption: "",
+          width: null,
+          height: null,
+          durationMs: null,
+        },
+      },
+    ];
+
+    const item = uploadItems(site).find((entry) => entry.path === "home.moments.0.image.url");
+    expect(item?.ok).toBe(false);
+    expect(item?.message).toContain("re-uploading");
+
+    // And the count follows the list, so the header cannot call it done while
+    // the row underneath says otherwise.
+    expect(uploadProgress(site).missing).toBe(
+      uploadItems(site).filter((entry) => !entry.ok).length,
+    );
   });
 });

@@ -12,8 +12,12 @@ import { cssColorNumber } from "./themeColor";
  * project.
  *
  * Transparent background, a small eased lean toward the pointer and nothing
- * else (never blocks page scrolling), faceted "cut gem" look via flat shading,
- * gold glass material. Rendered without postprocessing so the canvas keeps its
+ * else (never blocks page scrolling). The gem is a real heart-cut stone built
+ * from scratch — a flat front table, a sloped crown, a wide girdle ring and a
+ * pointed pavilion behind — so it has the table/crown/pavilion silhouette of a
+ * cut diamond rather than a puffy slab. It is polished metallic gold, so every
+ * facet mirrors the environment and the lean sends crisp highlights sweeping
+ * across the surface. Rendered without postprocessing so the canvas keeps its
  * alpha over the page gradient.
  *
  * It carries no sparkle field. There was one — 260 additive points twinkling in a
@@ -95,73 +99,160 @@ export default function HeartDiamond({
     };
     if (pointerParallax) window.addEventListener("pointermove", handlePointer);
 
-    /* ---------- geometry: heart-cut gem ---------- */
-    const heartShape = (() => {
-      const s = new THREE.Shape();
-      const x = 0,
-        y = 0;
-      s.moveTo(x, y);
-      s.bezierCurveTo(x, y - 0.6, x - 1.4, y - 0.6, x - 1.4, y + 0.35);
-      s.bezierCurveTo(x - 1.4, y + 1.05, x - 0.7, y + 1.5, x, y + 2.15);
-      s.bezierCurveTo(x + 0.7, y + 1.5, x + 1.4, y + 1.05, x + 1.4, y + 0.35);
-      s.bezierCurveTo(x + 1.4, y - 0.6, x, y - 0.6, x, y);
-      return s;
+    /* ---------- geometry: heart-cut gem (table + crown + girdle + pavilion) ---------- */
+    /*
+      Built by hand instead of ExtrudeGeometry.
+
+      The old gem was a flat extruded heart with a fat bevel — it read as a
+      puffy sticker, not a cut stone. A real gem is a stack of rings that taper
+      to a point, and that silhouette is what makes it legible as a diamond:
+
+        table      flat top face, scaled inward
+        crown      slopes down/out from table to the widest point
+        girdle     a thin belt at the widest outline (the gem's "equator")
+        pavilion   slopes down/in from the girdle to a sharp culet point
+
+      Each ring uses the same heart outline, so the heart shape is carried all
+      the way through and the culet lands dead centre. Flat shading turns every
+      band into visible facets, which is the "defined" look we want.
+    */
+    const gemGeometry = (() => {
+      const N = 48; // outline resolution — chunky enough that facets read
+
+      // classic parametric heart, point down, cleft at the top
+      const raw: THREE.Vector2[] = [];
+      for (let i = 0; i < N; i++) {
+        const t = (i / N) * Math.PI * 2;
+        raw.push(
+          new THREE.Vector2(
+            16 * Math.pow(Math.sin(t), 3),
+            13 * Math.cos(t) -
+              5 * Math.cos(2 * t) -
+              2 * Math.cos(3 * t) -
+              Math.cos(4 * t),
+          ),
+        );
+      }
+
+      // centre it and normalise to a target half-width
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
+      for (const p of raw) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+      const k = 1.1 / ((maxX - minX) / 2);
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      // slight vertical stretch so it reads as an elegant heart, not a stubby one
+      const outline = raw.map(
+        (p) => new THREE.Vector2((p.x - cx) * k, (p.y - cy) * k * 1.2),
+      );
+
+      const zTable = 0.5;
+      const zMid = 0.22;
+      const zGirdleTop = 0.06;
+      const zGirdleBottom = -0.06;
+      const zCulet = -0.95;
+
+      const positions: number[] = [];
+      const index: number[] = [];
+
+      const pushRing = (scale: number, z: number) => {
+        const base = positions.length / 3;
+        for (const p of outline) positions.push(p.x * scale, p.y * scale, z);
+        return base;
+      };
+
+      const table = pushRing(0.5, zTable);
+      const mid = pushRing(0.78, zMid);
+      const girdleTop = pushRing(1, zGirdleTop);
+      const girdleBottom = pushRing(1, zGirdleBottom);
+
+      const tableCenter = positions.length / 3;
+      positions.push(0, 0, zTable);
+      const culet = positions.length / 3;
+      positions.push(0, 0, zCulet);
+
+      // a quad band between two equal-length rings
+      const band = (a: number, b: number) => {
+        for (let i = 0; i < N; i++) {
+          const j = (i + 1) % N;
+          index.push(a + i, a + j, b + i, a + j, b + j, b + i);
+        }
+      };
+      // a triangle fan from a ring to a single apex.
+      //
+      // `reverse` is not decoration: the two caps need opposite winding. The
+      // table's apex sits *in* its ring's own plane, so the triangle normal
+      // comes purely from the ring's winding in xy — and the ring runs
+      // clockwise, which drives the normal to -z, into the stone. The
+      // pavilion's apex sits far below its ring instead, and that offset
+      // already flips the cross product back outward. Winding the table the
+      // other way is what makes both caps face out of the shell.
+      //
+      // Nothing here shows it today: with `flatShading` the shader takes its
+      // normal from screen-space derivatives, which ignore index order, and
+      // `side: DoubleSide` hides it either way. It is a hole in the shell
+      // waiting for someone to turn one of those off.
+      const fan = (ring: number, apex: number, reverse = false) => {
+        for (let i = 0; i < N; i++) {
+          const j = (i + 1) % N;
+          if (reverse) index.push(apex, ring + j, ring + i);
+          else index.push(apex, ring + i, ring + j);
+        }
+      };
+
+      fan(table, tableCenter, true); // flat table face
+      band(table, mid); // upper crown
+      band(mid, girdleTop); // lower crown
+      band(girdleTop, girdleBottom); // the girdle belt
+      fan(girdleBottom, culet); // pavilion down to the culet
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      geo.setIndex(index);
+      geo.computeVertexNormals();
+      geo.center();
+      return geo;
     })();
 
-    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-      depth: 0.9,
-      bevelEnabled: true,
-      bevelThickness: 0.55,
-      bevelSize: 0.5,
-      bevelSegments: 3,
-      curveSegments: 8,
-      steps: 1,
-    };
+    /*
+      Polished gold, not glass.
 
-    const gemGeometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
-    gemGeometry.center();
-    // the raw shape traces point-up; one Z flip is all it takes to seat the point down
-    gemGeometry.rotateZ(Math.PI);
-    gemGeometry.scale(0.85, 0.85, 0.72);
-    gemGeometry.computeVertexNormals();
+      The old gem was a `transmission: 1` diamond. Transmission refracts whatever
+      is *behind* the object, and this canvas is transparent over a page gradient
+      — so there was nothing behind it to bend, and the stone came out washed out
+      and hollow. Metal reflects the environment instead of refracting a missing
+      backdrop, so every facet now catches a real, bright reflection: that is what
+      makes it read as a cut gem and what gives it the sparkle.
 
+      Low roughness + full metalness = mirror-sharp facet reflections; a clearcoat
+      lays a second crisp highlight on top; a whisper of iridescence gives the
+      reflected light a little fire at grazing angles.
+    */
     const diamondMaterial = new THREE.MeshPhysicalMaterial({
       color: gold,
-      metalness: 0,
-      roughness: 0.015,
-      transmission: 1,
-      thickness: 2.2,
-      ior: 2.42, // real diamond refractive index
-      reflectivity: 1,
+      metalness: 1,
+      roughness: 0.14,
       clearcoat: 1,
-      clearcoatRoughness: 0.02,
-      envMapIntensity: 1.6,
-      iridescence: 0.4,
-      iridescenceIOR: 1.3,
-      iridescenceThicknessRange: [100, 400],
+      clearcoatRoughness: 0.06,
+      envMapIntensity: 1.9,
+      iridescence: 0.18,
+      iridescenceIOR: 1.6,
+      iridescenceThicknessRange: [120, 420],
       specularIntensity: 1,
-      flatShading: true, // the faceted "cut gem" look
+      flatShading: true, // crisp per-facet normals
+      side: THREE.DoubleSide, // winding-agnostic; the gem is a closed shell
     });
 
     const gem = new THREE.Mesh(gemGeometry, diamondMaterial);
     gem.position.y = 0.45;
     scene.add(gem);
-
-    // subtle inner "fire" core — a smaller, brighter copy for sparkle depth
-    const coreGeo = gemGeometry.clone();
-    coreGeo.scale(0.72, 0.72, 0.72);
-    const coreMat = new THREE.MeshPhysicalMaterial({
-      color: gold,
-      transmission: 1,
-      roughness: 0,
-      ior: 2.6,
-      thickness: 1,
-      envMapIntensity: 2.2,
-      flatShading: true,
-    });
-    const core = new THREE.Mesh(coreGeo, coreMat);
-    core.position.copy(gem.position);
-    scene.add(core);
 
     /* ---------- lighting: gold key, purple rim ---------- */
     scene.add(new THREE.AmbientLight(violet, 0.5));
@@ -225,10 +316,8 @@ export default function HeartDiamond({
 
       gem.rotation.y = tilt;
       gem.rotation.x = -0.05 + Math.sin(t * 0.4) * 0.018;
-      core.rotation.copy(gem.rotation);
 
       gem.position.y = 0.45 + Math.sin(t * 0.7) * 0.04;
-      core.position.y = gem.position.y;
 
       keyLight.position.x = Math.sin(t * 0.3) * 5;
       keyLight.position.z = Math.cos(t * 0.3) * 5;
@@ -253,9 +342,7 @@ export default function HeartDiamond({
       envRT.texture.dispose();
 
       gemGeometry.dispose();
-      coreGeo.dispose();
       diamondMaterial.dispose();
-      coreMat.dispose();
 
       renderer.dispose();
       if (renderer.domElement.parentElement === container) {

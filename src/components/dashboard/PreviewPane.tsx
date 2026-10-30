@@ -152,16 +152,7 @@ const data = event.data as Partial<Incoming> | Partial<EditMessage>;
         <span className="field-label" style={{ margin: 0 }}>
           Preview
         </span>
-        <span className="btn-row">
-          <button
-            type="button"
-            className="btn btn-icon"
-            aria-pressed={editing}
-            onClick={toggleEditing}
-            title="Click any text on the page to change it"
-          >
-            {editing ? "Editing…" : "Edit on page"}
-          </button>
+        <div className="segmented">
           <button
             type="button"
             className="btn btn-icon"
@@ -186,18 +177,29 @@ const data = event.data as Partial<Incoming> | Partial<EditMessage>;
           >
             Phone
           </button>
-          <button
-            type="button"
-            className="btn btn-icon"
-            onClick={() => {
-              reload();
-              frameRef.current?.contentWindow?.location.reload();
-            }}
-          >
-            Reload
-          </button>
-        </span>
-        {!ready && <span className="badge">Loading…</span>}
+        </div>
+        <span className="dash-spacer" />
+        <button
+          type="button"
+          className={`btn ${editing ? "btn-primary" : ""}`}
+          aria-pressed={editing}
+          onClick={toggleEditing}
+          title="Click any text on the page to change it"
+        >
+          {editing ? "Editing…" : "Edit on page"}
+        </button>
+        <button
+          type="button"
+          className="btn btn-icon"
+          onClick={() => {
+            reload();
+            frameRef.current?.contentWindow?.location.reload();
+          }}
+          title="Reload preview"
+        >
+          Reload
+        </button>
+        {!ready && <span className="badge badge-warn">Loading…</span>}
       </div>
 
       {editing && (

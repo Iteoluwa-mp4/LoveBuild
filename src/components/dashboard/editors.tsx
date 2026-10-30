@@ -13,6 +13,7 @@ import MediaUploader from "./MediaUploader";
 import { hasContent, chapterLabel } from "../../lib/site/derive";
 import { countLabel } from "../../lib/format";
 import type { Chapter, Film, Moment, Still } from "../../lib/site/schema";
+import { initiallyOpenItems } from "./openItems";
 
 /**
  * Which item panels are open.
@@ -79,9 +80,7 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
   // Hooks first. An early return in front of them would change the hook order
   // on any render where `site` came back null, which React does not allow.
   // A moment with no photo is one nobody has started on, so it opens itself.
-  const openMoments = useOpenItems(
-    (site?.home.moments ?? []).filter((m) => !m.image.url).map((m) => m.id),
-  );
+  const openMoments = useOpenItems(initiallyOpenItems(site).moments);
 
   if (!site) return null;
 
@@ -528,12 +527,10 @@ export function GalleryEditor({ draft }: { draft: DraftSite }) {
   // A chapter with nothing in it is unfinished, so it opens itself. Films and
   // stills start closed even inside an open chapter — a chapter of five videos
   // is as much of a wall as a chapter itself.
-  const chapters = site?.gallery.chapters ?? [];
-  const openChapters = useOpenItems(
-    chapters.filter((c) => c.films.length === 0 && c.stills.length === 0).map((c) => c.id),
-  );
-  const openFilms = useOpenItems(chapters.flatMap((c) => c.films.map((f) => f.id)));
-  const openStills = useOpenItems(chapters.flatMap((c) => c.stills.map((s) => s.id)));
+  const initial = initiallyOpenItems(site);
+  const openChapters = useOpenItems(initial.chapters);
+  const openFilms = useOpenItems(initial.films);
+  const openStills = useOpenItems(initial.stills);
 
   if (!site) return null;
   const gallery = site.gallery;
@@ -984,9 +981,7 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
   // template switch, which is exactly the case React's rule is about — the hook
   // count would change with the template.
   const site = draft.site;
-  const openMoments = useOpenItems(
-    (site?.home.moments ?? []).filter((m) => !m.image.url).map((m) => m.id),
-  );
+  const openMoments = useOpenItems(initiallyOpenItems(site).moments);
 
   if (!site) return null;
 

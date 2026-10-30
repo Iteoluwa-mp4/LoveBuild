@@ -1,6 +1,6 @@
 import type { Issue, Moment, Site } from "./schema";
 import { findSampleText, sampleTextLabel } from "./default";
-import { findSubmissionIssues } from "./schema";
+import { findSubmissionIssues, submissionChecks } from "./schema";
 import { countLabel } from "../format";
 import { momentsAnchor, sitePaths } from "./paths";
 
@@ -52,6 +52,275 @@ export function findSampleIssues(site: Site): Issue[] {
  */
 export function findIssues(site: Site): Issue[] {
   return [...findSampleIssues(site), ...findSubmissionIssues(site)];
+}
+
+/**
+ * How close a site is to being worth sharing.
+ *
+ * One formula, so the dashboard cannot contradict itself. It backs the publish
+ * dock's caution — whether there is anything still outstanding when the author
+ * confirms — and nothing else.
+ *
+ * It is deliberately **not** what the upload ring shows. The ring counts
+ * uploads and the words that belong to them; this counts every required field,
+ * the headings and the letter included. Two different questions, and a site
+ * can be at 100% on the ring while still being missing its hero line.
+ *
+ * Two things are counted, and they are counted separately because they are
+ * different mistakes:
+ *
+ *   - **Structure.** The requirements from `submissionChecks` — a required
+ *     field that is empty, a file that never finished uploading.
+ *   - **Placeholder.** Fields still holding the sample wording. These pass the
+ *     structural check and still must not ship, which is exactly why the
+ *     sample fills every text field and still has work to do.
+ *
+ * `done` counts only structural requirements, because a field holding sample
+ * copy is not finished — but the percentage is deliberately *not* the
+ * structural ratio alone. A site that is structurally complete and entirely
+ * placeholder is at zero percent, because the person reading it would have to
+ * write every word themselves.
+ */
+export type Readiness = {
+  /** Work items finished. */
+  done: number;
+  /** Every work item, finished or not. */
+  total: number;
+  /** Work items still outstanding. */
+  missing: number;
+  /** Fields still holding the sample wording. */
+  placeholder: number;
+  /** 0–100. */
+  percent: number;
+  /** True when nothing at all is outstanding. */
+  complete: boolean;
+};
+
+export function readiness(site: Site): Readiness {
+  const checks = submissionChecks(site);
+  const placeholders = new Set(findSampleIssues(site).map((issue) => issue.path));
+
+  /*
+   * One work item per field, not per complaint.
+   *
+   * A field that is both required and still holding sample copy is one thing
+   * the author has to do, not two — so it is counted once, and it is only
+   * finished when it is both non-empty and no longer the sample text.
+   */
+  const items = new Map<string, { ok: boolean }>();
+  for (const check of checks) {
+    items.set(check.path, { ok: check.ok });
+  }
+  for (const path of placeholders) {
+    const existing = items.get(path);
+    if (existing) existing.ok = false;
+    else items.set(path, { ok: false });
+  }
+
+  const total = items.size;
+  const done = [...items.values()].filter((item) => item.ok).length;
+
+  return {
+    done,
+    total,
+    missing: total - done,
+    placeholder: placeholders.size,
+    percent: total === 0 ? 100 : Math.round((done / total) * 100),
+    complete: total > 0 && done === total,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * UPLOAD PROGRESS
+ * ------------------------------------------------------------------ */
+
+/**
+ * How much of the site's media has actually been brought.
+ *
+ * A different question from `readiness`, and deliberately so.
+ *
+ * `readiness` asks "is this complete?" and counts every field, including the
+ * ones that only describe the layout — the site name, the headline, the button
+ * labels. Those are cheap to write and they are not *work*. A site with a
+ * photograph and no caption is missing something real; a site with a caption and
+ * no photograph is missing something more real. Counting a heading as half the
+ * job made the number meaningless, because the number was mostly about typing.
+ *
+ * So this counts uploads, and the words that belong to them:
+ *
+ *   - every photograph and every clip,
+ *   - the caption under a photograph and the title on a clip,
+ *   - and whether there is at least one moment and at least one reel at all.
+ *
+ * Layout copy is not counted. A heading is not a task.
+ *
+ * A caption and a title still have to be *written* rather than left holding the
+ * sample wording, because the words under a photograph are the context for that
+ * photograph — the one piece of text in the site that cannot be skipped and
+ * cannot be boilerplate.
+ */
+export type UploadProgress = {
+  /** Uploads and their context, finished. */
+  done: number;
+  /** Every upload and its context. */
+  total: number;
+  /** Still outstanding. */
+  missing: number;
+  /** 0–100. */
+  percent: number;
+  /** True when nothing is outstanding. */
+  complete: boolean;
+};
+
+/**
+ * One piece of media work, and whether it is finished.
+ *
+ * The list that `uploadProgress` counts. Split out for exactly the reason
+ * `submissionChecks` was split out from `findSubmissionIssues`: "20 things to
+ * do" and the list of those twenty things are two views of one decision, and
+ * computed separately they eventually disagree — the header says one number and
+ * the list underneath holds a different number of rows.
+ *
+ * Every entry has a message, finished or not. The dashboard only shows the
+ * unfinished ones, but a uniform shape means the count and the rows come from
+ * one array rather than two.
+ */
+export type UploadItem = {
+  /** Dotted config path, for the dashboard to jump to. */
+  path: string;
+  /** What is outstanding, in words the author can act on. */
+  message: string;
+  /** True when this one is done. */
+  ok: boolean;
+};
+
+/**
+ * Everything on the site that counts as media work, finished or not.
+ *
+ * See `uploadProgress` for what is deliberately absent: layout copy is not
+ * counted, because a heading is not a task.
+ */
+export function uploadItems(site: Site): UploadItem[] {
+  /* The fields still holding the sample wording, so a caption can be told apart
+     from a caption somebody actually wrote. */
+  const placeholders = new Set(findSampleIssues(site).map((issue) => issue.path));
+
+  /**
+   * One media slot: does it hold a file somebody else could open?
+   *
+   * Three cases, and they read differently on purpose:
+   *
+   *   - **Empty** — never filled in. "has no file yet" is work still owed, and
+   *     it is obviously the case from the field itself.
+   *   - **A `blob:` URL** — *was* filled in, looked finished, and died with the
+   *     tab that created it. This is data written by an earlier build, before
+   *     uploads reached Cloudinary. It is the dangerous case: a non-empty
+   *     string, so a length test calls it done while every photograph on the
+   *     site is broken to everyone except the person who uploaded it. It has to
+   *     be called by name or it will never be noticed.
+   *   - **Anything else** — a real URL.
+   *
+   * `ok` and the message are decided together for the reason `text` gives below:
+   * two tests of one condition are two tests that can drift.
+   */
+  const media = (path: string, label: string, url: string): UploadItem => {
+    const value = url.trim();
+    if (value.length === 0) return { path, message: `${label} has no file yet`, ok: false };
+    if (value.startsWith("blob:"))
+      return {
+        path,
+        message: `${label} needs re-uploading — its file did not survive a reload`,
+        ok: false,
+      };
+    return { path, message: label, ok: true };
+  };
+
+  /**
+   * A required text field: its label, whether it is finished, and what to say
+   * when it is not.
+   *
+   * `ok` and the message are decided in one expression on purpose. They used to
+   * be two separate tests, and two tests of the same condition are two tests
+   * that can drift until the list shows a row the count has already cleared.
+   */
+  const text = (path: string, value: string, label: string): UploadItem => {
+    if (value.trim().length === 0) return { path, message: `${label} is empty`, ok: false };
+    if (placeholders.has(path))
+      return { path, message: `${label} still has the placeholder text`, ok: false };
+    return { path, message: label, ok: true };
+  };
+
+  const items: UploadItem[] = [];
+
+  items.push({
+    path: "home.moments",
+    message: "Add at least one photograph",
+    ok: site.home.moments.length > 0,
+  });
+
+  site.home.moments.forEach((moment, i) => {
+    items.push(media(`home.moments.${i}.image.url`, `Photo ${i + 1}`, moment.image.url));
+    items.push(text(`home.moments.${i}.caption`, moment.caption, `Photo ${i + 1} caption`));
+  });
+
+  items.push({
+    path: "gallery.chapters",
+    message: "Add at least one chapter",
+    ok: site.gallery.chapters.length > 0,
+  });
+
+  site.gallery.chapters.forEach((chapter, ci) => {
+    /* A reel with nothing in it has no upload behind it either. */
+    items.push({
+      path: `gallery.chapters.${ci}`,
+      message: `"${chapter.title || `Chapter ${ci + 1}`}" has no films or photographs`,
+      ok: chapter.films.length > 0 || chapter.stills.length > 0,
+    });
+
+    chapter.films.forEach((film, fi) => {
+      items.push(
+        media(
+          `gallery.chapters.${ci}.films.${fi}.src.url`,
+          `Video ${fi + 1}`,
+          film.src.url,
+        ),
+      );
+      items.push(
+        text(`gallery.chapters.${ci}.films.${fi}.title`, film.title, `Video ${fi + 1} title`),
+      );
+    });
+
+    /*
+      A still's caption is not counted.
+      *
+      The film and the moment both have a required title or caption, so those are
+      work. A still's caption is optional in the schema and in the template — the
+      photograph carries the meaning and the caption is a bonus — and counting an
+      optional field would make the meter demand something the site never asked
+      for.
+    */
+    chapter.stills.forEach((still, si) => {
+      items.push(
+        media(`gallery.chapters.${ci}.stills.${si}.src.url`, `Photo ${si + 1}`, still.src.url),
+      );
+    });
+  });
+
+  return items;
+}
+
+export function uploadProgress(site: Site): UploadProgress {
+  const items = uploadItems(site);
+  const total = items.length;
+  const done = items.filter((item) => item.ok).length;
+
+  return {
+    done,
+    total,
+    missing: total - done,
+    percent: total === 0 ? 100 : Math.round((done / total) * 100),
+    complete: total > 0 && done === total,
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -278,6 +547,81 @@ export function modernMemories(site: Site): ModernMemory[] {
     label: momentTag(moment.tag, index),
     caption: moment.caption,
     note: moment.secret,
+    image: moment.image.url.trim() || placeholderImage(moment, index),
+  }));
+}
+
+/* ------------------------------------------------------------------ *
+ * SCRAPBOOK MEMORIES
+ * ------------------------------------------------------------------ */
+
+/**
+ * One photograph as the scrapbook presents it: a caption on the white border,
+ * a note to read when it is opened, a stamped date, and how it sits on the page.
+ *
+ * Lives here rather than in `components/site/scrapbook/shared.tsx` so that
+ * `lib` never imports from `components` — the dependency only ever runs the
+ * other way. The scrapbook components import this type.
+ */
+export type ScrapbookMemory = {
+  /** Printed on the polaroid's white border. */
+  caption: string;
+  /** The longer note, shown when a photo is opened. */
+  note: string;
+  /** A short date, stamped. */
+  date: string;
+  /**
+   * Degrees of tilt.
+   *
+   * The rotation is data rather than CSS because it is the one thing that makes
+   * a grid of identical cards read as scattered rather than aligned — and it has
+   * to be stable across renders, or the layout jumps on every state change.
+   */
+  tilt: number;
+  /** Which strip of tape holds this one down, and how it sits. */
+  tape: "top-left" | "top-right" | "top-center" | "none";
+  /** The photograph. A placeholder stands in until one is uploaded. */
+  image: string;
+};
+
+/**
+ * Tilt and tape are cycled rather than random.
+ *
+ * A random value would be re-rolled on every render and the polaroids would
+ * jump around the page while someone was reading them. Six values repeated by
+ * index gives the same scattered look, and gives it identically every time.
+ */
+const SB_TILTS = [-3.2, 2.6, -1.8, 3.4, -2.4, 1.9];
+const SB_TAPES: ScrapbookMemory["tape"][] = [
+  "top-center",
+  "top-left",
+  "top-right",
+  "top-center",
+  "top-left",
+  "top-right",
+];
+
+/**
+ * The site's moments, in the scrapbook's shape.
+ *
+ * Reads `home.moments` — the same single list the classic and modern templates
+ * read. That is what keeps a template switch non-destructive: the photographs
+ * are entered once, and changing `template` re-presents them rather than
+ * stranding them. See `modernMemories` above for the same reasoning.
+ *
+ * Before this existed the scrapbook rendered a fixed set of six generated
+ * photographs and ignored the site entirely, so choosing it in the dashboard
+ * swapped the author's work for somebody else's demo.
+ */
+export function scrapbookMemories(site: Site): ScrapbookMemory[] {
+  return site.home.moments.map((moment, index) => ({
+    // The border is the card, so an empty caption would leave a blank strip
+    // where every other card has handwriting. Falls back to "Moment 01".
+    caption: hasContent(moment.caption) ? moment.caption.trim() : momentTag(moment.tag, index),
+    note: moment.secret,
+    date: moment.date,
+    tilt: SB_TILTS[index % SB_TILTS.length],
+    tape: SB_TAPES[index % SB_TAPES.length],
     image: moment.image.url.trim() || placeholderImage(moment, index),
   }));
 }

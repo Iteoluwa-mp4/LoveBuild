@@ -4,7 +4,6 @@ import type { Site } from "../../../lib/site/schema";
 
 import Flipbook, { FLIPBOOK_CSS } from "./Flipbook";
 import {
-  MEMORIES,
   SCRAPBOOK_BASE_CSS,
   SCRAPBOOK_FONT_IMPORT,
   ScrapbookFooter,
@@ -12,6 +11,7 @@ import {
   Tape,
 } from "./shared";
 import { scrapbookPaths } from "./paths";
+import { scrapbookMemories } from "../../../lib/site/derive";
 
 /**
  * The scrapbook template's album.
@@ -24,9 +24,25 @@ import { scrapbookPaths } from "./paths";
  * photograph off the page was the earlier approach and it fought the turn: both
  * wanted to own the same gesture.
  */
-export default function ScrapbookGalleryPage({ site: _site, basePath }: { site: Site; basePath: string }) {
+export default function ScrapbookGalleryPage({ site, basePath }: { site: Site; basePath: string }) {
   const paths = useMemo(() => scrapbookPaths(basePath), [basePath]);
-  const [shown, setShown] = useState<(typeof MEMORIES)[number] | null>(null);
+
+  /**
+   * The author's own photographs, from `home.moments`.
+   *
+   * Keyed on `site` so a photo added or edited while the album is open is
+   * reflected rather than held at the value the page first rendered with.
+   */
+  const memories = useMemo(() => scrapbookMemories(site), [site]);
+
+  /*
+    An index rather than the memory itself. The object is rebuilt whenever the
+    config changes, so holding it would leave the open panel showing the caption
+    the reader opened a moment ago while the book underneath it had already
+    moved on. The index resolves against the current array on every render.
+  */
+  const [shownIndex, setShownIndex] = useState<number | null>(null);
+  const shown = shownIndex !== null ? (memories[shownIndex] ?? null) : null;
 
   return (
     <div className="sb-shell">
@@ -38,7 +54,7 @@ export default function ScrapbookGalleryPage({ site: _site, basePath }: { site: 
       <main>
         <section className="sg-head">
           <p className="sb-type-small">
-            page two · {MEMORIES.length} photographs
+            page two · {memories.length} photographs
           </p>
           <h1 className="sb-hand-h1">the whole album</h1>
           <p className="sg-intro sb-hand">
@@ -48,7 +64,10 @@ export default function ScrapbookGalleryPage({ site: _site, basePath }: { site: 
         </section>
 
         <section className="sg-book">
-          <Flipbook memories={MEMORIES} onPick={setShown} />
+          <Flipbook
+            memories={memories}
+            onPick={(memory) => setShownIndex(memories.indexOf(memory))}
+          />
         </section>
 
         {/* The selected photograph, outside the book so a turn never competes
@@ -58,7 +77,7 @@ export default function ScrapbookGalleryPage({ site: _site, basePath }: { site: 
             <button
               type="button"
               className="sg-detail-close"
-              onClick={() => setShown(null)}
+              onClick={() => setShownIndex(null)}
             >
               put it back
             </button>
@@ -74,7 +93,7 @@ export default function ScrapbookGalleryPage({ site: _site, basePath }: { site: 
                 <button
                   type="button"
                   className="sg-detail-open"
-                  onClick={() => setShown(null)}
+                  onClick={() => setShownIndex(null)}
                 >
                   back to the book
                 </button>

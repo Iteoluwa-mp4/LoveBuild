@@ -77,7 +77,7 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
               decides your web address.
             </p>
 
-            <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
               <TextField
                 label="What is it called?"
                 value={name}

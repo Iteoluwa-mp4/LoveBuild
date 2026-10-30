@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import type { Site } from "../../../lib/site/schema";
 
 import {
-  MEMORIES,
   SCRAPBOOK_BASE_CSS,
   SCRAPBOOK_FONT_IMPORT,
   ScrapbookFooter,
@@ -11,6 +10,7 @@ import {
   Tape,
 } from "./shared";
 import { scrapbookPaths } from "./paths";
+import { scrapbookMemories } from "../../../lib/site/derive";
 
 /**
  * The scrapbook template's cover.
@@ -25,12 +25,20 @@ import { scrapbookPaths } from "./paths";
  *
  * The album below is a preview; the gallery holds every photo with its note.
  */
-export default function ScrapbookHomePage({ site: _site, basePath }: { site: Site; basePath: string }) {
+export default function ScrapbookHomePage({ site, basePath }: { site: Site; basePath: string }) {
   const [openNote, setOpenNote] = useState<number | null>(null);
   const paths = useMemo(() => scrapbookPaths(basePath), [basePath]);
 
+  /**
+   * The author's own photographs, from `home.moments` — not a fixed set.
+   *
+   * Keyed on `site` rather than `[]`: a photo uploaded while this page is open
+   * has to appear, and the cover cluster has to re-render around it.
+   */
+  const memories = useMemo(() => scrapbookMemories(site), [site]);
+
   /** The four photos shown on the cover. */
-  const cover = useMemo(() => MEMORIES.slice(0, 4), []);
+  const cover = useMemo(() => memories.slice(0, 4), [memories]);
 
   return (
     <div className="sb-shell">
@@ -43,7 +51,7 @@ export default function ScrapbookHomePage({ site: _site, basePath }: { site: Sit
         <section className="sb-cover">
           <div className="sb-cover-head">
             <p className="sb-type-small">collected for you · since forever</p>
-            <h1 className="sb-hand-h1">
+            <h1 className="sb-hand-h1 text-slate-500">
               things I meant
               <br />
               to keep
@@ -72,7 +80,7 @@ export default function ScrapbookHomePage({ site: _site, basePath }: { site: Sit
           </div>
 
           <p className="sb-cover-note sb-hand">
-            Six of them, in total.
+            {memories.length} of them, in total.
             <br />
             <a href={paths.gallery}>Turn the page →</a>
           </p>
@@ -103,9 +111,9 @@ export default function ScrapbookHomePage({ site: _site, basePath }: { site: Sit
           </div>
 
           <div className="sb-strip">
-            {MEMORIES.map((memory, i) => (
+            {memories.map((memory, i) => (
               <button
-                key={memory.caption}
+                key={i}
                 type="button"
                 className={`sb-chip ${openNote === i ? "is-open" : ""}`}
                 style={{ ["--tilt" as string]: `${memory.tilt}deg` }}
@@ -118,10 +126,16 @@ export default function ScrapbookHomePage({ site: _site, basePath }: { site: Sit
             ))}
           </div>
 
-          {openNote !== null && (
+          {/*
+            Guarded on `memories[openNote]` as well as on `openNote` being set:
+            `openNote` is an index, and moments can be deleted while this page is
+            open. Without the second test, removing the photo the reader had open
+            left the panel dereferencing a position that no longer exists.
+          */}
+          {openNote !== null && memories[openNote] && (
             <div className="sb-read" aria-live="polite">
-              <p className="sb-type-small">{MEMORIES[openNote].date}</p>
-              <p className="sb-read-note sb-hand">{MEMORIES[openNote].note}</p>
+              <p className="sb-type-small">{memories[openNote].date}</p>
+              <p className="sb-read-note sb-hand">{memories[openNote].note}</p>
               <button
                 type="button"
                 className="sb-read-close"

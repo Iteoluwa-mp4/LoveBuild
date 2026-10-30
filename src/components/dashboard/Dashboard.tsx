@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Globe } from "lucide-react";
 
 import "../../dashboard.css";
 import { AppearanceEditor } from "./editors";
 import { Section, TemplatePicker, ThemePicker } from "./fields";
 import OutlinePanel from "./OutlinePanel";
 import PreviewPane from "./PreviewPane";
-import StatusBanner from "./StatusBanner";
+import ProgressRing from "./ProgressRing";
+import PublishDock from "./PublishDock";
 import { useDraftSite } from "../../hooks/useDraftSite";
 import { SEED_SLUG } from "../../lib/site/default";
 import { getRepository, repositoryKind } from "../../lib/site/getRepository";
 import { publicUrl } from "../../lib/site/slug";
 import { type SiteStatus } from "../../lib/site/schema";
-import { findIssues, findSampleIssues } from "../../lib/site/derive";
+import { uploadItems, uploadProgress } from "../../lib/site/derive";
 import { isPasscodeSet, lock } from "../../lib/site/auth";
 
 /**
@@ -43,26 +45,76 @@ export default function Dashboard() {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [device, setDevice] = useState<"desktop" | "tablet" | "phone">("desktop");
   const [previewPage, setPreviewPage] = useState<"home" | "gallery">("home");
-
-  /**
-   * Whether the preview lets you type on the page itself.
-   *
-   * Off by default, and that is a deliberate choice rather than a default to
-   * inherit. With it off the preview behaves exactly like the published site, which
-   * is what you want when you are checking how something *looks*. Turning it on is
-   * an explicit act by someone who wants to change words, so nobody types into
-   * their own site by accident and finds the headline rewritten.
-   */
   const [editing, setEditing] = useState(false);
+
+  /*
+    The publish dock's height, measured rather than guessed.
+
+    The dock is sticky at the bottom of the form column and changes height with
+    its state — the confirm step adds a line, the published state adds a link.
+    The upload ring sits directly above it, so a fixed offset would put the ring
+    on top of the dock in one state and leave a gap in another. Measuring it
+    means the ring clears the dock whatever the dock is doing.
+  */
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [dockHeight, setDockHeight] = useState(0);
+
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el) return;
+
+    const measure = () => setDockHeight(el.getBoundingClientRect().height);
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const site = draft.site;
 
-  // findIssues, not findSubmissionIssues: a site with every field filled and every
-  // file uploaded can still be carrying the template's placeholder wording, and
-  // that is the mistake that is hardest to spot before it goes out of the door.
-  const issues = useMemo(() => (site ? findIssues(site) : []), [site]);
-  const sampleIssues = useMemo(() => (site ? findSampleIssues(site) : []), [site]);
-  const problem = issues.length > 0;
+  /*
+    What is still outstanding — and deliberately *not* `findIssues`.
+
+    `findIssues` lists every field on the site that is empty or still holding
+    the sample wording: 97 things on the seed site, 84 of which are headings,
+    button labels, eyebrow text and other layout copy. None of that is owed. The
+    site ships with wording that works, and replacing it is a preference rather
+    than a task — so a list that counts it is a list demanding work nobody
+    agreed to do.
+
+    This counts exactly what the ring counts: media uploads, and the captions
+    and titles that belong to them. `uploadItems` owns that decision, so the
+    number in the header and the rows underneath it are the same array and
+    cannot disagree.
+  */
+  const todo = useMemo(
+    () => (site ? uploadItems(site).filter((item) => !item.ok) : []),
+    [site],
+  );
+
+  // Split so the two can be worded differently — an empty field and a field
+  // full of the sample wording are different kinds of mistake. A caption still
+  // holding the sample text is listed as such rather than as "empty", because
+  // it reads as finished and that is exactly why it gets missed.
+  const sampleIssues = useMemo(
+    () => todo.filter((item) => item.message.includes("placeholder")),
+    [todo],
+  );
+  const missingIssues = useMemo(
+    () => todo.filter((item) => !item.message.includes("placeholder")),
+    [todo],
+  );
+
+  /*
+    One number, from one function, for the ring.
+
+    This counts uploads and their captions, not every field on the site — so it
+    moves when a photograph arrives rather than when a heading is typed. The
+    publish dock keeps the full completeness check, because "is this worth
+    sharing" is a different question from "how much of it is here".
+  */
+  const progress = useMemo(() => (site ? uploadProgress(site) : null), [site]);
 
   // Re-read the publication state whenever the site finishes saving, so the
   // banner flips to Live without a reload.
@@ -145,18 +197,19 @@ export default function Dashboard() {
   return (
     <div className="dash">
       <header className="dash-bar">
-        <div>
-          {/*
-            Links to /dashboard, which lists sites. Not to this page — that
-            would be a self-link, and it is where you go when there is more
-            than one site.
-          */}
-          <h1>
+        <div className="dash-brand">
+          <h1 style={{ margin: 0 }}>
+            <Link to="/dashboard" title="All sites">
+              LoveBuilds
+            </Link>
+          </h1>
+          <span className="dash-brand-slug">/</span>
+          <h1 style={{ margin: 0 }}>
             <Link to="/dashboard" title="All sites">
               {site.identity.name || slug}
             </Link>
           </h1>
-          <span className="dash-bar-sub">/s/{slug}</span>
+          <span className="dash-brand-slug">/s/{slug}</span>
         </div>
 
         <span className="dash-spacer" />
@@ -166,56 +219,50 @@ export default function Dashboard() {
           {SAVE_LABEL[draft.saveState.phase] ?? draft.saveState.phase}
         </span>
 
-        {/*
-          New tab on purpose: opening the same tab would throw away whatever
-          half-finished edit is in the form. The preview pane next to this shows
-          the same site live — this is the saved one.
-        */}
-        <Link className="btn" to={publicUrl(slug)} target="_blank" rel="noreferrer">
+        <Link
+          className="btn"
+          to={publicUrl(slug)}
+          target="_blank"
+          rel="noreferrer"
+          title="Open the published site in a new tab"
+        >
+          <Globe size={14} />
           View site
         </Link>
-        <Link className="btn" to={`${publicUrl(slug)}/gallery`} target="_blank" rel="noreferrer">
-          Gallery
-        </Link>
 
-        {/*
-          Only offered once a passcode exists. Before that there is nothing to
-          sign out of — locking the editor would gate someone out of work they
-          never locked in, which is how "I am locked out of my own site" happens.
-        */}
         {isPasscodeSet() && (
           <button type="button" className="btn" onClick={lock}>
             Sign out
           </button>
         )}
-        <button
-          type="button"
-          className="btn"
-          onClick={() => void draft.flush()}
-          disabled={draft.saveState.phase !== "dirty"}
-        >
-          Save now
-        </button>
       </header>
+
+      {/*
+        The upload ring, in the bottom-left corner.
+
+        Fixed rather than in the form column, so it is in the same place on
+        every screen and never scrolls away. Its height above the viewport
+        bottom comes from the measured publish dock, so it always sits just
+        above the dock and never on top of it — the dock is sticky at the
+        bottom of the form column, which is on the left, so the two share a
+        corner.
+      */}
+      {progress && (
+        <div
+          className="dash-ring-dock"
+          style={{ "--dock-h": `${dockHeight}px` } as CSSProperties}
+        >
+          <ProgressRing
+            percent={progress.percent}
+            done={progress.done}
+            total={progress.total}
+            complete={progress.complete}
+          />
+        </div>
+      )}
 
       <div className="dash-body">
         <div className="dash-form">
-          <StatusBanner
-            status={siteStatus}
-            slug={slug}
-            local={repositoryKind() === "local"}
-            // Only the count, and only to phrase the confirmation. It is the same
-            // list the "Ready to share?" section enumerates in full below.
-            missingCount={issues.length}
-            onPublish={() => {
-              setPublishError(null);
-              void setPublished("published");
-            }}
-            onUnpublish={() => {
-              setPublishError(null);
-              void setPublished("draft");
-            }}
-          />
           {publishError && (
             <p className="notice notice-bad" role="alert">
               {publishError}
@@ -245,14 +292,91 @@ export default function Dashboard() {
           )}
 
           {/*
+            The upload ring.
+
+            A different number from the one in the publish dock, and it has to
+            be: the dock asks "is this complete?" and the ring asks "how much of
+            the site's photographs have arrived?". The second is the one worth
+            watching while you work, because it moves when you add a picture
+            rather than when you type a heading.
+
+            It lives in the corner rather than in the column, because a summary
+            in the flow of the form is a thing the author scrolls past. See
+            `uploadProgress` in `derive.ts` for exactly what it counts.
+          */}
+
+          {/*
+            What is outstanding, and a way to jump to each thing.
+
+            The list exists because a count alone never says which field to fix.
+            Placeholder text is listed separately from empty fields because they
+            are different mistakes: an empty field is obviously empty, and a
+            field full of the sample wording looks finished.
+
+            Scoped to media work on purpose — see `todo` above. Headings and
+            button labels are not tasks, so they are not listed as tasks.
+          */}
+          {todo.length > 0 && (
+            <Section
+              title="Still to do"
+              hint={`${todo.length} ${todo.length === 1 ? "thing" : "things"}`}
+            >
+              {sampleIssues.length > 0 && (
+                <>
+                  <p className="field-hint">
+                    {sampleIssues.length}{" "}
+                    {sampleIssues.length === 1 ? "field still has" : "fields still have"} the
+                    placeholder text. These read as filled in, so they are easy to miss — replace
+                    them with your own words.
+                  </p>
+                  <ul className="dash-issues">
+                    {sampleIssues.map((issue) => (
+                      <li key={issue.path}>
+                        <span>{issue.message}</span>
+                        {issue.path && (
+                          <button
+                            type="button"
+                            className="go-link"
+                            onClick={() => jumpTo(issue.path)}
+                          >
+                            go →
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {missingIssues.length > 0 && (
+                <>
+                  <p className="field-hint">These are empty or missing:</p>
+                  <ul className="dash-issues">
+                    {missingIssues.map((issue) => (
+                      <li key={issue.path}>
+                        <span>{issue.message}</span>
+                        {issue.path && (
+                          <button
+                            type="button"
+                            className="go-link"
+                            onClick={() => jumpTo(issue.path)}
+                          >
+                            go →
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </Section>
+          )}
+
+          {/*
             Template and colour, together and first.
 
             These are the two things that decide what the site *is* — the rest of
-            the form is filling in whichever of them you picked. They were split
-            across the page: colour sat at the top where nobody could miss it,
-            and the template picker sat at the very bottom, below the Home and
-            Gallery editors. That made switching layout look like a feature that
-            was missing rather than one that was scrolled off-screen.
+            the form is filling in whichever of them you picked.
 
             `AppearanceEditor` still owns the conditional editor switch, so the
             fields below follow whatever is chosen here.
@@ -270,78 +394,27 @@ export default function Dashboard() {
 
           <AppearanceEditor draft={draft} />
 
-          <Section title="Ready to share?" defaultOpen>
-            {/*
-              Placeholder text gets its own notice rather than joining the
-              missing-fields list. "Still missing" is reassuring - nobody worries
-              about a blank field. "Still has the placeholder" is not: the field
-              is filled, so it looks done, and that is exactly how template copy
-              reaches a real visitor.
-            */}
-            {sampleIssues.length > 0 && (
-              <div className="notice notice-warn">
-                <strong>
-                  {sampleIssues.length}{" "}
-                  {sampleIssues.length === 1
-                    ? "field still has"
-                    : "fields still have"}{" "}
-                  the placeholder text.
-                </strong>{" "}
-                These read as filled in, so they are easy to miss. Replace them with your
-                own words.
-                <ul style={{ margin: "0.25rem 0 0", paddingLeft: "1.1rem" }}>
-                  {sampleIssues.slice(0, 6).map((issue) => (
-                    <li key={issue.path}>
-                      {issue.message}
-                      <button
-                        type="button"
-                        className="btn btn-icon"
-                        onClick={() => jumpTo(issue.path)}
-                      >
-                        go
-                      </button>
-                    </li>
-                  ))}
-                  {sampleIssues.length > 6 && (
-                    <li>...and {sampleIssues.length - 6} more</li>
-                  )}
-                </ul>
-              </div>
-            )}
-
-            {problem ? (
-              <div className="notice notice-warn">
-                <strong>
-                  {issues.length} {issues.length === 1 ? "thing is" : "things are"} still missing.
-                </strong>
-                <ul style={{ margin: "0.25rem 0 0", paddingLeft: "1.1rem" }}>
-                  {issues.slice(0, 6).map((issue) => (
-                    <li key={issue.path}>
-                      {issue.message}
-                      {issue.path && (
-                        <>
-                          {" "}
-                          <button
-                            type="button"
-                            className="btn btn-icon"
-                            onClick={() => jumpTo(issue.path)}
-                          >
-                            go
-                          </button>
-                        </>
-                      )}
-                    </li>
-                  ))}
-                  {issues.length > 6 && <li>…and {issues.length - 6} more</li>}
-                </ul>
-              </div>
-            ) : (
-              <p className="notice" style={{ borderColor: "var(--dash-good)" }}>
-                <strong>Everything that matters is filled in.</strong> Sending it for review comes
-                with the login step.
-              </p>
-            )}
-          </Section>
+          {/*
+            PublishDock: sticky bottom bar with the readiness sentence and the
+            one primary action. It is the only place publishing happens — there
+            is no second Publish button in the top bar, because two buttons for
+            one irreversible action is how the wrong one gets clicked.
+          */}
+          <PublishDock
+            site={site}
+            status={siteStatus}
+            slug={slug}
+            local={repositoryKind() === "local"}
+            dockRef={dockRef}
+            onPublish={() => {
+              setPublishError(null);
+              void setPublished("published");
+            }}
+            onUnpublish={() => {
+              setPublishError(null);
+              void setPublished("draft");
+            }}
+          />
         </div>
 
         <aside className="dash-side">
@@ -350,16 +423,12 @@ export default function Dashboard() {
             basePath={previewBasePath(previewPage)}
             device={device}
             onDeviceChange={setDevice}
-            // The same call the form uses. An edit typed on the page and one typed
-            // into a field are indistinguishable from here down, which is the
-            // point: one path into the config, so nothing can treat them
-            // differently.
             onEdit={(path, value) => draft.set(path, value)}
             editing={editing}
             onEditingChange={setEditing}
           />
 
-          <div className="btn-row">
+          <div className="segmented">
             <button
               type="button"
               className="btn btn-icon"
@@ -378,11 +447,6 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/*
-            Outline below the preview. The preview is the first thing seen on the
-            right — it answers "what does it look like?" before the outline answers
-            "what will she actually see?"
-          */}
           <OutlinePanel site={site} onJump={jumpTo} />
         </aside>
       </div>
