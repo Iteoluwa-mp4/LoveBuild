@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 
+import useScrollReveal from "../../../hooks/useScrollReveal";
 import { hasContent, editorialMoments } from "../../../lib/site/derive";
 import type { Site } from "../../../lib/site/schema";
 import { editorialPaths } from "./paths";
@@ -13,7 +12,14 @@ import {
   useEditorialFolio,
 } from "./shared";
 
-gsap.registerPlugin(ScrollTrigger);
+/**
+ * The figures page's reveal targets.
+ *
+ * The grid is one `.editorial-reveal` block, so its figures arrive together
+ * rather than as a dozen separate cards. The heading rides with it, which is all
+ * this page ever animated.
+ */
+const GALLERY_REVEAL_SELECTOR = ".editorial-gallery-heading, .editorial-reveal";
 
 /**
  * The editorial template's figures page — every photograph, with its credit.
@@ -38,25 +44,7 @@ export default function EditorialGalleryPage({ site, basePath }: { site: Site; b
 
   const person = hasContent(site.editorial.person) ? site.editorial.person : site.identity.name;
 
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        ".editorial-gallery-heading",
-        { y: 24, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.8, ease: "power2.out" },
-      );
-      gsap.utils.toArray<HTMLElement>(".editorial-reveal").forEach((element) => {
-        gsap.fromTo(
-          element,
-          { y: 24, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 88%" } },
-        );
-      });
-    }, root);
-    return () => ctx.revert();
-  }, []);
+  useScrollReveal(rootRef, GALLERY_REVEAL_SELECTOR);
 
   return (
     <div

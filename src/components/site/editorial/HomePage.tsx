@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 
 import EditableText from "../shared/EditableText";
+import useScrollReveal from "../../../hooks/useScrollReveal";
 import { hasContent, editorialMoments } from "../../../lib/site/derive";
 import type { Site } from "../../../lib/site/schema";
 import { editorialPaths } from "./paths";
@@ -17,7 +16,23 @@ import {
   useEditorialFolio,
 } from "./shared";
 
-gsap.registerPlugin(ScrollTrigger);
+/**
+ * Everything this page reveals, in one selector.
+ *
+ * The cover pieces are included so the opening still arrives in sequence. They
+ * used to be a mount-time GSAP timeline, which meant a failed animation left the
+ * masthead at zero opacity. Here they are ordinary reveal targets: the hook
+ * hides them only after it has run, and its failsafe makes them visible even if
+ * IntersectionObserver never speaks.
+ */
+const HOME_REVEAL_SELECTOR = [
+  ".editorial-cover-kicker",
+  ".editorial-cover-title .editorial-line",
+  ".editorial-cover-line",
+  ".editorial-cover-meta",
+  ".editorial-photo-reveal",
+  ".editorial-reveal",
+].join(", ");
 
 /**
  * The editorial template's home page — the issue itself.
@@ -53,32 +68,7 @@ export default function EditorialHomePage({ site, basePath }: { site: Site; base
 
   const person = hasContent(site.editorial.person) ? site.editorial.person : site.identity.name;
 
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        ".editorial-cover-kicker, .editorial-cover-title .editorial-line, .editorial-cover-line, .editorial-cover-meta",
-        { y: "105%", opacity: 0 },
-        { y: "0%", opacity: 1, duration: 0.8, stagger: 0.06, ease: "power3.out", delay: 0.1 },
-      );
-      gsap.utils.toArray<HTMLElement>(".editorial-reveal").forEach((element) => {
-        gsap.fromTo(
-          element,
-          { y: 24, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 84%" } },
-        );
-      });
-      gsap.utils.toArray<HTMLElement>(".editorial-photo-reveal").forEach((element) => {
-        gsap.fromTo(
-          element,
-          { clipPath: "inset(0 100% 0 0)" },
-          { clipPath: "inset(0 0% 0 0)", duration: 1.05, ease: "power3.inOut", scrollTrigger: { trigger: element, start: "top 84%" } },
-        );
-      });
-    }, root);
-    return () => ctx.revert();
-  }, []);
+  useScrollReveal(rootRef, HOME_REVEAL_SELECTOR);
 
   return (
     <div

@@ -43,11 +43,9 @@ It is a registered template now: `"editorial"` is in `TEMPLATE_IDS`, its copy
 lives in `site.editorial` and is editable from the dashboard, and it renders at
 `/s/:slug` like the other two. What remains:
 
-- [ ] Retune its reveals off `gsap ScrollTrigger` onto `useScrollReveal`. The
-      ScrollTrigger failure documented in README ("content sat at autoAlpha:0,
-      invisible on the published page, with nothing in the console") applies to
-      `editorial/HomePage.tsx` and `editorial/GalleryPage.tsx` verbatim — they
-      register `ScrollTrigger` and use `autoAlpha` with no failsafe.
+- [x] Retune its reveals off `gsap ScrollTrigger` onto `useScrollReveal`. Both
+      pages now use the shared hook, including the cover intro and the
+      photographs' clip wipe, so a broken observer cannot leave the issue blank.
 - [ ] Its stylesheet in `editorial/css.ts` still imports Google Fonts and sets
       `:root`/`body` styles. It is mounted inside `SiteShell`, so those globals
       fight the theme tokens; the template currently wins by setting
@@ -107,7 +105,8 @@ lives in `site.editorial` and is editable from the dashboard, and it renders at
    improvement after uploads landed.
 2. Import the local shelf, add App Check, and run the storage smoke test against
    the real project when a browser is connected.
-3. Editorial template promotion (schema → TEMPLATE_IDS → reveals → styles).
+3. Scope the editorial stylesheet's font/body globals; its schema, registration
+   and reveals are already done.
 4. Dashboard UI pass (§4 items are independent, quick wins included).
 5. Cleanup as each file is touched — the "A few of the moments" one first, it
    is untruthful to the stated rule.

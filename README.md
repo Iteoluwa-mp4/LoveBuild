@@ -52,8 +52,8 @@ Done:
   route so "make another" never has to reopen the newest site first.
 - **Tests** — 276 passing. `npm test`
 
-Still to do: transformed (`f_auto,q_auto`) delivery URLs and moving the
-editorial template's reveals onto the shared failsafe.
+Still to do: transformed (`f_auto,q_auto`) delivery URLs and scoping the
+editorial stylesheet's document-level font and body rules.
 
 ## Storage, auth and publishing
 
@@ -547,11 +547,12 @@ the signed-in account, but there is no automatic migration, no export, and no
 "delete the local copy" step. That is deliberate: copy first, keep the original
 until the copy is seen working.
 
-**The editorial template is config-driven, but its reveals are not on the shared
-failsafe.** It is a registered template, reads `site.editorial`, and is reachable
-at `/s/:slug`. Its pages still register ScrollTrigger directly instead of using
-`useScrollReveal`, so the failure mode described above still applies to it.
-Moving those reveals is the remaining work.
+**The editorial stylesheet still writes document-level globals.** Both editorial
+pages now use `useScrollReveal`, so the failsafe covers them. What remains is
+`editorial/css.ts`: it imports Google Fonts and sets `:root`/`body` rules inside a
+component mounted in `SiteShell`, so it wins over the theme tokens by setting its
+own `--editorial-*` variables and `color` on the template root. Scoping those
+globals is the remaining cleanup.
 
 **Delivery URLs are not transformed yet.** Photographs are stored in Cloudinary
 but served at their original size — see *Uploads*.
@@ -577,11 +578,11 @@ composed in one place rather than sprinkled through the templates, because the
 transform is a property of *how Cloudinary serves*, not of any one `<img>`. This
 is the change that decides whether her phone downloads a 4K video.
 
-**The editorial template, brought in.** It exists and is worth keeping: move its
-copy into a schema section (like `modern` has), register it in `TEMPLATE_IDS`,
-give it a dashboard surface, and retune its reveals onto `useScrollReveal` so it
-inherits the failsafe instead of re-importing ScrollTrigger. Until then it is one
-hardcoded page in a codebase whose stated rule is that pages carry no copy.
+**The editorial stylesheet, scoped.** The template itself is in: schema-backed,
+registered in `TEMPLATE_IDS`, editable from the dashboard, and its reveals now use
+`useScrollReveal`. The last piece is its stylesheet, which still imports Google
+Fonts and writes `:root`/`body` rules from inside the component. Moving those to a
+scoped wrapper or into `themes.ts` finishes the job.
 
 **App Check.** Firestore is live and owner-scoped, but nothing yet attests that
 requests come from this app rather than a script holding the public project

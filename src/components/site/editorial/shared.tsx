@@ -77,6 +77,39 @@ const EDITORIAL_EXTRA_CSS = `
 .editorial-back:hover { color:var(--editorial-ink); }
 /* The figures page borrows the masthead's carrying but not a full cover. */
 .editorial-cover-figures { min-height:0; padding-top:64px; padding-bottom:24px; border-bottom:1px solid var(--editorial-line); }
+/*
+ * Scroll reveals.
+ *
+ * The hidden state comes from the useScrollReveal classes, never from CSS. If the
+ * observer never fires, the hook's failsafe still shows everything. The
+ * transition lives on the element rather than on the pending class, so removing
+ * the pending class animates instead of snapping.
+ *
+ * Photographs keep the magazine's horizontal wipe. Everything else uses the
+ * shared fade-up that the rest of the site uses.
+ */
+.editorial-template .editorial-reveal,
+.editorial-template .editorial-cover-kicker,
+.editorial-template .editorial-cover-title .editorial-line,
+.editorial-template .editorial-cover-line,
+.editorial-template .editorial-cover-meta,
+.editorial-template .editorial-photo-reveal {
+  transition: opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1), clip-path 1.05s cubic-bezier(.65,0,.35,1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.editorial-template .editorial-photo-reveal.js-reveal-pending {
+  opacity: 0;
+  transform: none;
+  clip-path: inset(0 100% 0 0);
+}
+.editorial-template .editorial-photo-reveal.js-reveal-shown {
+  opacity: 1;
+  clip-path: inset(0 0 0 0);
+}
+/* The masthead slides up from behind its own mask, not the shared 26px lift. */
+.editorial-template .editorial-cover-title .editorial-line.js-reveal-pending {
+  transform: translateY(105%);
+}
 `;
 
 /**

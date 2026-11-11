@@ -140,10 +140,11 @@ Open product decisions, deliberately undecided:
 - When App Check and a real export arrive. Both are hardening, not features; the
   security rules already decide who can read a draft.
 
-A deliberate exemption on record: the editorial template still registers
-ScrollTrigger directly instead of using the shared reveal hook, so the failsafe
-described above does not cover it yet. It is otherwise a registered template:
-schema-backed, in `TEMPLATE_IDS`, and reachable at `/s/:slug`.
+A remaining exemption on record: the editorial template's stylesheet imports
+Google Fonts and writes `:root`/`body` rules from inside the component, so those
+document-level globals still win over the theme tokens. The template itself is
+otherwise fully integrated: schema-backed, in `TEMPLATE_IDS`, reachable at
+`/s/:slug`, and its reveals now use the shared failsafe.
 
 ## Brand Commitments
 
