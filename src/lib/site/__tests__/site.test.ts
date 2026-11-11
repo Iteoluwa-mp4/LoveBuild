@@ -33,11 +33,14 @@ describe("schema", () => {
     expect(site.identity.name).toBe("");
     expect(site.ornaments).toEqual({ hero3d: true, particles: true });
     // A blank site carries no template-specific copy either, so switching to
-    // modern shows empty slots rather than placeholder wording.
-    expect(site.template).toBe("classic");
+    // any template shows empty slots rather than placeholder wording.
+    expect(site.template).toBe("editorial");
     expect(site.modern.hero.lines).toEqual(["", "", ""]);
     expect(site.modern.hero.subline).toBe("");
     expect(site.modern.closing.heading).toBe("");
+    expect(site.editorial.person).toBe("");
+    expect(site.editorial.quote).toBe("");
+    expect(site.editorial.letter).toBe("");
   });
 
   /**
@@ -274,18 +277,25 @@ describe("the sample content", () => {
  * not. Neither is a reason to refuse to render somebody's site.
  */
 describe("templates", () => {
-  it("defaults to classic when the key is absent", () => {
+  it("defaults to editorial when the key is absent", () => {
     const legacy: Record<string, unknown> = { ...defaultSite() };
     delete legacy.template;
-    expect(siteSchema.parse(legacy).template).toBe("classic");
+    expect(siteSchema.parse(legacy).template).toBe("editorial");
   });
 
   it("keeps a template it recognises", () => {
     expect(siteSchema.parse({ ...defaultSite(), template: "modern" }).template).toBe("modern");
   });
 
-  it("falls back to classic for one it does not", () => {
-    expect(siteSchema.parse({ ...defaultSite(), template: "not-a-template" }).template).toBe("classic");
+  /**
+   * An id this build does not know — including "classic", retired together
+   * with the layout it named — costs the author their choice, not their page.
+   * The fallback is editorial, the design that took the classic's place, so a
+   * config from before the swap keeps rendering something instead of failing.
+   */
+  it("falls back to editorial for one it does not", () => {
+    expect(siteSchema.parse({ ...defaultSite(), template: "not-a-template" }).template).toBe("editorial");
+    expect(siteSchema.parse({ ...defaultSite(), template: "classic" }).template).toBe("editorial");
   });
 
   /**
@@ -320,6 +330,18 @@ describe("templates", () => {
   it("keeps media out of the modern block", () => {
     const modern = defaultSite().modern as Record<string, unknown>;
     const serialised = JSON.stringify(modern);
+    expect(serialised).not.toContain("publicId");
+    expect(serialised).not.toContain('"url"');
+  });
+
+  /**
+   * `editorial` holds the personal copy only. The photographs are
+   * `home.moments`, read through `editorialMoments` — a media field here
+   * would strand an upload when `template` switches mid-config.
+   */
+  it("keeps media out of the editorial block", () => {
+    const editorial = defaultSite().editorial as Record<string, unknown>;
+    const serialised = JSON.stringify(editorial);
     expect(serialised).not.toContain("publicId");
     expect(serialised).not.toContain('"url"');
   });

@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { EditingProvider } from "../site/shared/EditableText";
-import ClassicGalleryPage from "../site/classic/GalleryPage";
-import ClassicHomePage from "../site/classic/HomePage";
 import ModernTemplate from "../site/modern/HomePage";
 import ModernGallery from "../site/modern/GalleryPage";
 import ScrapbookHomePage from "../site/scrapbook/HomePage";
 import ScrapbookGalleryPage from "../site/scrapbook/GalleryPage";
+import EditorialHomePage from "../site/editorial/HomePage";
+import EditorialGalleryPage from "../site/editorial/GalleryPage";
 import SiteShell from "../site/shared/SiteShell";
 import {
   MESSAGES,
@@ -190,6 +190,10 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
     here, so choosing it rendered classic while the published site rendered
     scrapbook. A third branch in a two-way ternary fails silently, which is why
     this is written out rather than collapsed.
+
+    The final branch is editorial, matching the schema's fallback: an unknown
+    id parses as editorial, so the preview and the published site land on the
+    same page from the same config.
   */
   let page;
   if (site.template === "modern") {
@@ -209,9 +213,9 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
   } else {
     page =
       variant === "home" ? (
-        <ClassicHomePage site={site} basePath={basePath} />
+        <EditorialHomePage site={site} basePath={basePath} />
       ) : (
-        <ClassicGalleryPage site={site} basePath={basePath} />
+        <EditorialGalleryPage site={site} basePath={basePath} />
       );
   }
 

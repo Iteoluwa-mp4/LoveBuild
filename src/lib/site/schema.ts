@@ -335,11 +335,51 @@ const modernSchema = z
   .prefault({});
 
 /* ------------------------------------------------------------------ *
+ * EDITORIAL TEMPLATE
+ * ------------------------------------------------------------------ */
+
+/**
+ * The editorial template's copy — and only the personal parts of it.
+ *
+ * ## Why there is no heading field here
+ *
+ * The editorial layout is a magazine, and a magazine's section headings —
+ * "one person / one issue", "contents", "from the editor", "figures of us." —
+ * are set by the publication, not by its writer. They are chrome, and they
+ * live in the components. The fields below are the words that are
+ * unmistakably somebody's: the person the issue is about, the pull-quote, and
+ * the editor's letter.
+ *
+ * ## Why images are not here
+ *
+ * Same as the modern template: photographs are `home.moments`, read through
+ * `editorialMoments` in `derive.ts`. Storing a second list would let the two
+ * disagree, and — the reason this matters — switching `template` mid-config
+ * would strand every upload in whichever section was not currently on
+ * screen. A moment's `date` becomes the dateline, its `caption` becomes the
+ * story headline, and its `secret` becomes the note under the figure.
+ */
+const editorialSchema = z
+  .object({
+    /**
+     * The person the issue is about, printed in the masthead. Left blank it
+     * falls back to the site name, so an author who only filled one field in
+     * still gets a named issue.
+     */
+    person: z.string().max(60).default(""),
+    /** The pull-quote between the stories, set very large. Clearing it hides the section. */
+    quote: z.string().max(300).default(""),
+    /** The editor's letter. A few short paragraphs, split on newlines when rendered. */
+    letter: z.string().max(4000).default(""),
+  })
+  .prefault({});
+
+/* ------------------------------------------------------------------ *
  * SITE
  * ------------------------------------------------------------------ */
 
 /** Which layouts the renderer knows how to draw. */
-export const TEMPLATE_IDS = ["classic", "modern", "scrapbook"] as const;
+export const TEMPLATE_IDS = ["editorial", "modern", "scrapbook"] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
 /**
@@ -350,16 +390,20 @@ export type TemplateId = (typeof TEMPLATE_IDS)[number];
  *
  * Written as `string` -> transform rather than `z.enum` so that a config saved
  * before templates existed keeps parsing, and so an id this build no longer
- * knows falls back to classic instead of rejecting the whole site. That mirrors
- * how `theme` is stored, and the reasoning is the same: an unknown value should
- * cost the author their choice, never their page.
+ * knows falls back to editorial instead of rejecting the whole site. That
+ * mirrors how `theme` is stored, and the reasoning is the same: an unknown
+ * value should cost the author their choice, never their page.
+ *
+ * The fallback is editorial, not an id anyone stored: it is the replacement
+ * for the retired classic layout, so a config saved with `template: "classic"`
+ * renders the design that took over rather than failing loudly.
  */
 const templateSchema = z
   .string()
-  .default("classic")
-  .catch("classic")
+  .default("editorial")
+  .catch("editorial")
   .transform((value): TemplateId =>
-    (TEMPLATE_IDS as readonly string[]).includes(value) ? (value as TemplateId) : "classic",
+    (TEMPLATE_IDS as readonly string[]).includes(value) ? (value as TemplateId) : "editorial",
   );
 
 /**
@@ -405,6 +449,13 @@ export const siteSchema = z.object({
    * so switching `template` back and forth never loses a draft.
    */
   modern: modernSchema,
+
+  /**
+   * The editorial template's copy. Present on every config, whatever the
+   * template, for the same reason `modern` is: a draft never loses its words
+   * because a different layout was briefly chosen.
+   */
+  editorial: editorialSchema,
 });
 
 export type Site = z.infer<typeof siteSchema>;

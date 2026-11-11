@@ -65,3 +65,32 @@ export function checkSlug(raw: string): SlugCheck {
 export function publicUrl(slug: string): string {
   return `/s/${slug}`;
 }
+
+/** The longest address the create form accepts, and that a suffix must respect. */
+export const MAX_SLUG_LENGTH = 60;
+
+/**
+ * Appends a short random suffix to an address that is already taken.
+ *
+ * Only used on collision, never on the first attempt: a site should keep the
+ * name someone chose unless the world forces otherwise. The base is trimmed so
+ * the result still fits the same limit as a hand-typed slug.
+ */
+export function suffixSlug(slug: string, suffix: string): string {
+  const tail = `-${suffix}`;
+  const base = slug
+    .slice(0, Math.max(1, MAX_SLUG_LENGTH - tail.length))
+    .replace(/-+$/, "");
+  return `${base}${tail}`;
+}
+
+/**
+ * Four lower-case base-36 characters.
+ *
+ * Not a security token — this only makes two people who chose the same name get
+ * different links. Math.random is enough for that, and it keeps the helper
+ * synchronous and testable.
+ */
+export function randomSlugSuffix(): string {
+  return Math.random().toString(36).slice(2, 6).padEnd(4, "0");
+}

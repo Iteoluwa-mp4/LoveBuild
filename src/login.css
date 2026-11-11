@@ -102,3 +102,110 @@
   font-size: 0.85rem;
   color: #A08FB8;
 }
+
+/* ------------------------------------------------------------------ *
+ * Google and the sign-in / create-account switch
+ * ------------------------------------------------------------------ */
+
+.login-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.65rem;
+  border-radius: 0.55rem;
+  border: 1px solid color-mix(in srgb, #C9A6E8 35%, transparent);
+  background: #f7f4fb;
+  color: #1c1030;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.login-google:hover:not(:disabled) {
+  background: #fff;
+  border-color: #c9a6e8;
+}
+
+.login-google:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: #7f6f97;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, #c9a6e8 22%, transparent);
+}
+
+.login-hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #8f7fa8;
+}
+
+.login-notice {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.55rem;
+  font-size: 0.82rem;
+  color: #cfe9cd;
+  border: 1px solid color-mix(in srgb, #8fcb8c 45%, transparent);
+  background: color-mix(in srgb, #8fcb8c 10%, transparent);
+}
+
+.login-switch {
+  margin: 0.2rem 0 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #a08fb8;
+}
+
+.login-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #d9a94e;
+  font: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.login-link:hover:not(:disabled) {
+  color: #e6bc6a;
+}
+
+.login-link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.login-forgot {
+  align-self: flex-end;
+  margin-top: -0.35rem;
+  font-size: 0.8rem;
+}
+
+.login-google:focus-visible,
+.login-submit:focus-visible,
+.login-link:focus-visible {
+  outline: 2px solid #c9a6e8;
+  outline-offset: 2px;
+}

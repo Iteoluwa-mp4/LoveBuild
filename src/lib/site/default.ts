@@ -328,6 +328,26 @@ export function sample(): Site {
         signature: "with all my heart",
       },
     },
+
+    /*
+      The editorial template's copy, seeded the same way as the modern one:
+      instructional, generic enough that nobody inherits a stranger's words,
+      and specific enough that sample detection can flag what is left alone.
+
+      Only the personal parts are here because the headings are the
+      publication's: they live in the components, and there is deliberately no
+      field to change them. No media either — the photographs come from
+      `home.moments` above, through `editorialMoments` in `derive.ts`.
+    */
+    editorial: {
+      person: "for you",
+      quote: "The best part of every place is finding you there.",
+      letter: [
+        "You are the story I never get tired of rereading.",
+        "",
+        "Thank you for the brave beginnings, the tiny rituals, and every version of ordinary that became ours. If this issue has a thesis, it is simple: life is more itself with you in it.",
+      ].join("\n"),
+    },
   });
 }
 

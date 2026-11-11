@@ -79,6 +79,16 @@
   flex: 1;
 }
 
+/* The signed-in author's name, from Google or derived from their email. */
+.dash-user {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: var(--dash-dim);
+}
+
 /* ---------- layout ---------- */
 
 .dash-body {
@@ -463,6 +473,46 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* An editable item heading: the row summary itself, not a field inside it. */
+.item-toggle-caret {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  padding: 0;
+  justify-content: center;
+}
+
+.item-title-edit {
+  flex: 1 1 auto;
+  width: 100%;
+  margin: -0.2rem 0;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--dash-text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.item-title-edit:hover {
+  border-color: var(--dash-line);
+  background: var(--dash-panel-2);
+}
+
+.item-title-edit:focus {
+  outline: none;
+  border-color: var(--dash-lavender);
+  background: var(--dash-bg);
+}
+
+.item-title-edit::placeholder {
+  color: var(--dash-dim);
+  font-weight: 500;
+  opacity: 1;
 }
 
 .item[data-open="false"] .item-head {
@@ -1108,5 +1158,262 @@
 
 .go-link:hover {
   text-decoration: underline;
+}
+
+/* ---------- profile / your sites ---------- */
+
+/*
+ * The shelf. A full-height `.dash` whose middle scrolls, rather than a page
+ * that grows — the top bar stays put while the list moves, same as the editor.
+ */
+.profile-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--dash-line);
+  border-radius: 0.75rem;
+  background: var(--dash-panel);
+}
+
+/*
+ * The one-time import offer. It reuses `.notice` for the amber treatment, so
+ * the only job here is to let the sentence and the buttons breathe rather than
+ * inherit the tighter gap a one-line notice is designed for.
+ */
+.profile-import {
+  gap: 0.7rem;
+}
+
+.profile-import p {
+  margin: 0;
+}
+
+.profile-import p[role="alert"] {
+  color: var(--dash-bad);
+  font-weight: 550;
+}
+
+.profile-import .btn-row {
+  margin: 0;
+}
+
+.profile-avatar {
+  flex: 0 0 auto;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--dash-line);
+  background: color-mix(in srgb, var(--dash-lavender) 20%, var(--dash-panel-2));
+  color: var(--dash-lavender);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-identity {
+  min-width: 0;
+}
+
+.profile-identity h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+}
+
+.profile-identity p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--dash-dim);
+  overflow-wrap: anywhere;
+}
+
+.profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.profile-badge {
+  padding: 0.12rem 0.45rem;
+  border: 1px solid var(--dash-line);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  color: var(--dash-dim);
+  white-space: nowrap;
+}
+
+.profile-badge-warn {
+  color: var(--dash-amber);
+  border-color: color-mix(in srgb, var(--dash-amber) 45%, transparent);
+}
+
+.profile-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.profile-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+.profile-heading .field-hint {
+  margin: 0.2rem 0 0;
+}
+
+.profile-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.profile-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--dash-line);
+  border-radius: 0.65rem;
+  background: var(--dash-panel);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.profile-item:hover {
+  border-color: #3d2a5c;
+  background: var(--dash-panel-2);
+}
+
+.profile-item-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-item-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  font-weight: 620;
+}
+
+.profile-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--dash-dim);
+}
+
+.profile-item-meta code {
+  font-size: 0.75rem;
+  color: var(--dash-lavender);
+}
+
+.profile-item-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.profile-status {
+  padding: 0.12rem 0.45rem;
+  border: 1px solid var(--dash-line);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dash-dim);
+}
+
+.profile-status-published {
+  color: var(--dash-mint);
+  border-color: color-mix(in srgb, var(--dash-mint) 45%, transparent);
+  background: color-mix(in srgb, var(--dash-mint) 10%, transparent);
+}
+
+.profile-status-submitted {
+  color: var(--dash-amber);
+  border-color: color-mix(in srgb, var(--dash-amber) 45%, transparent);
+  background: color-mix(in srgb, var(--dash-amber) 10%, transparent);
+}
+
+.profile-empty {
+  margin-top: 1rem;
+  padding: 2.5rem 1.5rem;
+  border: 1px dashed var(--dash-line);
+  border-radius: 0.75rem;
+  text-align: center;
+  color: var(--dash-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.profile-empty p {
+  margin: 0;
+}
+
+/* The profile icon in the editor header, with a Google avatar when there is one. */
+.dash-avatar {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .profile-scroll {
+    padding: 1rem;
+  }
+
+  .profile-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-item-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .profile-card {
+    align-items: flex-start;
+  }
 }
 

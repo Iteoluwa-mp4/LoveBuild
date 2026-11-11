@@ -161,34 +161,43 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
 }
 
 /**
- * The photographs, shared by both templates.
+ * The photographs, shared by every template.
  *
- * Extracted from `HomeEditor` so the modern editor can show the same list. This
- * is what makes a template switch safe: there is one list of photographs, one
- * uploader, and whichever template is selected reads it. Editing them under
- * "Classic" and then switching to "Modern" shows the same pictures, arranged as
- * a strip and a sphere instead of a grid.
+ * Extracted from `HomeEditor` so the other templates' editors can show the
+ * same list. This is what makes a template switch safe: there is one list of
+ * photographs, one uploader, and whichever template is selected reads it.
+ * Editing them here and then switching shows the same pictures, arranged as a
+ * magazine spread, a strip and a sphere, or a scatter of polaroids instead.
  *
  * The `hint` varies with the template because the same photo behaves
- * differently — the classic card flips to reveal the secret, the modern strip
- * just advances — and that difference should not be a surprise.
+ * differently — the flat card flips to reveal the secret, the modern strip
+ * just advances, and the editorial layout prints it as a story — and that
+ * difference should not be a surprise.
  */
 function MomentsEditor({
   draft,
   open,
   modern = false,
+  editorial = false,
 }: {
   draft: DraftSite;
   open: ReturnType<typeof useOpenItems>;
   modern?: boolean;
+  editorial?: boolean;
 }) {
   const site = draft.site;
   if (!site) return null;
 
+  const hint = modern
+    ? "Shown as a strip and an orbit"
+    : editorial
+      ? "Told as stories — photo, dateline, headline, note"
+      : "Photos that flip when tapped";
+
   return (
     <Section
       title={`Photographs (${site.home.moments.length})`}
-      hint={modern ? "Shown as a strip and an orbit" : "Photos that flip when tapped"}
+      hint={hint}
     >
       {site.home.moments.length === 0 && (
         <EmptyNote>
@@ -264,6 +273,13 @@ function MomentEditor({
     <Item
       index={index}
       title={hasContent(moment.caption) ? moment.caption : momentTagPreview(moment, index)}
+      editableTitle={{
+        value: moment.caption,
+        onChange: (v) => draft.set(`${base}.caption`, v),
+        maxLength: 300,
+        placeholder: momentTagPreview(moment, index),
+        ariaLabel: `Caption on the front of photograph ${index + 1}`,
+      }}
       badges={moment.image.url ? undefined : <span className="badge badge-warn">No photo</span>}
       open={open}
       onToggle={onToggle}
@@ -823,6 +839,13 @@ function FilmEditor({
     <Item
       index={index}
       title={hasContent(film.title) ? film.title : "Untitled video"}
+      editableTitle={{
+        value: film.title,
+        onChange: (v) => draft.set(`${path}.${index}.title`, v),
+        maxLength: 200,
+        placeholder: "Untitled video",
+        ariaLabel: `Title for video ${index + 1}`,
+      }}
       badges={film.src.url ? undefined : <span className="badge badge-warn">No file</span>}
       open={open}
       onToggle={onToggle}
@@ -878,6 +901,13 @@ function StillEditor({
     <Item
       index={index}
       title={hasContent(still.caption) ? still.caption : "Untitled photo"}
+      editableTitle={{
+        value: still.caption,
+        onChange: (v) => draft.set(`${path}.${index}.caption`, v),
+        maxLength: 300,
+        placeholder: "Untitled photo",
+        ariaLabel: `Caption for photograph ${index + 1}`,
+      }}
       badges={still.src.url ? undefined : <span className="badge badge-warn">No file</span>}
       open={open}
       onToggle={onToggle}
@@ -921,12 +951,14 @@ export function AppearanceEditor({ draft }: { draft: DraftSite }) {
         whichever template is currently selected, plus the 3D ornaments.
 
         Switching template is non-destructive: `home.moments` holds the
-        photographs for both, so nothing is lost either way.
+        photographs for every template, so nothing is lost either way.
       */}
       {site.template === "modern" ? (
         <ModernEditor draft={draft} />
+      ) : site.template === "editorial" ? (
+        <EditorialEditor draft={draft} />
       ) : (
-        <ClassicEditor draft={draft} />
+        <StandardEditor draft={draft} />
       )}
 
       <Section title="Extras" hint="Heavy 3D — can slow older phones">
@@ -952,17 +984,95 @@ export function AppearanceEditor({ draft }: { draft: DraftSite }) {
  * ================================================================== */
 
 /**
- * The classic template's fields.
+ * The shared home and gallery fields.
+ *
+ * The general editor, for whichever template does not read a template-specific
+ * section — today that is the scrapbook. The sections are the fields the
+ * modern and editorial layouts deliberately do not use: the quote letter, the
+ * closing fan, the chapters.
  *
  * Split out of `AppearanceEditor` purely so the template switch reads as one
- * conditional rather than two sets of fields interleaved. Nothing here is
- * template-aware; these are the sections the modern template does not use.
+ * conditional rather than two sets of fields interleaved.
  */
-function ClassicEditor({ draft }: { draft: DraftSite }) {
+function StandardEditor({ draft }: { draft: DraftSite }) {
   return (
     <>
       <HomeEditor draft={draft} />
       <GalleryEditor draft={draft} />
+    </>
+  );
+}
+
+/**
+ * The editorial template's fields — only the personal parts.
+ *
+ * The headings are the publication's, and there is deliberately nothing here
+ * to change them: a magazine earns "contents" and "figures of us." by being a
+ * magazine. What is editable is what is unmistakably somebody's — the person
+ * the issue is about, the quote, and the letter.
+ *
+ * Photographs are not duplicated either — they are `home.moments`, edited by
+ * `MomentsEditor` here exactly as the modern template edits them. A moment's
+ * date becomes the dateline, its caption the story headline, and its secret
+ * the note; see `editorialMoments` in `derive.ts`.
+ */
+function EditorialEditor({ draft }: { draft: DraftSite }) {
+  // Hooks first, before the early return, for the same reason as ModernEditor:
+  // this is rendered conditionally by the template switch, so the hook count
+  // changing with the template is exactly the case React's rule is about.
+  const site = draft.site;
+  const openMoments = useOpenItems(initiallyOpenItems(site).moments);
+
+  if (!site) return null;
+
+  const editorial = site.editorial;
+
+  return (
+    <>
+      <Section title="The masthead" hint="The name of the whole issue">
+        <TextField
+          label="Issue title"
+          value={site.identity.name}
+          onChange={(v) => draft.set("identity.name", v)}
+          placeholder="Her name, or a nickname only she would recognise"
+          hint="Printed across the cover, and in the browser tab."
+          maxLength={120}
+        />
+        <TextField
+          label="Who it is about"
+          value={editorial.person}
+          onChange={(v) => draft.set("editorial.person", v)}
+          maxLength={60}
+          placeholder="for you"
+          hint="Shown in the masthead line. Left blank it falls back to the issue title."
+        />
+      </Section>
+
+      <MomentsEditor draft={draft} open={openMoments} editorial />
+
+      <Section title="The quote" hint="Set very large, between the stories">
+        <TextAreaField
+          label="The pull-quote"
+          value={editorial.quote}
+          onChange={(v) => draft.set("editorial.quote", v)}
+          rows={2}
+          maxLength={300}
+          hint="One line, treated like a headline. Clear it and the section disappears."
+          placeholder="The line she reads twice."
+        />
+      </Section>
+
+      <Section title="From the editor" hint="The letter that closes the issue">
+        <TextAreaField
+          label="The letter"
+          value={editorial.letter}
+          onChange={(v) => draft.set("editorial.letter", v)}
+          rows={6}
+          maxLength={4000}
+          hint="A few short paragraphs, separated with blank lines. Clear it and the section disappears."
+          placeholder="You are the story I never get tired of rereading…"
+        />
+      </Section>
     </>
   );
 }

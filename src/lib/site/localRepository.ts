@@ -2,6 +2,8 @@ import type { Site, SiteStatus } from "./schema";
 import { siteSchema } from "./schema";
 import { STORAGE_PREFIX } from "./brand";
 import { SaveError, type SiteRepository, type SiteSummary } from "./repository";
+import { randomSlugSuffix, suffixSlug } from "./slug";
+import { parseForStorage, parseStoredSite } from "./parseSite";
 
 /**
  * localStorage-backed implementation, for Step 4a only.
@@ -156,17 +158,7 @@ export class LocalSiteRepository implements SiteRepository {
 
     // Validate on read too. A schema change between sessions must not hand a
     // half-compatible object to the renderer.
-    const result = siteSchema.safeParse(parsed);
-    if (!result.success) {
-      const first = result.error.issues[0];
-      throw new SaveError(
-        `Saved config for "${slug}" no longer matches the current schema` +
-          (first ? ` (at ${first.path.join(".")})` : "") + ".",
-        first?.path.join("."),
-      );
-    }
-
-    return result.data;
+    return parseStoredSite(parsed, slug);
   }
 
   /**
@@ -183,37 +175,57 @@ export class LocalSiteRepository implements SiteRepository {
   }
 
   /**
-   * Refuses a second site with the same slug.
+   * Claims a free slug, then writes the first version of the site.
    *
-   * Postgres would reject this on a unique index; localStorage would not, and the
-   * two sites would silently overwrite each other. Failing here keeps the
-   * create-site form honest while developing offline.
+   * The requested slug is tried first. Only if it is taken does this append a
+   * random suffix and try again, so the common case keeps the address the
+   * author chose. The returned site carries the slug that was actually stored;
+   * callers navigate to that, not to the one they asked for.
    */
-  private async assertSlugFree(slug: string): Promise<void> {
-    const existing = readIndex().filter((s) => s !== slug);
-    if (existing.includes(slug)) {
-      throw new SaveError(`"${slug}" is already in use.`, undefined, "slug-taken");
+  async create(site: Site): Promise<Site> {
+    const parsed = parseForStorage(site);
+    let slug = parsed.slug;
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (!read(CONFIG_PREFIX + slug)) {
+        const created = { ...parsed, slug };
+        this.store(created, "draft");
+        return created;
+      }
+      slug = suffixSlug(parsed.slug, randomSlugSuffix());
     }
+
+    throw new SaveError("Could not find a free web address. Try a different name.");
   }
 
+  /**
+   * Updates a site that already exists.
+   *
+   * Never creates. An autosave that arrives after a deletion must not bring the
+   * site back, and a typo in a URL must not silently make a new draft.
+   */
   async save(site: Site): Promise<void> {
-    await this.assertSlugFree(site.slug);
-    // Parse before storing. Storing a config the schema rejects means the next
-    // read throws, which is far harder to diagnose than refusing the write.
-    const result = siteSchema.safeParse(site);
-    if (!result.success) {
-      const first = result.error.issues[0];
+    const parsed = parseForStorage(site);
+
+    if (!read(CONFIG_PREFIX + parsed.slug)) {
       throw new SaveError(
-        `Not saved: ${first?.message ?? "the config is invalid"}` +
-          (first?.path.length ? ` at ${first.path.join(".")}` : "") + ".",
-        first?.path.join("."),
+        `There is no saved site called "${parsed.slug}".`,
+        undefined,
+        "not-found",
       );
     }
 
-    const payload = JSON.stringify(result.data);
-    write(CONFIG_PREFIX + site.slug, payload);
-    write(META_PREFIX + site.slug, JSON.stringify({ updatedAt: new Date().toISOString() } satisfies StoredMeta));
-    writeStatus(site.slug, readStatus(site.slug));
+    this.store(parsed, readStatus(parsed.slug));
+  }
+
+  /** The one place a config, its timestamp, status and index entry are written. */
+  private store(site: Site, status: SiteStatus): void {
+    write(CONFIG_PREFIX + site.slug, JSON.stringify(site));
+    write(
+      META_PREFIX + site.slug,
+      JSON.stringify({ updatedAt: new Date().toISOString() } satisfies StoredMeta),
+    );
+    writeStatus(site.slug, status);
     trackSlug(site.slug);
   }
 
@@ -257,11 +269,11 @@ function removeStatus(slug: string): void {
 
 function readMeta(slug: string): StoredMeta {
   const raw = read(META_PREFIX + slug);
-  if (!raw) return { updatedAt: new Date(0).toISOString() };
+  if (!raw) return { updatedAt: "" };
   try {
     const parsed = JSON.parse(raw) as Partial<StoredMeta>;
-    return { updatedAt: parsed.updatedAt ?? new Date(0).toISOString() };
+    return { updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "" };
   } catch {
-    return { updatedAt: new Date(0).toISOString() };
+    return { updatedAt: "" };
   }
 }

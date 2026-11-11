@@ -1,24 +1,22 @@
 # LoveBuild: Things That Need Work
 
+> **Live list moved to `to-do.md`.** This file's done items are ticked below.
+> New work goes in `to-do.md` first; sync anything still open here.
+
 Priority order. Tick items off as you go.
 
 ## 1. Must fix before the uncle uses it for real
 
-- [ ] **Hosted storage.** Sites live in localStorage, so the link only works on the machine that made it. Needs a hosted backend (or somewhere to publish the data) so the recipient can open it.
-- [ ] **Persistent uploads.** Photos and videos are blob URLs and disappear on reload. Move them to Cloudinary (or similar). This is the most important fix.
-- [ ] **Real auth.** The local passcode gates the editor but doesn't protect the data. Fine for now, not once it's hosted.
+- [ ] **Hosted storage.** Sites live in localStorage, so the link only works on the machine that made it. Needs a hosted backend (or somewhere to publish the data) so the recipient can open it. *(Cloudinary now holds the media, but the config with the words is still per-browser.)*
+- [x] **Persistent uploads.** Photos and videos now go straight from the browser to Cloudinary (`src/lib/site/cloudinary.ts`), URL written back, dead `blob:` URLs flagged. Superseded continuation: transformed delivery URLs (`f_auto,q_auto`) — see `to-do.md`.
+- [x] **Real auth.** Firebase Authentication (email/password and Google) now
+  gates the editor. Still a gate rather than a lock until sites move off
+  localStorage — see the Firestore step in `to-do.md`.
 
 ## 2. Dashboard UI
 
-- [ ] **Active state for toggle buttons.** `aria-pressed` is only styled for `.theme-card`. Front page / Gallery, the device switcher and "Edit on page" show no selected state. Fix:
-  ```css
-  .btn[aria-pressed="true"] {
-    background: color-mix(in srgb, var(--dash-accent) 18%, var(--dash-panel-2));
-    border-color: var(--dash-accent);
-    color: #fff;
-  }
-  ```
-- [ ] **Clearer hierarchy.** Make **Publish** a primary button in the top bar (it's buried in the banner and scrolls away). Make "Save now" a quiet text button. Group View site and Gallery.
+- [x] **Active state for toggle buttons.** Done in `dashboard.css` (`.btn[aria-pressed="true"]`, `.btn-icon`).
+- [x] **Clearer hierarchy.** Publish became the one primary action in a bottom-anchored `PublishDock` with a two-step confirm; the "3 things left" chip was deliberately removed rather than built (the progress ring owns progress now). Remaining polish lives in `to-do.md`.
 - [ ] **Fewer boxes inside boxes.** Section, item and item-head all have borders and backgrounds. Remove borders on `.item` and `.item-head`, and separate with spacing and tone instead.
 - [ ] **Bigger, roomier text.** Base font to about 15px, hints around 0.78rem, inputs around 0.92rem with more padding, and larger gaps in `.dash-form` and `.dash-side`.
 - [ ] **Warmer look.** The cold blue on near-black reads as a generic admin panel. Try a soft rose or gold accent, or pull the accent from the chosen theme tokens.
@@ -30,8 +28,8 @@ Priority order. Tick items off as you go.
 The idea: keep the original at full quality in storage, and only optimize what gets delivered. Do the first two items and you get roughly 80% of the benefit.
 
 **Do first**
-- [ ] **Upload straight from the browser to Cloudinary** (signed or unsigned upload) so big files never bottleneck on your own server.
-- [ ] **Add `f_auto,q_auto` to every displayed image URL.** Cloudinary then serves AVIF or WebP at a smart quality per device.
+- [x] **Upload straight from the browser to Cloudinary** — done via unsigned `auto/upload` in `cloudinary.ts` (see `to-do.md` for the signed-upload follow-up once a backend exists).
+- [ ] **Add `f_auto,q_auto` to every displayed image URL.** Cloudinary then serves AVIF or WebP at a smart quality per device. *(Not done — uploads store the raw `secure_url` today.)*
 
 **Do later, when you feel the pain**
 - [ ] **Resize and re-encode in the browser before upload.** Shrink 4000px+ phone photos to about 2000px and encode as WebP at around 80 to 85% quality (typically 70 to 90% smaller, no visible loss).

@@ -37,23 +37,35 @@ export interface SiteRepository {
    *
    * Returns null for a draft, which is the correct answer rather than an error —
    * from out here, an unpublished site does not exist. On a hosted backend
-   * this is enforced by row level security, not by the filter in the query, so
+   * this is enforced by security rules, not by the filter in the query, so
    * forgetting the filter cannot leak anything.
-   */
-  /**
-   * The visitor's read.
    *
-   * Returns null for a draft, which is the correct answer rather than an error —
-   * from out here, an unpublished site does not exist. It is also the *only* place
-   * publication is decided: a caller that has a site from this method knows it is
-   * live, so nothing else needs to ask about status a second time. That is not a
-   * micro-optimisation; asking twice used to cost a whole extra query whose answer
-   * could only ever be "published".
+   * It is also the *only* place publication is decided: a caller that has a site
+   * from this method knows it is live, so nothing else needs to ask about status
+   * a second time. That is not a micro-optimisation; asking twice used to cost a
+   * whole extra query whose answer could only ever be "published".
    */
   getPublic(slug: string): Promise<Site | null>;
 
   /**
-   * Creates or replaces a site, as its owner.
+   * Creates a new site.
+   *
+   * The slug on `site` is a request, not a guarantee. If it is already taken —
+   * by anyone, on any account — the implementation appends a short random suffix
+   * and returns the site as it was actually stored. Callers must navigate to
+   * `created.slug`, not the slug they asked for.
+   *
+   * Separate from `save` because creating is the only operation that has to
+   * claim a globally unique address. A save that silently created a row could
+   * resurrect a deleted site or overwrite one belonging to someone else.
+   */
+  create(site: Site): Promise<Site>;
+
+  /**
+   * Updates a site that already exists, as its owner.
+   *
+   * Never creates. If the stored site is gone, this rejects rather than quietly
+   * bringing it back — an autosave landing after a deletion must not undo it.
    *
    * Implementations must not silently accept an invalid config — parse it, and
    * reject with a useful message. A half-written config in the database is a

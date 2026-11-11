@@ -1,25 +1,27 @@
+import { isFirebaseConfigured } from "./firebase";
+import { FirestoreSiteRepository } from "./firestoreRepository";
 import { LocalSiteRepository } from "./localRepository";
 import type { SiteRepository } from "./repository";
 
 /**
  * Chooses a backend.
  *
- * Local storage is currently the only implementation, and it is meant to stay the
- * fallback forever rather than being replaced. Every backend this app will ever
- * have is one someone opens in *their own browser* to edit *their own* site, so
- * "works with nothing configured" is not a prototype compromise — it is the
- * behaviour.
+ * When Firebase is configured, sites live in Firestore and follow the account.
+ * A fresh clone with no `.env.local` still runs, with sites in localStorage and
+ * no login — that is the development path, not a second product.
  *
- * The seam is still here, and still worth its weight: a hosted backend drops in as
- * one more `SiteRepository` and nothing above this line changes. That was the
- * whole reason the interface was drawn before anything was decided about hosting.
+ * The choice is deliberately not made per user. Public pages must read even
+ * when nobody is signed in, and a repository that switched implementation on
+ * sign-out would make the same link work and then stop working. The hosted
+ * implementation handles both cases: Firestore's rules decide who can read
+ * which document, and the owner-only methods ask Auth for the current uid.
  */
-
-/** One instance, so the React tree does not remount on every render. */
 let chosen: SiteRepository | null = null;
 
 export function getRepository(): SiteRepository {
-  chosen ??= new LocalSiteRepository();
+  chosen ??= isFirebaseConfigured()
+    ? new FirestoreSiteRepository()
+    : new LocalSiteRepository();
   return chosen;
 }
 

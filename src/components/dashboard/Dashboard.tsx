@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Globe } from "lucide-react";
+import { CircleUserRound, Globe, Mail } from "lucide-react";
 
 import "../../dashboard.css";
 import { AppearanceEditor } from "./editors";
@@ -10,12 +10,13 @@ import PreviewPane from "./PreviewPane";
 import ProgressRing from "./ProgressRing";
 import PublishDock from "./PublishDock";
 import { useDraftSite } from "../../hooks/useDraftSite";
+import { useSession } from "../../hooks/useSession";
 import { SEED_SLUG } from "../../lib/site/default";
 import { getRepository, repositoryKind } from "../../lib/site/getRepository";
 import { publicUrl } from "../../lib/site/slug";
 import { type SiteStatus } from "../../lib/site/schema";
 import { uploadItems, uploadProgress } from "../../lib/site/derive";
-import { isPasscodeSet, lock } from "../../lib/site/auth";
+import { resendVerification, signOut } from "../../lib/site/auth";
 
 /**
  * The dashboard.
@@ -24,9 +25,9 @@ import { isPasscodeSet, lock } from "../../lib/site/auth";
  * outline is the load-bearing part: it answers "what will she actually see?"
  * without the author having to imagine it.
  *
- * Step 4a. Storage is localStorage behind the repository interface and there is
- * no login — both arrive in Step 4b, which is why nothing here talks to a
- * repository directly.
+ * Storage is localStorage behind the repository interface, and sign-in is
+ * Firebase. The repository is still the seam a hosted backend slots into, which
+ * is why nothing here talks to it directly.
  */
 
 const SAVE_LABEL: Record<string, string> = {
@@ -39,7 +40,13 @@ const SAVE_LABEL: Record<string, string> = {
 
 export default function Dashboard() {
   const { slug = SEED_SLUG } = useParams();
-  // Always local storage. See getRepository.
+
+  const session = useSession();
+  const user = session.status === "signed-in" ? session.user : null;
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+
+  // Firestore when configured, localStorage on a fresh clone. See getRepository.
   const draft = useDraftSite(slug, getRepository());
   const [siteStatus, setSiteStatus] = useState<SiteStatus | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -174,6 +181,20 @@ export default function Dashboard() {
     if (target && !target.open) target.open = true;
   };
 
+  /**
+   * Re-sends the verification email.
+   *
+   * A soft notice, not a gate: the author can keep working while unverified. The
+   * button reports its own failure inline, because a verification email that was
+   * never sent is exactly the kind of quiet failure this codebase refuses.
+   */
+  const resendEmail = async () => {
+    setVerificationError(null);
+    const result = await resendVerification();
+    if (result.ok) setVerificationSent(true);
+    else setVerificationError(result.message);
+  };
+
   if (draft.loading) {
     return (
       <div className="dash">
@@ -199,13 +220,13 @@ export default function Dashboard() {
       <header className="dash-bar">
         <div className="dash-brand">
           <h1 style={{ margin: 0 }}>
-            <Link to="/dashboard" title="All sites">
+            <Link to="/profile" title="All sites">
               LoveBuilds
             </Link>
           </h1>
           <span className="dash-brand-slug">/</span>
           <h1 style={{ margin: 0 }}>
-            <Link to="/dashboard" title="All sites">
+            <Link to="/profile" title="All sites">
               {site.identity.name || slug}
             </Link>
           </h1>
@@ -219,6 +240,25 @@ export default function Dashboard() {
           {SAVE_LABEL[draft.saveState.phase] ?? draft.saveState.phase}
         </span>
 
+        {user && !user.emailVerified && user.provider === "password" && (
+          <button
+            type="button"
+            className="btn"
+            onClick={() => void resendEmail()}
+            disabled={verificationSent}
+            title={verificationError ?? "Send a verification link to your email"}
+          >
+            <Mail size={14} />
+            {verificationSent ? "Verification sent" : "Verify email"}
+          </button>
+        )}
+
+        {verificationError && (
+          <span className="field-warn" role="alert">
+            {verificationError}
+          </span>
+        )}
+
         <Link
           className="btn"
           to={publicUrl(slug)}
@@ -230,8 +270,32 @@ export default function Dashboard() {
           View site
         </Link>
 
-        {isPasscodeSet() && (
-          <button type="button" className="btn" onClick={lock}>
+        {/*
+          The way back to the shelf. An icon rather than a word, because the
+          header is already crowded and this is a place you visit, not an
+          action you take on the site you are editing.
+        */}
+        <Link
+          className="btn btn-icon dash-profile-link"
+          to="/profile"
+          title="Your sites and profile"
+          aria-label="Your sites and profile"
+        >
+          {user?.photoURL ? (
+            <img className="dash-avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />
+          ) : (
+            <CircleUserRound size={16} />
+          )}
+        </Link>
+
+        {user && (
+          <span className="dash-user" title={user.email ?? undefined}>
+            {user.name}
+          </span>
+        )}
+
+        {session.status === "signed-in" && session.method === "firebase" && (
+          <button type="button" className="btn" onClick={() => void signOut()}>
             Sign out
           </button>
         )}

@@ -1,24 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 
 import LoginPage from "./components/auth/LoginPage";
 import RequireAuth from "./components/auth/RequireAuth";
 import CreateSite from "./components/dashboard/CreateSite";
 import Dashboard from "./components/dashboard/Dashboard";
 import PreviewPage from "./components/dashboard/PreviewPage";
+import ProfilePage from "./components/dashboard/ProfilePage";
 import DevScreen from "./components/dev/DevScreen";
-import ClassicGalleryPage from "./components/site/classic/GalleryPage";
-import ClassicHomePage from "./components/site/classic/HomePage";
-import SiteShell from "./components/site/shared/SiteShell";
-import { loadSite, type LoadState } from "./lib/site/load";
-import { sample } from "./lib/site/default";
-import type { SiteSummary } from "./lib/site/repository";
 import ModernTemplate from "./components/site/modern/HomePage";
 import ModernGallery from "./components/site/modern/GalleryPage";
 import { MODERN_BASE } from "./components/site/modern/paths";
 import ScrapbookHomePage from "./components/site/scrapbook/HomePage";
 import ScrapbookGalleryPage from "./components/site/scrapbook/GalleryPage";
 import { SCRAPBOOK_BASE } from "./components/site/scrapbook/paths";
+import EditorialHomePage from "./components/site/editorial/HomePage";
+import EditorialGalleryPage from "./components/site/editorial/GalleryPage";
+import { EDITORIAL_BASE as EDITORIAL_DEV_BASE } from "./components/site/editorial/paths";
+import SiteShell from "./components/site/shared/SiteShell";
+import { loadSite, type LoadState } from "./lib/site/load";
+import { getRepository } from "./lib/site/getRepository";
+import { sample } from "./lib/site/default";
+import type { SiteSummary } from "./lib/site/repository";
 import "./App.css";
 
 /**
@@ -54,6 +57,30 @@ export default function App() {
             </RequireAuth>
           }
         />
+
+        {/*
+          The shelf and the new-site form. Both are account surfaces, so both
+          sit behind the same gate as the editor — but `/profile` is the only
+          place that lists every site, which the one-site editor has no room
+          for.
+        */}
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <ProfilePage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/new"
+          element={
+            <RequireAuth>
+              <NewSiteRoute />
+            </RequireAuth>
+          }
+        />
+
         <Route path="/login" element={<LoginPage />} />
 
         {/* The public site. Reachable by link, not by accident. */}
@@ -69,24 +96,29 @@ export default function App() {
         <Route path="/dev/blocks" element={<DevScreen kind="blocks" />} />
         <Route path="/dev/outline" element={<DevScreen kind="outline" />} />
         {/*
-          Template previews. Not under /s/:slug, because these templates are not
-          yet config-driven — each carries its own copy so it can be judged as a
-          design. Every one of them exports a base path, so the route table and
-          the links inside the template cannot drift apart.
-
-          When `template` lands in the schema this becomes the development
-          surface, and /s/:slug serves whichever template is selected.
-        */}
-        {/*
-          These two are now development surfaces rather than a second copy of
-          the site. `template` is in the schema, so `/s/:slug` serves whichever
-          template a config selects and these preview the modern one in isolation
-          — against the seed config, with no dashboard involved.
+          Template previews. One per template, each mounted at the base path
+          its own `paths.ts` declares, so the route table and the links inside
+          the template cannot drift apart. Not under /s/:slug — a published
+          page only ever renders from stored config, and these render the seed
+          config so the layout can be judged as a design without a dashboard
+          in front of it.
         */}
         <Route path={MODERN_BASE} element={<ModernPreviewPage variant="home" />} />
         <Route path={`${MODERN_BASE}/gallery`} element={<ModernPreviewPage variant="gallery" />} />
         <Route path={SCRAPBOOK_BASE} element={<ScrapbookPreviewPage variant="home" />} />
         <Route path={`${SCRAPBOOK_BASE}/gallery`} element={<ScrapbookPreviewPage variant="gallery" />} />
+
+        {/*
+          The editorial template on its own paths, against the seed config.
+          Same shape as the modern and scrapbook previews: SiteShell, the seed
+          data, no dashboard involved — so the layout can be judged as a design
+          without a login in front of it.
+        */}
+        <Route path={EDITORIAL_DEV_BASE} element={<EditorialPreviewPage variant="home" />} />
+        <Route
+          path={`${EDITORIAL_DEV_BASE}/gallery`}
+          element={<EditorialPreviewPage variant="gallery" />}
+        />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -103,13 +135,13 @@ export default function App() {
  */
 function DashboardGate() {
   const [state, setState] = useState<"loading" | SiteSummary[]>("loading");
+  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       try {
-        const { getRepository } = await import("./lib/site/getRepository");
         const list = await getRepository().list();
         if (!cancelled) setState(list);
       } catch {
@@ -130,13 +162,31 @@ function DashboardGate() {
     return (
       <CreateSite
         onDone={(slug) => {
-          window.location.assign(`/dashboard/${slug}`);
+          navigate(`/dashboard/${slug}`, { replace: true });
         }}
       />
     );
   }
 
   return <Navigate to={`/dashboard/${newest.slug}`} replace />;
+}
+
+/**
+ * `/new`: the create form as its own destination.
+ *
+ * `/dashboard` also shows this form, but only when there is no site at all.
+ * "Make another" needs a route that does not first redirect to the newest one,
+ * so the profile can link here directly.
+ */
+function NewSiteRoute() {
+  const navigate = useNavigate();
+  return (
+    <CreateSite
+      onDone={(slug) => {
+        navigate(`/dashboard/${slug}`, { replace: true });
+      }}
+    />
+  );
 }
 
 /**
@@ -161,6 +211,22 @@ function ScrapbookPreviewPage({ variant }: { variant: "home" | "gallery" }) {
   return (
     <SiteShell site={site}>
       <SitePages site={site} basePath={SCRAPBOOK_BASE} variant={variant} />
+    </SiteShell>
+  );
+}
+
+/**
+ * The editorial template on its own, against the seed config.
+ *
+ * Wrapped in `SiteShell` so it sits in the same conditions as a published
+ * site. `basePath` is the editorial base so every internal link resolves
+ * inside this preview rather than pointing at `/s/`.
+ */
+function EditorialPreviewPage({ variant }: { variant: "home" | "gallery" }) {
+  const site = useMemo(() => sample(), []);
+  return (
+    <SiteShell site={site}>
+      <SitePages site={site} basePath={EDITORIAL_DEV_BASE} variant={variant} />
     </SiteShell>
   );
 }
@@ -241,10 +307,15 @@ function SitePages({
     );
   }
 
+  /*
+    Editorial last, as the fallback: the schema maps anything unknown to
+    editorial, and this switch must agree with it — an unknown id reaching
+    this branch is the same config, not a different one.
+  */
   return variant === "home" ? (
-    <ClassicHomePage site={site} basePath={basePath} />
+    <EditorialHomePage site={site} basePath={basePath} />
   ) : (
-    <ClassicGalleryPage site={site} basePath={basePath} />
+    <EditorialGalleryPage site={site} basePath={basePath} />
   );
 }
 

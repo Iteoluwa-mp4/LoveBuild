@@ -1,8 +1,10 @@
 import { type FormEvent, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 import { EmptyNote, TextField } from "./fields";
 import { getRepository } from "../../lib/site/getRepository";
-import { isSlugTaken, SaveError } from "../../lib/site/repository";
+import { SaveError } from "../../lib/site/repository";
 import { checkSlug, publicUrl, slugify } from "../../lib/site/slug";
 import { createDraft } from "../../lib/site/default";
 import { SEED_SLUG } from "../../lib/site/default";
@@ -42,20 +44,14 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
 
     try {
       const repo = getRepository();
-      const existing = await repo.get(check.slug);
-      if (existing) {
-        setError(`"${check.slug}" is already being used. Try a different name.`);
-        setBusy(false);
-        return;
-      }
 
-      // Seeded with the sample copy, so the first edit is a small one.
-      await repo.save(createDraft(check.slug));
-      onDone(check.slug);
+      // `create` owns the collision rule: it keeps the requested address if it
+      // is free, and returns the slightly different one it had to use if not.
+      // Navigate to what was actually stored, never to what was typed.
+      const created = await repo.create(createDraft(check.slug));
+      onDone(created.slug);
     } catch (cause) {
-      if (isSlugTaken(cause)) {
-        setError(`"${check.slug}" is already being used. Try a different name.`);
-      } else if (cause instanceof SaveError) {
+      if (cause instanceof SaveError) {
         setError(cause.message);
       } else {
         setError("Could not create the site. Try again.");
@@ -67,6 +63,11 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
   return (
     <div className="dash">
       <div className="dash-form" style={{ margin: "0 auto", paddingTop: "4rem" }}>
+        <Link className="btn" to="/profile" style={{ alignSelf: "flex-start" }}>
+          <ArrowLeft size={14} />
+          Your sites
+        </Link>
+
         <div className="dash-section">
           <div className="dash-section-head" style={{ cursor: "default" }}>
             <span className="dash-section-title">Create your site</span>
@@ -106,7 +107,9 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
                 {check.ok ? (
                   <>
                     Your site will be at{" "}
-                    <code style={{ color: "var(--dash-accent)" }}>{publicUrl(check.slug)}</code>
+                    <code style={{ color: "var(--dash-accent)" }}>{publicUrl(check.slug)}</code>. If
+                    that address is already taken, we&rsquo;ll add a short suffix so yours still
+                    works.
                   </>
                 ) : (
                   <span className="field-warn">{check.reason}</span>

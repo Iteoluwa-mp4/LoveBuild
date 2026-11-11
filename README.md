@@ -24,7 +24,7 @@ A component may never contain a sentence, a colour, or a photo path. If you find
 one, it belongs in the box. That is the whole architecture, and everything below
 is a consequence of it.
 
-## Current state — Step 4b of 7
+## Current state
 
 Done:
 
@@ -34,38 +34,88 @@ Done:
   `<html>` so the whole document follows, not just a nested div.
 - **Derivation** — `src/lib/site/derive.ts`. Computed values and visibility rules.
 - **Template** — `src/components/site/`. Both pages render entirely from config.
-- **Two templates** — `site.template` picks the layout (`classic` or `modern`);
-  `theme` picks the colours, independently. Both read the same `home.moments`
-  for their photographs, so switching either one keeps every upload.
+- **Three templates** — `site.template` picks the layout (`editorial`, `modern`
+  or `scrapbook`); `theme` picks the colours, independently. All three read the
+  same `home.moments` for their photographs, so switching keeps every upload.
+- **Uploads** — `src/lib/site/cloudinary.ts`. Photos and videos go straight from
+  the browser to Cloudinary and survive a reload. See *Uploads* below.
 - **Repository seam** — `src/lib/site/repository.ts`. One interface;
-  `LocalSiteRepository` implements it today.
-- **Auth** — `src/lib/site/auth.ts`. A local passcode. See below for what it is.
+  `FirestoreSiteRepository` implements it when Firebase is configured;
+  `LocalSiteRepository` is the no-project fallback.
+- **Auth** — `src/lib/site/auth.ts`. Firebase Authentication: email/password and
+  Google, with a local open mode when no project is configured. See below.
 - **Path editing** — `src/lib/site/path.ts`. Immutable get/set/splice/move by
   dotted path, so every input binds without knowing where it lives.
 - **Dashboard** — `/dashboard/:slug`. Form, live preview, outline, autosave.
-- **Tests** — 219 passing. `npm test`
+- **Shelf** — `/profile`. Every site the author has made, newest first, with
+  edit/view links and a "New site" button. `/new` is the create form on its own
+  route so "make another" never has to reopen the newest site first.
+- **Tests** — 276 passing. `npm test`
 
-Cloudinary uploads are still to do.
+Still to do: transformed (`f_auto,q_auto`) delivery URLs and moving the
+editorial template's reveals onto the shared failsafe.
 
 ## Storage, auth and publishing
 
-Everything is stored in this browser's localStorage, and the app runs with no
-`.env`, no account and no server. That is the design, not a prototype stage.
+With Firebase configured, sites are stored in Firestore and follow the account.
+With no `.env.local`, the app runs in a local open mode and stores them in this
+browser's localStorage — that is the development path, not a second product. The
+one external dependency for media is Cloudinary: it holds the bytes, Firestore
+holds the words and structure, and localStorage holds both in local mode.
 
-### The passcode is a gate, not a lock
+### Authentication is real, and so is the lock
 
-`/login` asks for a passcode, and the dashboard is unreachable without one. Be
-clear about what that buys: **nothing to read.** The sites, the config and the
-photos are all already in localStorage, and any script on the origin can read the
-same keys. The passcode exists so the editor — where someone writes a love letter —
-is not one stray keystroke away, not to protect data.
+`/login` is Firebase Authentication: email and password, or Google. The dashboard
+is unreachable without a session. Google supplies a display name and photo;
+password accounts derive a readable name from the email rather than asking for
+one. Verification is a notice in the dashboard, not a gate, and password resets
+are genuine because Firebase has a server to send them.
 
-It is salted SHA-256 in `auth.ts`. The salt is not defence against anything real;
-it is there so two people choosing the same passcode do not store the same string.
+Sites are owner-scoped now. A Firestore document carries `ownerId`, and the
+security rules in `firestore.rules` make drafts readable only by that uid.
+Published sites are readable by anyone with the link. The editor's write paths
+are owner-only, so signing in is no longer a gate in front of browser-local data;
+it is the key.
 
-`useSession` keeps its three states (`checking`, `signed-out`, `signed-in`) and
-`RequireAuth` keeps its call sites, so a real backend later is a change to
-`auth.ts` and one subscription — not a rebuild of the gate.
+With no Firebase settings in `.env.local`, the app runs in a local open mode with
+no login screen. That is the development behaviour, and it is why a fresh clone
+works with no project. A deployment meant to be shared must set the four
+`VITE_FIREBASE_*` variables and create the Firestore database; see `.env.example`
+and *Firestore setup* below.
+
+`useSession` still reports three states (`checking`, `signed-out`, `signed-in`)
+and `RequireAuth` still owns the gate, so swapping the provider did not touch the
+routes. The login page keeps sign-in and create-account as two modes rather than
+one auto-creating form: Firebase's email-enumeration protection returns the same
+error for a wrong password and an unknown address, so "create it if it is not
+there" cannot be told apart from "you mistyped your password".
+
+### Firestore setup
+
+One-time, in the Firebase Console for the project named in `.env.local`:
+
+1. **Firestore Database → Create database**, Native mode, pick a region.
+2. **Rules** tab → paste `firestore.rules` → Publish. The CLI route works too:
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+   `firebase.json` and `.firebaserc` are in the repo for it.
+
+The repository chooses itself: when the four `VITE_FIREBASE_*` values are present,
+`getRepository()` returns the Firestore implementation. There is no separate
+"use remote" switch to forget, and a fresh clone with no `.env.local` still uses
+localStorage.
+
+Existing browser-local sites are neither deleted nor uploaded silently. `/profile`
+shows a one-time **Import** card when it finds local sites that are not yet in the
+account. Import copies each one, keeps a published site published, and appends the
+usual random suffix if an address is already taken. The record of what has been
+imported is per account, so signing into a different account does not inherit it.
+
+If the editor says *"Check that Firestore is set up and the security rules are
+published"*, that is the honest cause of six consecutive permission denials: the
+database does not exist yet, or the rules were never published. It is not the
+site's name.
 
 ### Publishing
 
@@ -83,10 +133,34 @@ site himself.** Unpublish hides it again.
 
 ### Uploads
 
-Photos and videos are measured and previewed from a blob URL, then marked
-"Not uploaded". A blob URL dies with the page, so previews disappear on reload
-while the text and structure survive. The dashboard says so in as many words
-rather than letting someone find out at the worst moment.
+Photos and videos go straight from the picker to Cloudinary (`auto/upload`, an
+unsigned preset named in `.env.example`) and the delivered URL is written back
+into the config, so a photograph survives a reload, a different browser and a
+different machine reading the same config.
+
+The `cloudinary.ts` module enforces one rule: **persist nothing that does not
+resolve.** `isEphemeralUrl` flags `blob:` URLs — the only kind, on purpose: a
+`data:` URL carries its own bytes and resolves fine, so flagging it would report
+a working image as broken. Anything ephemeral found in the config is shown by
+the uploader as a dead file worth re-picking.
+
+Two honest limits, stated rather than hidden:
+
+- **No `.env` → preview only.** Without `VITE_CLOUDINARY_CLOUD_NAME` and
+  `VITE_CLOUDINARY_UPLOAD_PRESET`, an upload cannot be kept; the file previews
+  from a blob URL and the dashboard says so in as many words, before anyone
+  finds out at the worst moment.
+- **The delivered URL is the original.** `f_auto,q_auto` (plus a width cap)
+  would turn a 12 MB phone photograph into something her phone can actually
+  load — and it decides whether a video streams instead of downloading whole.
+  That transform is the next small change with the largest visible payoff.
+
+An unsigned preset's name is public by necessity — it ships to the browser — so
+the preset must be locked down on the Cloudinary side: pin a folder, allow only
+image and video formats, cap the file size. `CLOUDINARY_API_KEY` and
+`CLOUDINARY_API_SECRET` are deliberately *unprefixed* so nothing compiles them
+into the bundle; they exist for the day uploads are signed.
+
 ## Commands
 
 ```bash
@@ -105,14 +179,17 @@ at; the site is the thing it produces.
 | Route | What it is |
 |---|---|
 | `/` | redirects to the dashboard |
-| `/dashboard` | redirects to the site being edited |
+| `/dashboard` | redirects to the newest site, or shows the create form when there are none |
 | `/dashboard/:slug` | the editor |
+| `/profile` | the author's shelf — account, every site, and "New site" |
+| `/new` | the create form as its own route, so "make another" does not reopen the newest site |
 | `/s/:slug` | the public site — home page |
 | `/s/:slug/gallery` | the public site — gallery |
 | `/preview`, `/preview/gallery` | the frame the editor previews in. Deliberately **not** under `/s/`, so it can never be a link someone shares |
 | `/templates/modern`, `/templates/modern/gallery` | the modern template against the seed config. A development surface — `template` is in the schema, so `/s/:slug` serves whichever one a config selects |
 | `/templates/scrapbook`, `/templates/scrapbook/gallery` | the scrapbook template, same arrangement |
 | `/dev/themes`, `/dev/blocks`, `/dev/outline` | dev screens, deleted once the backend lands |
+| `/dev/editorial` | an experimental editorial (magazine) template, self-contained and not yet config-driven. Unregistered and unpublished by design |
 
 `SEED_SLUG` in `src/lib/site/default.ts` is the demo site. It is called `hers`
 because that is what the seeded copy is — one person's birthday site. The service
@@ -140,9 +217,14 @@ src/lib/site/
   paths.ts           a site's routes, in one place
   path.ts            immutable edits by dotted config path
   repository.ts      the storage interface
-  localRepository.ts localStorage implementation
-  getRepository.ts   returns the local one; a second backend slots in here
-  auth.ts            the local passcode — a gate, not a lock
+  parseSite.ts       validate a config before write / after read
+  firestoreRepository.ts Firestore implementation — owner-scoped documents
+  localRepository.ts localStorage implementation (no-project fallback)
+  getRepository.ts   Firestore when configured, local otherwise
+  auth.ts            Firebase sign-in, sessions and sign-out
+  authMessage.ts     Firebase error → plain sentence; name fallback
+  firebase.ts        Firebase app/auth/Firestore initialisation, or null
+  cloudinary.ts      browser → Cloudinary uploads; never persist a dead URL
   default.ts         sample copy + placeholder detection + createDraft
   load.ts            public site lookup by slug
   brand.ts           storage prefixes + preview message names
@@ -151,6 +233,7 @@ src/hooks/
   useDraftSite.ts    the editor's single source of truth
   useSession.ts      who is signed in
   useReveal.ts       scroll-triggered reveal
+  useScrollReveal.ts JS-classed reveals with a failsafe (see "Scroll reveals")
 
 src/components/site/
   shared/              used by every template
@@ -178,6 +261,9 @@ src/components/site/
     GalleryPage        route: /templates/scrapbook/gallery
     paths.ts           SCRAPBOOK_BASE
     shared.tsx         paper ground, tape, brads, handwriting, memory data
+  EditorialTemplate.tsx  a magazine-style template with its own copy and an
+                         inline stylesheet — a design exploration, not yet in
+                         the schema, mounted only at /dev/editorial
 src/components/dashboard/     THE EDITOR
   Dashboard  CreateSite  OutlinePanel  PreviewPane  MediaUploader
   PreviewPage  editors.tsx  fields.tsx  StatusBanner
@@ -442,12 +528,7 @@ listens on the app's root element, which is *inside* `document`, so a bubbling
 listener there runs after the navigation is already scheduled. It has to be the
 capture phase.
 
-## Two things the prototype cannot do yet
-
-**Uploads are session-only.** The picker measures the file and previews it from a
-blob URL, but a blob URL dies with the page. localStorage holds text perfectly and
-bytes not at all — one 12MB photo would blow the quota. The dashboard counts them
-and says so. Cloudinary lands in Step 4b behind the same `onChange`.
+## Things this build still cannot do
 
 **`createDraft()` starts new sites from the seed.** Right, because the question
 this prototype exists to answer is whether *editing* existing copy feels
@@ -456,39 +537,63 @@ instructional placeholder copy rather than one person's words, and every untouch
 field is flagged until it is replaced — but a genuine blank option is still worth
 having alongside it.
 
+**Storage setup is still manual.** Firestore is implemented and the rules are in
+the repo, but creating the database and publishing `firestore.rules` are console
+steps. There is no deploy pipeline yet, and no App Check — so the project relies
+on authorized domains, security rules and quota for now.
+
+**Browser-local sites are imported by hand.** The `/profile` card copies them into
+the signed-in account, but there is no automatic migration, no export, and no
+"delete the local copy" step. That is deliberate: copy first, keep the original
+until the copy is seen working.
+
+**The editorial template is config-driven, but its reveals are not on the shared
+failsafe.** It is a registered template, reads `site.editorial`, and is reachable
+at `/s/:slug`. Its pages still register ScrollTrigger directly instead of using
+`useScrollReveal`, so the failure mode described above still applies to it.
+Moving those reveals is the remaining work.
+
+**Delivery URLs are not transformed yet.** Photographs are stored in Cloudinary
+but served at their original size — see *Uploads*.
+
 ## Still queued on the dashboard
 
-A contents strip, so the sections stop looking interchangeable. A "3 things left"
-chip in the bar, so "Ready to share?" is not buried at the bottom. Reordering
+A contents strip, so the sections stop looking interchangeable. Reordering
 sections by importance rather than page order. Two-up field pairs. A uploader that
 collapses to a thumbnail once a file is chosen. Character counters only when a
 field is nearly full. A collapsible theme picker.
 
+(The publish dock, the upload-progress ring and the pressed states for toggle
+buttons shipped — and a "3 things left" chip was deliberately *removed* rather
+than built: two progress readouts in different units answered one question twice,
+so the ring measures progress and the dock only ever says whether the site is
+published.)
+
 ## Next up
 
-**Cloudinary uploads.** The only piece left of the storage story. An unsigned
-preset under `lovebuilds/`, an upload with progress, `publicId` written back, and
-a *transformed* delivery URL (`f_auto,q_auto` plus a width cap) rather than the raw
-one — that last detail decides whether her phone downloads a 4K video. Then the
-"Not uploaded" badge and its two paragraphs of caveat can go.
+**Transformed delivery URLs.** The upload works; the bytes served do not. Swap the
+stored `secure_url` for a delivery URL carrying `f_auto,q_auto` and a width cap —
+composed in one place rather than sprinkled through the templates, because the
+transform is a property of *how Cloudinary serves*, not of any one `<img>`. This
+is the change that decides whether her phone downloads a 4K video.
 
-**Edit on the page.** Currently an 833-line form beside an iframe. The change that
-would matter most is `contenteditable` in the preview: click her name, type, see it
-update. `draft.set` already takes a dotted path and the template is already pure,
-so the foundation is there. Two things will cost real time — React fights
-`contenteditable` unless you commit on blur, and `useInertNavigation` in
-`PreviewPage.tsx` deliberately swallows clicks in the capture phase, so an editing
-layer has to be threaded through that rather than fighting it.
+**The editorial template, brought in.** It exists and is worth keeping: move its
+copy into a schema section (like `modern` has), register it in `TEMPLATE_IDS`,
+give it a dashboard surface, and retune its reveals onto `useScrollReveal` so it
+inherits the failsafe instead of re-importing ScrollTrigger. Until then it is one
+hardcoded page in a codebase whose stated rule is that pages carry no copy.
 
-**A decision, not a task.** Where storage goes next. Local storage is per-browser,
-which is fine for one uncle and wrong the moment this is a product someone signs
-up for. `repository.ts` and `auth.ts` are both drawn so a hosted backend is a new
-implementation and a new file rather than a rewrite — worth keeping that property
-when the choice is made.
+**App Check.** Firestore is live and owner-scoped, but nothing yet attests that
+requests come from this app rather than a script holding the public project
+config. App Check with reCAPTCHA Enterprise is the next hardening step; until
+then the security rules are the wall, and they are the right wall, but quotas are
+the only defence against abuse.
 
+**A real export.** The import path proves the data can move; the reverse does not
+exist. A "download everything" button would make the account portable and make
+"keep a copy" a promise the product can keep.
 
-
-
-
-
-"# LoveBuild" 
+**A decision, not a task.** The SQL option stays open on paper: `repository.ts`
+keeps the choice cheap, and Firestore's document model is a good fit for a config
+that is read and written whole. Relational queries would only matter if the next
+version asks questions across sites, which the shelf does not.

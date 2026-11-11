@@ -149,9 +149,9 @@ export function ToggleField({
  */
 const TEMPLATES: ReadonlyArray<{ id: string; label: string; note: string }> = [
   {
-    id: "classic",
-    label: "Classic",
-    note: "Gold on deep purple. The original — headline, photos, a letter.",
+    id: "editorial",
+    label: "Editorial",
+    note: "A printed magazine issue. Photos as field notes, your words as the editor's letter.",
   },
   {
     id: "modern",
@@ -300,6 +300,7 @@ export function Section({
 export function Item({
   index,
   title,
+  editableTitle,
   badges,
   onUp,
   onDown,
@@ -311,6 +312,21 @@ export function Item({
 }: {
   index: number;
   title: string;
+  /**
+   * When set, the heading is the field itself rather than a read-only summary.
+   *
+   * The collapsed row is where an author actually reads what is in the list, so
+   * renaming it there saves opening a card just to fix one line. `value` is the
+   * raw field, not `title` — `title` may be a fallback such as "Untitled photo",
+   * which must never be written back into the site.
+   */
+  editableTitle?: {
+    value: string;
+    onChange: (value: string) => void;
+    maxLength?: number;
+    placeholder?: string;
+    ariaLabel?: string;
+  };
   badges?: ReactNode | undefined;
   onUp?: (() => void) | undefined;
   onDown?: (() => void) | undefined;
@@ -327,24 +343,52 @@ export function Item({
   return (
     <div className="item" data-open={String(collapsible ? open : true)}>
       <div className="item-head">
-        {collapsible ? (
+        {collapsible && (
           <button
             type="button"
-            className="item-toggle"
+            className={`item-toggle${editableTitle ? " item-toggle-caret" : ""}`}
             aria-expanded={open}
             onClick={() => onToggle(!open)}
+            title={open ? "Collapse" : "Expand"}
           >
             <span className="item-caret" aria-hidden="true">
               {open ? "▾" : "▸"}
             </span>
-            <span className="item-index">{index + 1}</span>
-            <span className="item-title">{title}</span>
+            {!editableTitle && (
+              <>
+                <span className="item-index">{index + 1}</span>
+                <span className="item-title">{title}</span>
+              </>
+            )}
           </button>
-        ) : (
+        )}
+
+        {editableTitle ? (
           <>
             <span className="item-index">{index + 1}</span>
-            <span className="item-title">{title}</span>
+            <input
+              className="item-title item-title-edit"
+              value={editableTitle.value}
+              onChange={(event) => editableTitle.onChange(event.target.value)}
+              maxLength={editableTitle.maxLength}
+              placeholder={editableTitle.placeholder}
+              aria-label={editableTitle.ariaLabel ?? `Rename item ${index + 1}`}
+              onKeyDown={(event) => {
+                // Enter commits and Escape abandons the caret, not the edit —
+                // the value is already in the draft either way.
+                if (event.key === "Enter" || event.key === "Escape") {
+                  event.currentTarget.blur();
+                }
+              }}
+            />
           </>
+        ) : (
+          !collapsible && (
+            <>
+              <span className="item-index">{index + 1}</span>
+              <span className="item-title">{title}</span>
+            </>
+          )
         )}
 
         {badges}

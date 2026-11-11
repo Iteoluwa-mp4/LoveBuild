@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 
-import { useSession } from "../../../hooks/useSession";
-import { buildSitemap, editUrl } from "../../../lib/site/sitemap";
+import { buildSitemap } from "../../../lib/site/sitemap";
 import type { Site } from "../../../lib/site/schema";
 
 /**
@@ -11,18 +10,20 @@ import type { Site } from "../../../lib/site/schema";
  * copy and hides itself when empty. This one is chrome and is always there —
  * a site with nothing written in it still needs a way to get somewhere.
  *
- * The owner link is the awkward part. It is shown whenever the editor is
- * unlocked, and a visitor — who is, in this build, always locked out — sees
- * "Sign in" instead. That framing is deliberate: it is the only route from a
- * published site back to the editor, so hiding it entirely would leave the owner
- * no way in and there would be nothing to show a visitor anyway.
+ * **A published gift carries no auth surface at all.** An earlier version
+ * showed "Owner sign in →" to signed-out visitors, which put a login door on
+ * every site that was sent; a later one showed "Edit this site" to a signed-in
+ * author, which still made the recipient's page ask Firebase who was looking.
+ * The recipient's page is the artifact, so this component reads no session and
+ * imports no auth code: the author reaches the editor at `/dashboard`, and a
+ * visitor sees only the site and the credit.
+ *
+ * The "Made with LoveBuilds" credit stays because the brand does. It is plain
+ * text rather than a link, because every route back into the tool is behind the
+ * login that a visitor must never be asked to use.
  */
 export default function SiteFooter({ site, basePath }: { site: Site; basePath: string }) {
-  const session = useSession();
   const sitemap = buildSitemap(site, basePath);
-
-  const signedIn = session.status === "signed-in";
-
   const name = site.identity.name.trim();
 
   return (
@@ -71,29 +72,8 @@ export default function SiteFooter({ site, basePath }: { site: Site; basePath: s
           <span>
             {name && <span className="site-footer-name">{name} · </span>}
             <span className="site-footer-made">Made with </span>
-            <a
-              className="site-footer-brand"
-              href={signedIn ? editUrl(site.slug) : "/dashboard"}
-            >
-              LoveBuilds
-            </a>
+            <span className="site-footer-brand">LoveBuilds</span>
           </span>
-
-          {/*
-            Owner-facing, and always present — this is the only route back from
-            a published site to the editor for someone who is not signed in yet.
-            Framed as "sign in" rather than as an admin control, because that is
-            what it actually is.
-          */}
-          {signedIn ? (
-            <a className="site-footer-owner" href={editUrl(site.slug)}>
-              Edit this site →
-            </a>
-          ) : (
-            <a className="site-footer-owner" href="/login">
-              Owner sign in →
-            </a>
-          )}
         </div>
       </div>
     </footer>

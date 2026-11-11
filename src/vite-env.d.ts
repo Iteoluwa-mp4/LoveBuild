@@ -14,6 +14,16 @@
  * reason and are read by nothing in this bundle.
  */
 interface ImportMetaEnv {
+  /**
+   * Firebase Authentication. Public identifiers, not secrets: they are compiled
+   * into the bundle by design. See `.env.example`. When any of the four is
+   * absent, `getFirebaseAuth` returns null and the app runs in local open mode.
+   */
+  readonly VITE_FIREBASE_API_KEY?: string;
+  readonly VITE_FIREBASE_AUTH_DOMAIN?: string;
+  readonly VITE_FIREBASE_PROJECT_ID?: string;
+  readonly VITE_FIREBASE_APP_ID?: string;
+
   /** Cloudinary cloud name. Public by design — it appears in every asset URL. */
   readonly VITE_CLOUDINARY_CLOUD_NAME?: string;
   /**

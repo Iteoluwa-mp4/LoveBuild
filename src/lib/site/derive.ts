@@ -627,6 +627,60 @@ export function scrapbookMemories(site: Site): ScrapbookMemory[] {
 }
 
 /* ------------------------------------------------------------------ *
+ * EDITORIAL MOMENTS
+ * ------------------------------------------------------------------ */
+
+/**
+ * One moment, in the shape the editorial template's components expect.
+ *
+ * The mapping, and why each field lands where it does:
+ *
+ *   - `date`    <- `date`, the dateline above the story. Optional, as on the
+ *                 page: an undated story simply carries no dateline.
+ *   - `caption` <- `caption`, and it is load-bearing twice — the story's
+ *                 headline and the figure's caption are the same words
+ *                 because the magazine's contents list is derived from the
+ *                 headlines. An empty one falls back to "Moment 01", the
+ *                 same position-derived default every other template gets.
+ *   - `note`    <- `secret`, the longer text. In the classic template this is
+ *                 what a tap uncovers; in the editorial layout it is the
+ *                 story body and the note beside the figure. Same words,
+ *                 different surface — which is the point of sharing the list
+ *                 rather than duplicating it.
+ *   - `image`   <- `url`. An empty url is handed through and the component
+ *                 chooses its own generated frame, so an unfilled slot keeps
+ *                 its place on the page.
+ */
+export type EditorialMoment = {
+  /** The dateline above the story. Empty means no dateline renders. */
+  date: string;
+  /** The story headline, the figure caption, and one contents entry. */
+  caption: string;
+  /** The story body, and the note beside the figure in the spread. */
+  note: string;
+  /** The photograph's URL, or empty when no upload has arrived yet. */
+  image: string;
+};
+
+/**
+ * The site's moments, in the editorial template's shape.
+ *
+ * Reads `home.moments` rather than anything under `editorial`, which is what
+ * makes a template switch non-destructive: the photographs are the one thing
+ * every template must agree on, so there is only one copy of them. See
+ * `modernMemories` above for the same reasoning, and `modernSchema` in
+ * `schema.ts` for why the template's own section holds no media.
+ */
+export function editorialMoments(site: Site): EditorialMoment[] {
+  return site.home.moments.map((moment, index) => ({
+    date: moment.date,
+    caption: hasContent(moment.caption) ? moment.caption.trim() : momentTag(moment.tag, index),
+    note: moment.secret,
+    image: moment.image.url.trim(),
+  }));
+}
+
+/* ------------------------------------------------------------------ *
  * OUTLINE
  * ------------------------------------------------------------------ */
 

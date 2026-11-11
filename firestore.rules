@@ -1,0 +1,70 @@
+rules_version = '2';
+
+// LoveBuilds storage rules.
+//
+// One document per site at sites/{slug}. The document id is the public URL, so
+// there is no separate lookup table and no id that could disagree with the link.
+//
+// The whole privacy model lives here:
+//   - a published site is readable by anyone with the link;
+//   - a draft is readable only by its owner;
+//   - only the owner can change or delete their site;
+//   - creating a document requires the creator to be the owner, so nobody can
+//     plant a site in someone else's account.
+//
+// The client also checks these things. That is for good error messages, not for
+// security: anyone can call the API directly, and these rules are what actually
+// decide.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /sites/{slug} {
+      function signedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner() {
+        return signedIn() && resource.data.ownerId == request.auth.uid;
+      }
+
+      function isPublic() {
+        return resource.data.status == 'published';
+      }
+
+      // A missing document matches neither branch and is denied. The client
+      // maps that denial to "not found", which is the correct answer: a site
+      // that does not exist and a draft that is not yours are equally invisible
+      // from out here.
+      allow read: if isPublic() || isOwner();
+
+      // `status == 'draft'` on create is deliberate. A site becomes public
+      // through an update, which is a separate, owner-checked operation.
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.slug == slug
+        && request.resource.data.status == 'draft'
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // OwnerId and slug are immutable. The slug is also the document id, so
+      // changing either would mean the address and the data describing it could
+      // disagree. Status may change, but only to a known value.
+      //
+      // `createdAt` must not change either. That is what makes the create path
+      // safe without a prior read: `setDoc` on an address that already exists
+      // becomes an update, the update tries to reset `createdAt`, and this
+      // check refuses it. A taken slug is therefore denied instead of
+      // overwritten, and the client moves on to a suffix.
+      allow update: if isOwner()
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.slug == resource.data.slug
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in ['draft', 'submitted', 'published']
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if isOwner();
+    }
+  }
+}

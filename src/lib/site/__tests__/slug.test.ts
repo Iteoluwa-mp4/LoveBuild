@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { siteSchema } from "../schema";
-import { checkSlug, publicUrl, slugify } from "../slug";
+import {
+  checkSlug,
+  MAX_SLUG_LENGTH,
+  publicUrl,
+  randomSlugSuffix,
+  slugify,
+  suffixSlug,
+} from "../slug";
 
 describe("slugify", () => {
   /**
@@ -107,5 +114,30 @@ describe("checkSlug", () => {
 describe("publicUrl", () => {
   it("puts the slug under /s", () => {
     expect(publicUrl("for-sarah")).toBe("/s/for-sarah");
+  });
+});
+
+describe("suffixSlug", () => {
+  it("keeps the chosen name and appends the suffix", () => {
+    expect(suffixSlug("for-sarah", "a1b2")).toBe("for-sarah-a1b2");
+  });
+
+  it("trims a maximum-length base so the result still fits the limit", () => {
+    const result = suffixSlug("a".repeat(MAX_SLUG_LENGTH), "a1b2");
+    expect(result.length).toBe(MAX_SLUG_LENGTH);
+    expect(result.endsWith("-a1b2")).toBe(true);
+    expect(checkSlug(result).ok).toBe(true);
+  });
+
+  it("does not leave a double hyphen when the base already ends in one", () => {
+    expect(suffixSlug("for-sarah-", "a1b2")).toBe("for-sarah-a1b2");
+  });
+});
+
+describe("randomSlugSuffix", () => {
+  it("is always four lower-case base-36 characters", () => {
+    for (let index = 0; index < 20; index += 1) {
+      expect(randomSlugSuffix()).toMatch(/^[a-z0-9]{4}$/);
+    }
   });
 });

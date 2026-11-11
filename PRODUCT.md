@@ -12,7 +12,7 @@
 
 web
 
-*(Inferred. Confirmed by the build: Vite + React 19, react-router, localStorage, no native shell, `.env.example` in the repo root.)*
+*(Inferred. Confirmed by the build: Vite + React 19, react-router, Firestore with a localStorage fallback, no native shell, `.env.example` in the repo root.)*
 
 ## Stack
 
@@ -65,6 +65,11 @@ idea" and `src/lib/site/schema.ts`, `path.ts`, `App.tsx#SitePages`.)*
 - **Editor.** `/dashboard/:slug` — two independently scrolling panes, page
   locked to the viewport. Form on the left; outline, page switch and an iframe
   preview on the right. Autosave on a debounce.
+- **Shelf.** `/profile` — the account card plus every site, newest first, with
+  Edit and (for live sites) View. The editor header carries an avatar button to
+  it, and `/new` is the create form on its own route. The list comes from
+  `SiteRepository.list()`: per-account on Firestore, per-browser on a fresh
+  clone. A one-time import card copies local sites into the signed-in account.
 - **Preview is a real page.** `/preview` renders the actual template in an
   iframe and receives the draft by `postMessage`. It is deliberately *not* under
   `/s/`, so it can never be a link someone shares.
@@ -76,11 +81,23 @@ idea" and `src/lib/site/schema.ts`, `path.ts`, `App.tsx#SitePages`.)*
 - **Publishing.** Drafts are invisible. Publishing flushes pending saves first,
   confirms by naming how many fields are missing or still placeholder, then every
   later save goes live immediately without asking.
-- **Auth.** A local passcode at `/login` is a gate on the editor, not a lock on
-  the data. Sited data is already in localStorage. *(Confirmed — the README is
-  unusually explicit about this being deliberate.)*
-- **Uploads are session-only today.** Files preview from a blob URL and are marked
-  "Not uploaded"; the dashboard says so. Cloudinary is the queued next step.
+- **Auth.** Firebase Authentication at `/login`: email/password or Google. The
+  dashboard is gated; a published gift page is not, and carries no auth UI at
+  all. Sessions are real, and the data is now owner-scoped in Firestore: security
+  rules keep drafts readable only by their uid while published sites stay public.
+  *(Confirmed — `auth.ts`, `useSession`, `RequireAuth`, `SiteFooter`,
+  `firestoreRepository.ts`, `firestore.rules`.)*
+- **Uploads persist to Cloudinary.** `src/lib/site/cloudinary.ts` uploads straight
+  from the browser to an unsigned `auto/upload` preset — no server in the path.
+  The module's rule is **persist nothing that does not resolve**: a `blob:` URL
+  is never written to the config, and one already saved from the old
+  blob-percance era is flagged by `needsReupload` and shown as a dead file.
+  Without `.env.local` configured, files remain preview-only and the dashboard
+  says so in words. *(Confirmed — `cloudinary.ts`, `MediaUploader.tsx`,
+  `cloudinary.test.ts`, `.env.example`.)*
+- **Delivery is still the raw URL.** Cloudinary stores the asset but the stored
+  URL has no `f_auto,q_auto` transform yet, so phones still download the original
+  bytes. Spotted as the deliberate next step in `uploadAsset`'s own comment.
 - **Dev commands.** `npm run dev`, `npm run build`, `npm run typecheck`,
   `npm test`, `npm run lint`. *(Confirmed from `package.json`.)*
 
@@ -108,16 +125,25 @@ code:
   ScrollTrigger silently failed and left real content invisible on published
   pages.
 - **Never prefix a secret with `VITE_`.** It is compiled into the public bundle.
-- **219 tests pass** (`npm test`), including an assertion that no real photograph
-  ships with the sample config, and that derived values are not stored.
+- **276 tests pass** (`npm test`), including an assertion that no real photograph
+  ships with the sample config, that derived values are not stored, that uploads
+  only ever persist a URL that resolves, and that a create collision suffixes the
+  address instead of overwriting the first site.
 
 Open product decisions, deliberately undecided:
 
-- Where storage goes after localStorage (a hosted backend is designed for but
-  not chosen).
 - Whether a review gate is ever wanted before publish (`submitted` status exists
   but is unused).
-- Whether uploads land on Cloudinary. *(Inferred — queued, not committed.)*
+- Whether the browser-local fallback stays forever as a no-account mode, or is
+  removed once Firestore is the only deployment story. It is deliberately still
+  there for a fresh clone and offline development.
+- When App Check and a real export arrive. Both are hardening, not features; the
+  security rules already decide who can read a draft.
+
+A deliberate exemption on record: the editorial template still registers
+ScrollTrigger directly instead of using the shared reveal hook, so the failsafe
+described above does not cover it yet. It is otherwise a registered template:
+schema-backed, in `TEMPLATE_IDS`, and reachable at `/s/:slug`.
 
 ## Brand Commitments
 
@@ -149,7 +175,7 @@ Open product decisions, deliberately undecided:
   (`src/components/site/scrapbook/shared.tsx`) — an existing, sanctioned pattern
   for synthetic image material.
 - **Seed slug** is `hers`, one constant in `default.ts`.
-- **219 passing tests** as the behavioural safety net.
+- **276 passing tests** as the behavioural safety net.
 - Absences future work must not fabricate: no customer testimonials, no named
   clients, no pricing, no usage benchmarks, no performance claims.
 

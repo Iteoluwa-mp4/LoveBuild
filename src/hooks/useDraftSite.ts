@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { createDraft } from "../lib/site/default";
-import { LocalSiteRepository } from "../lib/site/localRepository";
+import { getRepository } from "../lib/site/getRepository";
 import { getAtPath, moveAtPath, removeAtPath, setAtPath } from "../lib/site/path";
 import { SaveError, type SiteRepository } from "../lib/site/repository";
 import type { Site } from "../lib/site/schema";
@@ -28,7 +27,7 @@ export type DraftSite = {
   loading: boolean;
   /** Present when the stored config could not be read at all. */
   loadError: string | null;
-  /** False when the slug had nothing stored and a fresh draft was created. */
+  /** False when the slug had nothing stored at all. */
   existed: boolean;
 
   /** Writes a single value, by dotted path. */
@@ -57,7 +56,7 @@ export type DraftSite = {
 const AUTOSAVE_MS = 1500;
 
 export function useDraftSite(slug: string, repo?: SiteRepository): DraftSite {
-  const repository = useMemo(() => repo ?? new LocalSiteRepository(), [repo]);
+  const repository = useMemo(() => repo ?? getRepository(), [repo]);
 
   /**
    * Load state, written only from the async callback.
@@ -68,7 +67,7 @@ export function useDraftSite(slug: string, repo?: SiteRepository): DraftSite {
    */
   const [loaded, setLoaded] = useState<{
     slug: string;
-    site: Site;
+    site: Site | null;
     error: string | null;
     existed: boolean;
   } | null>(null);
@@ -93,24 +92,42 @@ export function useDraftSite(slug: string, repo?: SiteRepository): DraftSite {
         const stored = await repository.get(slug);
         if (cancelled) return;
 
-        // A missing site is not an error at this stage — the dashboard is where
-        // new ones get made, so start from `createDraft` rather than nothing.
-        const site = stored ?? createDraft(slug);
-        latest.current = site;
+        if (!stored) {
+          // Editing a slug that does not exist is not how sites are made any
+          // more — `/new` creates them. Starting a blank draft here would let a
+          // mistyped URL look like a real site until the first save failed.
+          latest.current = null;
+          dirty.current = false;
+          setLoaded({
+            slug,
+            site: null,
+            error:
+              repository.kind === "remote"
+                ? "This site doesn't exist, or it belongs to another account."
+                : "This site doesn't exist.",
+            existed: false,
+          });
+          setSaveState({ phase: "idle" });
+          return;
+        }
+
+        latest.current = stored;
         dirty.current = false;
-        setLoaded({ slug, site, error: null, existed: stored !== null });
-        setSaveState(stored ? { phase: "saved", at: Date.now() } : { phase: "idle" });
+        setLoaded({ slug, site: stored, error: null, existed: true });
+        setSaveState({ phase: "saved", at: Date.now() });
       } catch (cause) {
         if (cancelled) return;
-        // Still hand the form something editable rather than a dead page.
-        const fallback = createDraft(slug);
-        latest.current = fallback;
+        // No editable fallback on failure. Loading is exactly when a retry or a
+        // refresh is safe; letting someone type into a sample draft and then
+        // autosaving it over real content is not.
+        latest.current = null;
         setLoaded({
           slug,
-          site: fallback,
+          site: null,
           error: cause instanceof Error ? cause.message : "Could not load this site.",
-          existed: true,
+          existed: false,
         });
+        setSaveState({ phase: "idle" });
       }
     })();
 
@@ -235,7 +252,7 @@ export function useDraftSite(slug: string, repo?: SiteRepository): DraftSite {
   const mutate = useCallback(
     (fn: (current: Site) => Site) => {
       setLoaded((current) => {
-        if (!current || current.slug !== slug) return current;
+        if (!current || current.slug !== slug || !current.site) return current;
         const next = fn(current.site);
         latest.current = next;
         return { ...current, site: next };
