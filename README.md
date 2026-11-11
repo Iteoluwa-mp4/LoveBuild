@@ -65,11 +65,13 @@ holds the words and structure, and localStorage holds both in local mode.
 
 ### Authentication is real, and so is the lock
 
-`/login` is Firebase Authentication: email and password, or Google. The dashboard
-is unreachable without a session. Google supplies a display name and photo;
-password accounts derive a readable name from the email rather than asking for
-one. Verification is a notice in the dashboard, not a gate, and password resets
-are genuine because Firebase has a server to send them.
+`/login` is Firebase Authentication: email and password, or Google. The root path
+sends a signed-out visitor there; an existing session forwards on to the
+dashboard. The dashboard is unreachable without a session. Google supplies a
+display name and photo; password accounts derive a readable name from the email
+rather than asking for one. Verification is a notice in the dashboard, not a
+gate, and password resets are genuine because Firebase has a server to send
+them.
 
 Sites are owner-scoped now. A Firestore document carries `ownerId`, and the
 security rules in `firestore.rules` make drafts readable only by that uid.
@@ -116,6 +118,43 @@ If the editor says *"Check that Firestore is set up and the security rules are
 published"*, that is the honest cause of six consecutive permission denials: the
 database does not exist yet, or the rules were never published. It is not the
 site's name.
+
+### Deploying
+
+The app is a client-side SPA. The host must send every unknown path to
+`index.html`, because `/dashboard/:slug`, `/profile`, `/new`, `/preview/` and
+`/s/:slug` are all handled by the router rather than by files on disk. Without
+that fallback the dashboard can look fine after a client-side navigation while
+the preview iframe and a hard refresh show the host's 404 page.
+
+`vercel.json` in the repository does this for Vercel, and pins the build command
+and output directory so the framework preset cannot disagree:
+
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+Redeploy after adding it. The same rewrite is needed on any other static host
+(Netlify `_redirects`, Firebase Hosting `rewrites`, and so on).
+
+Two settings live outside the repository:
+
+1. **Build-time variables.** Set the four `VITE_FIREBASE_*` values and the two
+   `VITE_CLOUDINARY_*` values in the host's environment settings. They are
+   compiled into the bundle, so changing them requires a new deployment. Without
+   the Firebase values the deployed build runs in local open mode and stores
+   sites in the visitor's browser — useful for a demo, wrong for real accounts.
+2. **Firebase Auth authorized domains.** Add the production hostname (and any
+   Vercel preview hostname you actually use) under **Authentication → Settings →
+   Authorized domains**. Email/password works without this, but Google sign-in
+   fails with `auth/unauthorized-domain` until the host is listed.
+
+Firestore rules still deploy separately with
+`firebase deploy --only firestore:rules`.
 
 ### Publishing
 
@@ -539,8 +578,9 @@ having alongside it.
 
 **Storage setup is still manual.** Firestore is implemented and the rules are in
 the repo, but creating the database and publishing `firestore.rules` are console
-steps. There is no deploy pipeline yet, and no App Check — so the project relies
-on authorized domains, security rules and quota for now.
+steps. The app deploys as a static SPA (see *Deploying*), but there is no Firebase
+Hosting pipeline and no App Check — so the project relies on authorized domains,
+security rules and quota for now.
 
 **Browser-local sites are imported by hand.** The `/profile` card copies them into
 the signed-in account, but there is no automatic migration, no export, and no

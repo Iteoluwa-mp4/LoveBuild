@@ -27,9 +27,11 @@ import "./App.css";
 /**
  * Routes.
  *
- * `/` is the dashboard, not a published site. LoveBuilds is a tool someone sits
- * down at; the site is the thing it produces, reached at `/s/:slug` or from the
- * dashboard's "View saved site" button.
+ * `/` is the front door, not a published site. A signed-out visitor lands on
+ * the login screen; the login screen forwards an already-signed-in visitor to
+ * the dashboard. LoveBuilds is a tool someone sits down at; the site is the
+ * thing it produces, reached at `/s/:slug` or from the dashboard's "View saved
+ * site" button.
  *
  * `/preview` is deliberately not under `/s/`, so it can never be a link someone
  * shares — a published page only ever renders from stored config.
@@ -38,7 +40,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
         {/* The editor, and the only thing behind a login. */}
         <Route
