@@ -1,7 +1,7 @@
 # to-do.md — things yet to come
 
 Carried over from `LOVEBUILD_TODO.md` and pruned against the code as of today:
-uploads now work (Cloudinary, 285 tests passing), the upload ring and publish
+uploads now work (Cloudinary, 300 tests passing), the upload ring and publish
 dock are built, auth is real, and Neon storage is implemented behind the API. What
 is left, in the order it is worth doing.
 
@@ -99,13 +99,13 @@ lives in `site.editorial` and is editable from the dashboard, and it renders at
 - [ ] Adaptive streaming (HLS) instead of one-file video delivery.
 - [ ] Background uploads with an out-of-form progress surface.
 - [ ] A genuine blank-start option beside the seeded `createDraft()`.
-- [ ] A scheduled task: rotating signed-delivery rules or max-size caps into
-      the Cloudinary preset once uploads are signed.
+- [ ] Server-side upload size caps, included in the signed upload parameters so
+      the browser cannot exceed them.
 
 ## Suggested order
 
-1. `f_auto,q_auto` delivery — a one-file change with the largest visible
-   improvement after uploads landed.
+1. Protected delivery derivatives — upload an optimized web copy beside the
+   original and sign both; largest visible improvement after uploads landed.
 2. Import the local shelf, add App Check, and run the storage smoke test against
    the real project when a browser is connected.
 3. Scope the editorial stylesheet's font/body globals; its schema, registration
