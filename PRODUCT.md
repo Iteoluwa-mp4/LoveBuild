@@ -88,19 +88,22 @@ idea" and `src/lib/site/schema.ts`, `path.ts`, `App.tsx#SitePages`.)*
   stay public through one unauthenticated route. *(Confirmed — `auth.ts`,
   `useSession`, `RequireAuth`, `SiteFooter`, `apiRepository.ts`,
   `server/app.ts`, `server/auth.ts`, `server/store.ts`.)*
-- **Uploads persist to Cloudinary.** `src/lib/site/cloudinary.ts` uploads straight
-  from the browser to an unsigned `auto/upload` preset — no server in the path.
-  The module's rule is **persist nothing that does not resolve**: a `blob:` URL
-  is never written to the config, and one already saved from the old
+- **Uploads persist to Cloudinary through signed, authenticated requests.**
+  `src/lib/site/cloudinary.ts` asks the API for a one-hour signature, posts the
+  file to Cloudinary with `type=authenticated`, then stores a signed delivery
+  URL. The API secret never reaches the browser, and uploads require a signed-in
+  account. The module's rule is **persist nothing that does not resolve**: a
+  `blob:` URL is never written to the config, and one already saved from the old
   blob-percance era is flagged by `needsReupload` and shown as a dead file.
-  Without `.env.local` configured, files remain preview-only and the dashboard
-  says so in words. *(Confirmed — `cloudinary.ts`, `MediaUploader.tsx`,
-  `cloudinary.test.ts`, `.env.example`.)*
-- **Delivery is still the raw, unsigned URL.** Cloudinary stores the asset but
-  the stored URL has no `f_auto,q_auto` transform yet, so phones still download
-  the original bytes. It is also not signed per asset: anyone who learns the URL
-  can load it. Signing needs `CLOUDINARY_API_SECRET` on the server and a step
-  after upload; neither is configured yet.
+  Without server Cloudinary settings, files remain preview-only and the
+  dashboard says so in words. *(Confirmed — `cloudinary.ts`, `apiClient.ts`,
+  `mediaSigner.ts`, `server/app.ts`, `MediaUploader.tsx`,
+  `cloudinary.test.ts`, `mediaSigner.test.ts`, `.env.example`.)*
+- **Delivery uses a long-lived signed URL.** The stored URL is a bearer link:
+  it cannot be guessed, but anyone given it can load the asset, and rotating the
+  Cloudinary secret invalidates every stored URL. Authenticated assets cannot
+  use on-the-fly transforms, so the original bytes are delivered; a smaller
+  derivative is future work.
 - **Dev commands.** `npm run dev` (Vite + API), `npm run build`,
   `npm run typecheck`, `npm test`, `npm run lint`, and the `db:*` migration
   scripts. *(Confirmed from `package.json`.)*

@@ -38,8 +38,9 @@ Done:
   or `scrapbook`). `theme` picks the colours for `modern`; `editorial` and
   `scrapbook` carry their own palettes. All three read the same `home.moments`
   for their photographs, so switching keeps every upload.
-- **Uploads** — `src/lib/site/cloudinary.ts`. Photos and videos go straight from
-  the browser to Cloudinary and survive a reload. See *Uploads* below.
+- **Uploads** — `src/lib/site/cloudinary.ts`. Photos and videos go to Cloudinary
+  through server-signed, authenticated uploads and survive a reload. See
+  *Uploads* below.
 - **Repository seam** — `src/lib/site/repository.ts`. One interface;
   `ApiSiteRepository` implements it against the Neon-backed API when Firebase is
   configured; `LocalSiteRepository` is the no-project fallback.
@@ -53,11 +54,11 @@ Done:
   edit/view links and a "New site" button. It is the first signed-in screen; an
   empty shelf offers "Make the first one". `/new` is the create form on its own
   route so "make another" never has to reopen the newest site first.
-- **Tests** — 285 passing. `npm test`
+- **Tests** — 300 passing. `npm test`
 
-Still to do: transformed (`f_auto,q_auto`) delivery URLs, signed per-asset
-delivery (needs the Cloudinary API key/secret and a server signing step), and
-scoping the editorial stylesheet's document-level font and body rules.
+Still to do: smaller derivative delivery (authenticated assets cannot transform
+on the fly), and scoping the editorial stylesheet's document-level font and body
+rules.
 
 ## Storage, auth and publishing
 
@@ -182,15 +183,19 @@ that cannot run the API is not enough for the Neon-backed build.
 
 Settings outside the repository:
 
-1. **Build-time variables.** Set the four `VITE_FIREBASE_*` values and the two
-   `VITE_CLOUDINARY_*` values in the host's environment settings. They are
+1. **Build-time variables.** Set the four `VITE_FIREBASE_*` values and
+   `VITE_CLOUDINARY_CLOUD_NAME` in the host's environment settings. They are
    compiled into the bundle, so changing them requires a new deployment. Without
    the Firebase values the deployed build shows the login screen with a
    configuration error. It does not create an anonymous local workspace; set
    them before deploying.
-2. **Server-side variables.** Add `DATABASE_URL`, `DATABASE_URL_UNPOOLED` and
-   `FIREBASE_PROJECT_ID` to the host. The API reads the pooled `DATABASE_URL` at
-   runtime; migrations are run from a workstation with the direct URL.
+2. **Server-side variables.** Add `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
+   `FIREBASE_PROJECT_ID`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` to the
+   host. The API reads the pooled `DATABASE_URL` at runtime; migrations are run
+   from a workstation with the direct URL. The Cloudinary key must have upload
+   permission, not just read access — a read-only key gets
+   `403 missing permissions` when signing an upload. `CLOUDINARY_CLOUD_NAME` is
+   an optional server-side alias for the cloud name.
 3. **Firebase Auth authorized domains.** Add the production hostname (and any
    Vercel preview hostname you actually use) under **Authentication → Settings →
    Authorized domains**. Email/password works without this, but Google sign-in
@@ -217,10 +222,14 @@ site himself.** Unpublish hides it again.
 
 ### Uploads
 
-Photos and videos go straight from the picker to Cloudinary (`auto/upload`, an
-unsigned preset named in `.env.example`) and the delivered URL is written back
-into the config, so a photograph survives a reload, a different browser and a
-different machine reading the same config.
+Photos and videos go from the picker to Cloudinary through a signed flow:
+
+1. The browser asks `POST /api/media/sign-upload` for a one-hour signature and a
+   server-chosen `lovebuilds/<uuid>` public id.
+2. It posts the file to Cloudinary's upload endpoint with
+   `type=authenticated`. The API secret never reaches the bundle.
+3. It asks `POST /api/media/sign-delivery` for a long-lived signed URL and writes
+   that URL back into the config.
 
 The `cloudinary.ts` module enforces one rule: **persist nothing that does not
 resolve.** `isEphemeralUrl` flags `blob:` URLs — the only kind, on purpose: a
@@ -230,25 +239,24 @@ the uploader as a dead file worth re-picking.
 
 Three honest limits, stated rather than hidden:
 
-- **No `.env` → preview only.** Without `VITE_CLOUDINARY_CLOUD_NAME` and
-  `VITE_CLOUDINARY_UPLOAD_PRESET`, an upload cannot be kept; the file previews
-  from a blob URL and the dashboard says so in as many words, before anyone
-  finds out at the worst moment.
-- **The delivered URL is the original.** `f_auto,q_auto` (plus a width cap)
-  would turn a 12 MB phone photograph into something her phone can actually
-  load — and it decides whether a video streams instead of downloading whole.
-  That transform is the next small change with the largest visible payoff.
-- **The URL is not per-asset protected.** The stored URL is Cloudinary's public
-  `secure_url`, so anyone who learns it can load that asset. Signed delivery
-  needs `CLOUDINARY_API_SECRET` on the server plus a signing step after upload;
-  the secret is not configured yet, and the uploader intentionally does not
-  pretend otherwise.
+- **Uploads need an account.** Signing is authenticated, so the browser must be
+  signed in. A local open-mode session with no Firebase project can preview a
+  file but cannot keep it.
+- **No server Cloudinary settings → preview only.** Without
+  `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` on the API (and a cloud name
+  in `VITE_CLOUDINARY_CLOUD_NAME`), the API refuses to sign with a `503`; the
+  file previews from a blob URL and the dashboard says it will not survive a
+  reload.
+- **The delivered URL is the original.** Authenticated Cloudinary assets cannot
+  use on-the-fly transformations, so a 12 MB phone photograph is served at its
+  original size and a video is not transcoded. The next change with the largest
+  visible payoff would be uploading a smaller derivative alongside the original.
 
-An unsigned preset's name is public by necessity — it ships to the browser — so
-the preset must be locked down on the Cloudinary side: pin a folder, allow only
-image and video formats, cap the file size. `CLOUDINARY_API_KEY` and
+The delivery URL is a bearer link: it cannot be guessed, but anyone given it can
+load the asset, and it does not expire. Rotating `CLOUDINARY_API_SECRET`
+invalidates every stored signed URL. `CLOUDINARY_API_KEY` and
 `CLOUDINARY_API_SECRET` are deliberately *unprefixed* so nothing compiles them
-into the bundle; they exist for the day uploads are signed.
+into the bundle.
 
 ## Commands
 
@@ -673,8 +681,8 @@ component mounted in `SiteShell`, so it wins over the theme tokens by setting it
 own `--editorial-*` variables and `color` on the template root. Scoping those
 globals is the remaining cleanup.
 
-**Delivery URLs are not transformed yet.** Photographs are stored in Cloudinary
-but served at their original size — see *Uploads*.
+**Delivery URLs are not transformed yet.** Photographs and videos are stored as
+authenticated originals and served at their original size — see *Uploads*.
 
 ## Still queued on the dashboard
 
@@ -691,11 +699,11 @@ published.)
 
 ## Next up
 
-**Transformed delivery URLs.** The upload works; the bytes served do not. Swap the
-stored `secure_url` for a delivery URL carrying `f_auto,q_auto` and a width cap —
-composed in one place rather than sprinkled through the templates, because the
-transform is a property of *how Cloudinary serves*, not of any one `<img>`. This
-is the change that decides whether her phone downloads a 4K video.
+**Smaller delivered derivatives.** Authenticated Cloudinary assets cannot use
+on-the-fly transformations, so the browser receives the original bytes. Upload a
+web-sized derivative (and a poster frame for video) next to the protected
+original, sign both, and let the templates choose the derivative. This is the
+change that decides whether her phone downloads a 4K video.
 
 **The editorial stylesheet, scoped.** The template itself is in: schema-backed,
 registered in `TEMPLATE_IDS`, editable from the dashboard, and its reveals now use

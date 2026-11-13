@@ -1,4 +1,5 @@
-import type { Media } from "./schema";
+import { apiRequest } from "./apiClient";
+import type { Media, MediaKind } from "./schema";
 
 /**
  * Uploading files to Cloudinary.
@@ -9,25 +10,18 @@ import type { Media } from "./schema";
  * broken image. Storing a URL you know to be dead is worse than storing none,
  * so the rule this module enforces is: **persist nothing that does not resolve.**
  *
- * ## Configuration
+ * ## Signed, not unsigned
  *
- * Read from the environment on every call rather than captured at import, so a
- * test can set them and because Vite inlines them anyway — there is no cost to
- * re-reading and there is a cost to freezing them early.
+ * The browser no longer posts to an unsigned preset. It asks the API for a
+ * one-hour upload signature, sends the file to Cloudinary's upload endpoint
+ * with `type=authenticated`, and asks the API for a signed delivery URL for the
+ * new asset. The
+ * API secret never reaches the bundle, and an anonymous visitor cannot use the
+ * cloud as free storage.
  *
- * Both values are public and necessarily so: the cloud name appears in every
- * delivery URL, and an unsigned preset has to ship to the browser in order to
- * be used from the browser. That is the trade for having no server. What is
- * *not* here is any secret — `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET`
- * are deliberately unprefixed so Vite will not compile them into the bundle,
- * and nothing in this file reads them.
- *
- * ## Why "auto" and not image/ or video/
- *
- * The dashboard's uploader accepts both, and the caller knows which only from
- * the file's MIME type. `auto/upload` lets Cloudinary detect it from the bytes,
- * which is also what handles the awkward case where a file's extension and its
- * actual type disagree.
+ * The delivery URL is long-lived and bearer-style: it cannot be transformed or
+ * guessed, but anyone given it can view the asset. That is the accepted trade
+ * for media that works in a plain `<img>` and survives a reload.
  */
 
 /**
@@ -39,7 +33,7 @@ import type { Media } from "./schema";
  * from.
  */
 export type UploadedMedia = {
-  /** The delivered URL. Resolves, unlike the blob it replaces. */
+  /** The signed delivery URL. Resolves, unlike the blob it replaces. */
   url: string;
   /** Cloudinary asset id — needed to replace or delete the asset later. */
   publicId: string;
@@ -58,39 +52,51 @@ export class UploadError extends Error {
 }
 
 const CLOUD_NAME_KEY = "VITE_CLOUDINARY_CLOUD_NAME";
-const PRESET_KEY = "VITE_CLOUDINARY_UPLOAD_PRESET";
 
-/** True when the environment is set up enough to attempt an upload. */
+/** True when this build knows which Cloudinary cloud to talk to. */
 export function uploadConfigured(): boolean {
-  const { cloudName, preset } = readConfig();
-  return Boolean(cloudName && preset);
+  return Boolean(readCloudName());
 }
 
 /**
  * The message shown when uploads are not set up.
  *
- * Names the file to edit rather than saying "not configured", because the
- * person reading it is partway through adding a photograph and needs to know
- * what to do next.
+ * Names the setting rather than saying "not configured", because the person
+ * reading it is partway through adding a photograph and needs to know what to
+ * do next. The server keys are named too: a cloud name alone cannot sign.
  */
 export const UPLOAD_NOT_CONFIGURED =
-  "This browser has no Cloudinary settings, so the file cannot be kept. " +
-  `Copy .env.example to .env.local and set ${CLOUD_NAME_KEY} and ${PRESET_KEY}, ` +
-  "then reload. The picture above is a preview only and will not survive a reload.";
+  "This build has no Cloudinary cloud name, so the file cannot be kept. " +
+  `Set ${CLOUD_NAME_KEY} and add CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET ` +
+  "to the server environment, then reload. The picture above is a preview only " +
+  "and will not survive a reload.";
 
-function readConfig(): { cloudName: string; preset: string } {
-  const env = import.meta.env as Record<string, string | undefined>;
-  return {
-    cloudName: (env[CLOUD_NAME_KEY] ?? "").trim(),
-    preset: (env[PRESET_KEY] ?? "").trim(),
-  };
+function readCloudName(): string {
+  /*
+    A static property access, not `import.meta.env[name]`. Vite can only
+    tree-shake what it can see at build time; a dynamic lookup makes it inline
+    the whole environment object, which would ship every other `VITE_` value
+    (including the old unsigned preset name) into the public bundle.
+  */
+  return (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ?? "").trim();
 }
+
+type SignUploadResponse = {
+  apiKey: string;
+  uploadUrl: string;
+  timestamp: number;
+  publicId: string;
+  type: "authenticated";
+  signature: string;
+};
+
+type SignDeliveryResponse = { url: string };
 
 /** What Cloudinary returns, success or failure. */
 type UploadResponse = {
   error?: { message?: string };
-  secure_url?: string;
   public_id?: string;
+  format?: string;
   width?: number;
   height?: number;
   /** Seconds. Present for video and audio only. */
@@ -100,26 +106,42 @@ type UploadResponse = {
 /**
  * Uploads one file and returns the fields worth persisting.
  *
+ * `kind` comes from the picker's own probe rather than the MIME type alone: the
+ * file was already decoded to show a preview, so this is the same answer with
+ * less guessing. It decides whether Cloudinary sees an image or a video, and
+ * therefore which endpoint signs the upload.
+ *
  * Throws `UploadError` with a message written for the person who picked the
  * file. A raw `TypeError: Failed to fetch` tells them nothing they can act on,
- * and a Cloudinary constraint error ("Invalid upload preset") is exactly the
- * thing they need to see.
+ * and a Cloudinary constraint error is exactly the thing they need to see.
  */
-export async function uploadAsset(file: File): Promise<UploadedMedia> {
-  const { cloudName, preset } = readConfig();
+export async function uploadAsset(file: File, kind?: MediaKind): Promise<UploadedMedia> {
+  if (!uploadConfigured()) throw new UploadError(UPLOAD_NOT_CONFIGURED);
 
-  if (!cloudName || !preset) throw new UploadError(UPLOAD_NOT_CONFIGURED);
+  const mediaKind: MediaKind =
+    kind ?? (file.type.startsWith("video/") ? "video" : "image");
+
+  let signed: SignUploadResponse;
+  try {
+    signed = await apiRequest<SignUploadResponse>("/media/sign-upload", {
+      method: "POST",
+      body: JSON.stringify({ kind: mediaKind }),
+    });
+  } catch (cause) {
+    throw new UploadError(messageFor(cause, "Could not get permission to upload."));
+  }
 
   const body = new FormData();
   body.append("file", file);
-  body.append("upload_preset", preset);
+  body.append("api_key", signed.apiKey);
+  body.append("timestamp", String(signed.timestamp));
+  body.append("public_id", signed.publicId);
+  body.append("type", signed.type);
+  body.append("signature", signed.signature);
 
   let response: Response;
   try {
-    response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
-      method: "POST",
-      body,
-    });
+    response = await fetch(signed.uploadUrl, { method: "POST", body });
   } catch {
     throw new UploadError("Could not reach Cloudinary. Check the connection and try again.");
   }
@@ -140,8 +162,28 @@ export async function uploadAsset(file: File): Promise<UploadedMedia> {
     );
   }
 
-  if (!payload.secure_url || !payload.public_id) {
-    throw new UploadError("Cloudinary accepted the file but did not return an address for it.");
+  const publicId = payload.public_id ?? signed.publicId;
+  const format = payload.format?.trim();
+
+  if (!publicId || !format) {
+    throw new UploadError(
+      "Cloudinary accepted the file but did not return enough information to deliver it.",
+    );
+  }
+
+  let delivered: SignDeliveryResponse;
+  try {
+    delivered = await apiRequest<SignDeliveryResponse>("/media/sign-delivery", {
+      method: "POST",
+      body: JSON.stringify({ kind: mediaKind, publicId, format }),
+    });
+  } catch (cause) {
+    // The bytes are already stored, but without a signed address they are not
+    // usable. Saying so is better than persisting an unsigned URL that would
+    // be rejected on the next reload.
+    throw new UploadError(
+      messageFor(cause, "The file uploaded, but its protected link could not be created."),
+    );
   }
 
   const number = (value: unknown): number | null =>
@@ -150,16 +192,22 @@ export async function uploadAsset(file: File): Promise<UploadedMedia> {
   const durationSeconds = number(payload.duration);
 
   return {
-    // The original, not a derived one. `f_auto,q_auto` would shrink a 12 MB
-    // photograph down to something a phone can actually load, and it is the
-    // obvious next step — but it is a delivery change layered on top of the
-    // correctness fix, and this URL is the one that is known to work.
-    url: payload.secure_url,
-    publicId: payload.public_id,
+    url: delivered.url,
+    publicId,
     width: number(payload.width),
     height: number(payload.height),
     durationMs: durationSeconds === null ? null : Math.round(durationSeconds * 1000),
   };
+}
+
+function messageFor(cause: unknown, fallback: string): string {
+  if (!(cause instanceof Error) || !cause.message) return fallback;
+  // The generic API client speaks to more than uploads; make the two cases a
+  // person can actually hit name the thing they were trying to do.
+  if (cause.message === "Sign in to continue.") {
+    return "Sign in to upload photos and videos. Uploads need an account.";
+  }
+  return cause.message;
 }
 
 /**

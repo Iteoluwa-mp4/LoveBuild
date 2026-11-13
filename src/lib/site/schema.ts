@@ -54,6 +54,16 @@ export type SiteStatus = z.infer<typeof statusSchema>;
  * ------------------------------------------------------------------ */
 
 /**
+ * The two Cloudinary resource types this app uploads.
+ *
+ * Shared by the browser and the API: the browser knows what the person picked,
+ * and the server signs the matching upload endpoint. Deliberately not part of
+ * `siteSchema` — it describes a request, not a stored site.
+ */
+export const mediaKindSchema = z.enum(["image", "video"]);
+export type MediaKind = z.infer<typeof mediaKindSchema>;
+
+/**
  * One uploaded asset.
  *
  * `url` is authoritative for rendering. `publicId` is the Cloudinary asset id,

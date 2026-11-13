@@ -2,7 +2,7 @@
  * The HTTP statuses this API actually uses. Narrow enough that Hono's `c.json`
  * accepts it without a cast, broad enough for the failures the routes produce.
  */
-export type ApiStatus = 400 | 401 | 403 | 404 | 409 | 422 | 500;
+export type ApiStatus = 400 | 401 | 403 | 404 | 409 | 422 | 500 | 503;
 
 /**
  * An API failure that is safe to show a person.

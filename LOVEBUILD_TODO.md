@@ -29,8 +29,8 @@ Priority order. Tick items off as you go.
 The idea: keep the original at full quality in storage, and only optimize what gets delivered. Do the first two items and you get roughly 80% of the benefit.
 
 **Do first**
-- [x] **Upload straight from the browser to Cloudinary** — done via unsigned `auto/upload` in `cloudinary.ts` (see `to-do.md` for the signed-upload follow-up once a backend exists).
-- [ ] **Add `f_auto,q_auto` to every displayed image URL.** Cloudinary then serves AVIF or WebP at a smart quality per device. *(Not done — uploads store the raw `secure_url` today.)*
+- [x] **Upload straight from the browser to Cloudinary** — done via server-signed, authenticated uploads in `cloudinary.ts`; delivery URLs are signed per asset and require a signed-in account to create.
+- [ ] **Generate and deliver a smaller web derivative.** Authenticated Cloudinary assets cannot transform on the fly, so upload an optimized copy beside the protected original and store both URLs. *(Not done — the app delivers the original bytes today.)*
 
 **Do later, when you feel the pain**
 - [ ] **Resize and re-encode in the browser before upload.** Shrink 4000px+ phone photos to about 2000px and encode as WebP at around 80 to 85% quality (typically 70 to 90% smaller, no visible loss).

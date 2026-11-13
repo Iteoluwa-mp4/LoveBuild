@@ -25,16 +25,13 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_PROJECT_ID?: string;
   readonly VITE_FIREBASE_APP_ID?: string;
 
-  /** Cloudinary cloud name. Public by design — it appears in every asset URL. */
-  readonly VITE_CLOUDINARY_CLOUD_NAME?: string;
   /**
-   * Unsigned upload preset. Also public, and that is the trade: an unsigned
-   * preset means the browser can upload without a server, so anyone who learns
-   * the name can upload too. Restrict it on the Cloudinary side (folder,
-   * formats, max size) and replace it with signed uploads once a backend can
-   * hold the secret — see `.env.example`.
+   * Cloudinary cloud name. Public by design — it appears in every asset URL.
+   * The server also reads it (or the unprefixed `CLOUDINARY_CLOUD_NAME`) when
+   * it signs uploads; the browser only uses it to decide whether uploads are
+   * configured at all.
    */
-  readonly VITE_CLOUDINARY_UPLOAD_PRESET?: string;
+  readonly VITE_CLOUDINARY_CLOUD_NAME?: string;
 }
 
 interface ImportMeta {

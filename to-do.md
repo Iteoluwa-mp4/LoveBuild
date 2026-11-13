@@ -32,11 +32,12 @@ is left, in the order it is worth doing.
 
 ## 2. Small change, largest payoff
 
-- [ ] **Transformed delivery URLs.** Uploads store the raw `secure_url`. Swap
-      the composed URL to `f_auto,q_auto` plus a width cap, in one place
-      (`cloudinary.ts` or a new `delivery.ts`), so every template benefits and
-      her phone stops downloading a 4K video. Also consider `srcset`/`sizes`
-      and `loading="lazy"` below the fold while in there.
+- [ ] **Smaller delivery derivatives.** The signed flow now stores a protected
+      original, and authenticated Cloudinary assets cannot use on-the-fly
+      transforms. Upload an optimized web copy (and a video poster frame) beside
+      the original, sign both, and compose `srcset`/`sizes` in one place so her
+      phone stops downloading a 4K video. Add `loading="lazy"` below the fold
+      while in there.
 - [ ] **Delete the "Not uploaded"-era residue** that no longer applies once
       delivery is transformed: re-check the dashboard copy still reads true.
 

@@ -215,7 +215,7 @@ export default function MediaUploader({
 
     setProbe({ state: "uploading", ...picked });
 
-    void uploadAsset(file)
+    void uploadAsset(file, picked.kind)
       .then((uploaded) => {
         if (pickSeq.current !== seq) return; // superseded by a later pick
         // Spread over `mediaRef.current`, not `cleared`: the author can edit

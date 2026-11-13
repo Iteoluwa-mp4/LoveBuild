@@ -1,8 +1,19 @@
 import { Hono, type Context, type Next } from "hono";
+import { z } from "zod";
 
-import { siteSchema, statusSchema, type Site } from "../src/lib/site/schema";
+import {
+  mediaKindSchema,
+  siteSchema,
+  statusSchema,
+  type Site,
+} from "../src/lib/site/schema";
 import { createTokenVerifier, type TokenVerifier } from "./auth";
 import { ApiError } from "./errors";
+import {
+  createCloudinarySigner,
+  MEDIA_UNCONFIGURED_MESSAGE,
+  type MediaSigner,
+} from "./mediaSigner";
 import { createDrizzleStore, type SiteStore } from "./store";
 
 /**
@@ -21,10 +32,32 @@ type ApiEnv = { Variables: { uid: string } };
 export type ApiDependencies = {
   store: SiteStore;
   verifyToken: TokenVerifier;
+  /** Injectable so route tests do not need Cloudinary credentials. */
+  media?: MediaSigner;
 };
 
-export function createApp({ store, verifyToken }: ApiDependencies): Hono<ApiEnv> {
+const signUploadSchema = z.object({ kind: mediaKindSchema });
+
+/**
+ * Only assets this app created. Scoping the delivery signer to the
+ * `lovebuilds/` folder stops a signed-in request from turning any other asset
+ * in the Cloudinary account into a public bearer link.
+ */
+const signDeliverySchema = z.object({
+  kind: mediaKindSchema,
+  publicId: z
+    .string()
+    .regex(/^lovebuilds\/[A-Za-z0-9_-]{1,120}$/, "a generated LoveBuilds asset"),
+  format: z.string().regex(/^[A-Za-z0-9]{1,10}$/, "a file format"),
+});
+
+export function createApp({
+  store,
+  verifyToken,
+  media: injectedMedia,
+}: ApiDependencies): Hono<ApiEnv> {
   const app = new Hono<ApiEnv>().basePath("/api");
+  const media = injectedMedia ?? createCloudinarySigner();
 
   const requireAuth = async (c: Context<ApiEnv>, next: Next) => {
     const header = c.req.header("authorization");
@@ -43,6 +76,38 @@ export function createApp({ store, verifyToken }: ApiDependencies): Hono<ApiEnv>
   };
 
   app.get("/health", (c) => c.json({ ok: true }));
+
+  /**
+   * Signed-in users get a short-lived permission slip to upload one file.
+   *
+   * The browser posts the file straight to Cloudinary. The secret stays here,
+   * and the public id is chosen here, so the browser cannot overwrite an
+   * existing asset or write outside this app's folder.
+   */
+  app.post("/media/sign-upload", requireAuth, async (c) => {
+    if (!media.configured) {
+      throw new ApiError(503, MEDIA_UNCONFIGURED_MESSAGE, "media-unconfigured");
+    }
+
+    const { kind } = parseMedia(signUploadSchema, await readJson(c));
+    return c.json(await media.signUpload(kind));
+  });
+
+  /**
+   * Turns a public id into a long-lived signed delivery URL.
+   *
+   * The URL is a bearer link by design: it works in an `<img>` or `<video>`
+   * without a token, survives reloads, and does not need the API in the media
+   * path. Rotating the Cloudinary secret invalidates every stored URL.
+   */
+  app.post("/media/sign-delivery", requireAuth, async (c) => {
+    if (!media.configured) {
+      throw new ApiError(503, MEDIA_UNCONFIGURED_MESSAGE, "media-unconfigured");
+    }
+
+    const { kind, publicId, format } = parseMedia(signDeliverySchema, await readJson(c));
+    return c.json({ url: await media.signDelivery(kind, publicId, format) });
+  });
 
   /**
    * The only unauthenticated site read. A draft behaves exactly as if it did
@@ -146,6 +211,21 @@ function slugOf(c: Context<ApiEnv>): string {
     throw new ApiError(400, "No site address was given.", "invalid-slug", "slug");
   }
   return slug;
+}
+
+function parseMedia<T>(schema: z.ZodType<T>, raw: unknown): T {
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path.join(".") || undefined;
+    throw new ApiError(
+      400,
+      first?.message ?? "Send a valid media request.",
+      "invalid-media",
+      path,
+    );
+  }
+  return result.data;
 }
 
 function parseSite(raw: unknown): Site {

@@ -5,6 +5,7 @@ import type { SiteSummary } from "../../src/lib/site/repository";
 import type { Site, SiteStatus } from "../../src/lib/site/schema";
 import { createApp } from "../app";
 import { ApiError } from "../errors";
+import type { MediaSigner } from "../mediaSigner";
 import type { SiteStore } from "../store";
 
 /**
@@ -82,11 +83,26 @@ class MemoryStore implements SiteStore {
 describe("api", () => {
   let store: MemoryStore;
   let app: ReturnType<typeof createApp>;
+  let media: MediaSigner;
 
   beforeEach(() => {
     store = new MemoryStore();
+    media = {
+      configured: true,
+      signUpload: async (kind) => ({
+        apiKey: "public-key",
+        uploadUrl: `https://api.cloudinary.com/v1_1/demo-cloud/${kind}/upload`,
+        timestamp: 1_700_000_000,
+        publicId: "lovebuilds/abc",
+        type: "authenticated",
+        signature: "upload-signature",
+      }),
+      signDelivery: async (kind, publicId, format) =>
+        `https://res.cloudinary.com/demo-cloud/${kind}/authenticated/s--sig--/${publicId}.${format}`,
+    };
     app = createApp({
       store,
+      media,
       verifyToken: async (token) => {
         if (token === "alice") return "user-alice";
         if (token === "bob") return "user-bob";
@@ -111,6 +127,96 @@ describe("api", () => {
   it("refuses an invalid token", async () => {
     const response = await app.request("/api/sites", { headers: auth("nobody") });
     expect(response.status).toBe(401);
+  });
+
+  it("refuses to sign media without a token", async () => {
+    const upload = await app.request("/api/media/sign-upload", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "image" }),
+    });
+    expect(upload.status).toBe(401);
+
+    const delivery = await app.request("/api/media/sign-delivery", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "image", publicId: "lovebuilds/abc", format: "jpg" }),
+    });
+    expect(delivery.status).toBe(401);
+  });
+
+  it("issues a signed upload to a signed-in owner", async () => {
+    const response = await app.request("/api/media/sign-upload", {
+      method: "POST",
+      headers: { ...auth("alice"), "content-type": "application/json" },
+      body: JSON.stringify({ kind: "video" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      apiKey: "public-key",
+      uploadUrl: "https://api.cloudinary.com/v1_1/demo-cloud/video/upload",
+      timestamp: 1_700_000_000,
+      publicId: "lovebuilds/abc",
+      type: "authenticated",
+      signature: "upload-signature",
+    });
+  });
+
+  it("signs a delivery URL only for assets this app created", async () => {
+    const signed = await app.request("/api/media/sign-delivery", {
+      method: "POST",
+      headers: { ...auth("alice"), "content-type": "application/json" },
+      body: JSON.stringify({ kind: "image", publicId: "lovebuilds/abc", format: "jpg" }),
+    });
+    expect(signed.status).toBe(200);
+    await expect(signed.json()).resolves.toEqual({
+      url: "https://res.cloudinary.com/demo-cloud/image/authenticated/s--sig--/lovebuilds/abc.jpg",
+    });
+
+    const outside = await app.request("/api/media/sign-delivery", {
+      method: "POST",
+      headers: { ...auth("alice"), "content-type": "application/json" },
+      body: JSON.stringify({ kind: "image", publicId: "someone-else/asset", format: "jpg" }),
+    });
+    expect(outside.status).toBe(400);
+    const body = (await outside.json()) as { code?: string; path?: string };
+    expect(body.code).toBe("invalid-media");
+    expect(body.path).toBe("publicId");
+  });
+
+  it("rejects a malformed media request instead of signing it", async () => {
+    const response = await app.request("/api/media/sign-upload", {
+      method: "POST",
+      headers: { ...auth("alice"), "content-type": "application/json" },
+      body: JSON.stringify({ kind: "audio" }),
+    });
+    expect(response.status).toBe(400);
+  });
+
+  it("says media is unavailable when the server has no Cloudinary settings", async () => {
+    const unconfigured = createApp({
+      store,
+      media: {
+        configured: false,
+        signUpload: async () => {
+          throw new Error("should not be called");
+        },
+        signDelivery: async () => {
+          throw new Error("should not be called");
+        },
+      },
+      verifyToken: async () => "user-alice",
+    });
+
+    const response = await unconfigured.request("/api/media/sign-upload", {
+      method: "POST",
+      headers: { ...auth("alice"), "content-type": "application/json" },
+      body: JSON.stringify({ kind: "image" }),
+    });
+    expect(response.status).toBe(503);
+    const body = (await response.json()) as { code?: string };
+    expect(body.code).toBe("media-unconfigured");
   });
 
   it("creates a site for the signed-in owner and lists it", async () => {
