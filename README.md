@@ -167,15 +167,23 @@ disagree:
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }
 ```
 
-The API lives in `api/[...route].ts` and deploys as a Vercel Edge Function. It
-uses only Web APIs: Hono, `jose`, the Neon HTTP driver and `fetch`. The app
-modules live in `server/` rather than beside the entry point, because Vercel
-turns every file under `api/` into a route. The same app is served locally by
-`server/dev.ts` through `@hono/node-server`, with Vite proxying `/api` to it.
+The API lives in `api/index.ts` and deploys as a Vercel Edge Function. It uses
+only Web APIs: Hono, `jose`, the Neon HTTP driver and `fetch`. The app modules
+live in `server/` rather than beside the entry point, because Vercel turns every
+file under `api/` into a route. The same app is served locally by `server/dev.ts`
+through `@hono/node-server`, with Vite proxying `/api` to it.
+
+The explicit `/api/*` rewrite is required: Vercel's non-Next filesystem routing
+only matches one segment for a bracket catch-all, so without it `/api/health`
+reaches the function while `/api/sites/:slug` and `/api/media/*` return a
+platform 404. The rewrite keeps the original URL available to Hono.
 
 Redeploy after changing `vercel.json`. The same rewrite is needed on any other
 host (Netlify `_redirects`, Firebase Hosting `rewrites`, and so on); a static host
@@ -339,7 +347,7 @@ src/lib/site/
   brand.ts           storage prefixes + preview message names
 
 api/
-  [...route].ts      Vercel Edge entry point — the only file Vercel sees as a function
+  index.ts           Vercel Edge entry point — the only file Vercel sees as a function
 
 server/
   app.ts             Hono routes, validation, error mapping

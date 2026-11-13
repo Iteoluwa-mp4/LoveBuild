@@ -245,8 +245,9 @@ function parseSite(raw: unknown): Site {
 }
 
 /**
- * The deployment entry point. `api/[...route].ts` only adapts this to Vercel;
- * `server/dev.ts` only adapts it to a local Node server.
+ * The deployment entry point. `api/index.ts` only adapts this to Vercel, with
+ * `vercel.json` forwarding every `/api/*` path to it; `server/dev.ts` only
+ * adapts it to a local Node server.
  */
 export default createApp({
   store: createDrizzleStore(),
