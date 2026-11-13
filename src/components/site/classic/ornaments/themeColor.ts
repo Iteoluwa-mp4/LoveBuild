@@ -2,8 +2,8 @@
  * Reads a theme token at runtime.
  *
  * three.js needs colours as numbers, and CSS custom properties are strings, so
- * the 3D ornaments cannot simply be handed `var(--theme-gold)`. Reading the
- * computed value is what keeps them on-theme: change the preset and the gem
+ * a WebGL scene cannot simply be handed `var(--theme-gold)`. Reading the
+ * computed value is what keeps it on-theme: change the preset and the scene
  * changes with it, with no duplicated palette in JavaScript.
  *
  * Called once per mount, not per frame — the tokens do not change while a scene

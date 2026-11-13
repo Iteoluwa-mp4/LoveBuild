@@ -129,6 +129,6 @@ provenance.
 - No live browser is attached to this session, so the batched screenshot round
   and the finish reviewer have no capture evidence. Verified by `npm run build`,
   `npm test` and `impeccable detect` instead, and disclosed.
-- `ornaments.hero3d` in the schema is now the light-leak/emulsion layer rather
-  than a 3D object. The key is kept so stored configs keep parsing; the meaning
-  changed and the schema comment says so.
+- The `ornaments` config and its dashboard controls have been removed. Stored
+  configs that still carry those keys parse safely: the schema strips the
+  unknown field, and no template ever read it.

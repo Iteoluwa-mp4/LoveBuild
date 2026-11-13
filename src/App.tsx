@@ -29,9 +29,8 @@ import "./App.css";
  *
  * `/` is the front door, not a published site. A signed-out visitor lands on
  * the login screen; the login screen forwards an already-signed-in visitor to
- * the dashboard. LoveBuilds is a tool someone sits down at; the site is the
- * thing it produces, reached at `/s/:slug` or from the dashboard's "View saved
- * site" button.
+ * the shelf. LoveBuilds is a tool someone sits down at; the site is the thing
+ * it produces, reached at `/s/:slug` or from the shelf's "View" button.
  *
  * `/preview` is deliberately not under `/s/`, so it can never be a link someone
  * shares — a published page only ever renders from stored config.
@@ -129,15 +128,17 @@ export default function App() {
 }
 
 /**
- * `/dashboard` with no slug: create the first site, or open the most recent one.
+ * `/dashboard` with no slug: open the most recent site, or send an empty
+ * account to the shelf.
  *
  * Rather than bouncing through `/dashboard/:slug` it resolves here, because
  * deciding between "nothing yet" and "one of several" needs the list, and a
- * redirect cannot carry that decision.
+ * redirect cannot carry that decision. An empty account goes to the shelf, not
+ * the create form: the shelf is the home screen and owns the "Make the first
+ * one" action.
  */
 function DashboardGate() {
   const [state, setState] = useState<"loading" | SiteSummary[]>("loading");
-  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
@@ -160,15 +161,7 @@ function DashboardGate() {
 
   const newest = state[0];
 
-  if (!newest) {
-    return (
-      <CreateSite
-        onDone={(slug) => {
-          navigate(`/dashboard/${slug}`, { replace: true });
-        }}
-      />
-    );
-  }
+  if (!newest) return <Navigate to="/profile" replace />;
 
   return <Navigate to={`/dashboard/${newest.slug}`} replace />;
 }
@@ -176,9 +169,9 @@ function DashboardGate() {
 /**
  * `/new`: the create form as its own destination.
  *
- * `/dashboard` also shows this form, but only when there is no site at all.
- * "Make another" needs a route that does not first redirect to the newest one,
- * so the profile can link here directly.
+ * The shelf's "Make the first one" and "New site" actions link here. It is a
+ * route rather than a modal so the form has a real back target and does not
+ * first redirect to the newest site.
  */
 function NewSiteRoute() {
   const navigate = useNavigate();

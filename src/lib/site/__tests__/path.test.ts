@@ -263,8 +263,6 @@ describe("paths used by the dashboard", () => {
     ["gallery.outro.backLabel", "string"],
     ["theme", "string"],
     ["template", "string"],
-    ["ornaments.hero3d", "boolean"],
-    ["ornaments.particles", "boolean"],
     ["modern.hero.eyebrow", "string"],
     ["modern.hero.lines", "array"],
     ["modern.hero.subline", "string"],

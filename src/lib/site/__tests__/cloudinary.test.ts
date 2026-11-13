@@ -26,6 +26,14 @@ describe("cloudinary", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    /*
+      Unit tests must not inherit `.env.local`. Once Cloudinary is configured
+      locally, the "unconfigured" cases below would start seeing real values and
+      either fail or attempt a network request. Pin both keys empty here; the
+      tests that need values stub them explicitly.
+    */
+    vi.stubEnv(CLOUD, "");
+    vi.stubEnv(PRESET, "");
   });
 
   afterEach(() => {
@@ -45,9 +53,10 @@ describe("cloudinary", () => {
 
     it("is false when only one of the two is set", () => {
       vi.stubEnv(CLOUD, "demo-cloud");
+      vi.stubEnv(PRESET, "");
       expect(uploadConfigured()).toBe(false);
 
-      vi.unstubAllEnvs();
+      vi.stubEnv(CLOUD, "");
       vi.stubEnv(PRESET, "dashboard_unsigned");
       expect(uploadConfigured()).toBe(false);
     });

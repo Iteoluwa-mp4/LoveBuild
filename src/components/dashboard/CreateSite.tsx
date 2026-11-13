@@ -10,7 +10,7 @@ import { createDraft } from "../../lib/site/default";
 import { SEED_SLUG } from "../../lib/site/default";
 
 /**
- * The first thing shown after signing in: "what should this site be called?"
+ * The create form, reached from the shelf's "Make the first one" action.
  *
  * One question, answered once. Everything after this is editing.
  *
@@ -107,7 +107,7 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
                 {check.ok ? (
                   <>
                     Your site will be at{" "}
-                    <code style={{ color: "var(--dash-accent)" }}>{publicUrl(check.slug)}</code>. If
+                    <code style={{ color: "var(--dash-gold)" }}>{publicUrl(check.slug)}</code>. If
                     that address is already taken, we&rsquo;ll add a short suffix so yours still
                     works.
                   </>

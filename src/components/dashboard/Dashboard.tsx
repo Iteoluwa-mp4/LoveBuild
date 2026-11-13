@@ -15,6 +15,7 @@ import { SEED_SLUG } from "../../lib/site/default";
 import { getRepository, repositoryKind } from "../../lib/site/getRepository";
 import { publicUrl } from "../../lib/site/slug";
 import { type SiteStatus } from "../../lib/site/schema";
+import { templateUsesThemes } from "../../lib/site/themes";
 import { uploadItems, uploadProgress } from "../../lib/site/derive";
 import { resendVerification, signOut } from "../../lib/site/auth";
 
@@ -439,8 +440,9 @@ export default function Dashboard() {
           {/*
             Template and colour, together and first.
 
-            These are the two things that decide what the site *is* — the rest of
-            the form is filling in whichever of them you picked.
+            The template is the layout and copy. Colour follows only when that
+            template actually renders from the shared presets; editorial and
+            scrapbook bring their own palettes, so a picker there would lie.
 
             `AppearanceEditor` still owns the conditional editor switch, so the
             fields below follow whatever is chosen here.
@@ -452,9 +454,11 @@ export default function Dashboard() {
             />
           </Section>
 
-          <Section title="Colours" hint="Works with either template">
-            <ThemePicker value={site.theme} onChange={(id) => draft.set("theme", id)} />
-          </Section>
+          {templateUsesThemes(site.template) && (
+            <Section title="Colours" hint="Five ready-made palettes">
+              <ThemePicker value={site.theme} onChange={(id) => draft.set("theme", id)} />
+            </Section>
+          )}
 
           <AppearanceEditor draft={draft} />
 

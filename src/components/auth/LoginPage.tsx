@@ -4,6 +4,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useSession } from "../../hooks/useSession";
 import {
   MIN_PASSWORD_LENGTH,
+  isFirebaseConfigured,
   resetPassword,
   signIn,
   signInWithGoogle,
@@ -35,6 +36,7 @@ type Mode = "signin" | "signup";
 export default function LoginPage() {
   const session = useSession();
   const location = useLocation();
+  const configured = isFirebaseConfigured();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -43,7 +45,13 @@ export default function LoginPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | "email" | "google" | "reset">(null);
 
-  const from = (location.state as { from?: string } | null)?.from ?? "/dashboard";
+  /*
+    The shelf, not the create form. A new account has nothing to edit yet, so
+    sending it straight to "Create your site" skips the home screen and gives
+    no way back except the shelf link. `/dashboard` still resolves to the
+    newest site when one exists; DashboardGate sends an empty account here.
+  */
+  const from = (location.state as { from?: string } | null)?.from ?? "/profile";
 
   // Already signed in: no reason to show the form. Rendering before a submit
   // can happen means there is nothing to race with.
@@ -109,6 +117,13 @@ export default function LoginPage() {
       <form className="login-card" onSubmit={onSubmit}>
         <h1 className="login-title">LoveBuilds</h1>
 
+        {!configured && (
+          <p className="login-error" role="alert">
+            This build is missing its Firebase settings, so sign-in cannot work yet. Add the
+            four <code>VITE_FIREBASE_*</code> values to the host environment and redeploy.
+          </p>
+        )}
+
         {session.status === "checking" ? (
           <p className="login-status">Checking…</p>
         ) : (
@@ -151,7 +166,7 @@ export default function LoginPage() {
             <label className="login-field">
               <span>Password</span>
               <input
-                type={creating ? "new-password" : "current-password"}
+                type="password"
                 autoComplete={creating ? "new-password" : "current-password"}
                 value={password}
                 onChange={(event) => {

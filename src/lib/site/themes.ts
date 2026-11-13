@@ -289,6 +289,21 @@ export const themeIds = Object.keys(themes) as ThemeId[];
 export const defaultThemeId: ThemeId = "midnight";
 
 /**
+ * Whether a template actually renders from these presets.
+ *
+ * Only the modern template is built on the shared `--theme-*` tokens.
+ * Editorial and scrapbook are complete palettes of their own — their styles
+ * never read those variables, so offering them a colour preset would be a
+ * control that changes nothing. Unknown templates fail closed for the same
+ * reason: a picker should only appear when it can take effect.
+ */
+const THEMED_TEMPLATES: ReadonlySet<string> = new Set(["modern"]);
+
+export function templateUsesThemes(template: string): boolean {
+  return THEMED_TEMPLATES.has(template);
+}
+
+/**
  * Looks a theme up by id, falling back to the default.
  *
  * Config stores the id as a plain string so that adding a preset can never

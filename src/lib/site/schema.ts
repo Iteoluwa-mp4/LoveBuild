@@ -385,8 +385,9 @@ export type TemplateId = (typeof TEMPLATE_IDS)[number];
 /**
  * Which template renders the site.
  *
- * Separate from `theme` on purpose: a template is layout and copy, a theme is
- * colour, and they are chosen independently.
+ * Separate from `theme` on purpose: a template is layout and copy. Only the
+ * modern template reads the shared colour presets; editorial and scrapbook
+ * carry their own palettes, so `theme` is stored but unused there.
  *
  * Written as `string` -> transform rather than `z.enum` so that a config saved
  * before templates existed keeps parsing, and so an id this build no longer
@@ -406,26 +407,14 @@ const templateSchema = z
     (TEMPLATE_IDS as readonly string[]).includes(value) ? (value as TemplateId) : "editorial",
   );
 
-/**
- * Three-dimensional ornaments. Both are heavy (three.js) and both are specific
- * to the original design, so a site can switch them off.
- */
-const ornamentsSchema = z
-  .object({
-    /** The 3D hero heart. */
-    hero3d: z.boolean().default(true),
-    /** Drifting gold particles behind the home hero and the gallery. */
-    particles: z.boolean().default(true),
-  })
-  .prefault({});
-
 export const siteSchema = z.object({
   version: z.literal(1).default(1),
   /** URL segment. Generated once, then treated as immutable. */
   slug: z.string().regex(/^[a-z0-9-]+$/, "lowercase letters, digits and hyphens"),
 
   /** Preset id from `themes.ts`. Kept as a string so that adding a preset later
-   *  cannot invalidate an existing config; `resolveTheme` falls back safely. */
+   *  cannot invalidate an existing config; `resolveTheme` falls back safely.
+   *  Only the modern template renders from it. */
   theme: z.string().min(1),
 
   /** Which template renders the site. Independent of `theme`. */
@@ -438,8 +427,6 @@ export const siteSchema = z.object({
       name: z.string().max(60).default(""),
     })
     .prefault({}),
-
-  ornaments: ornamentsSchema,
 
   home: homeSchema,
   gallery: gallerySchema,

@@ -1,14 +1,7 @@
 import { useCallback, useState } from "react";
 
 import type { DraftSite } from "../../hooks/useDraftSite";
-import {
-  EmptyNote,
-  Item,
-  Section,
-  TextAreaField,
-  TextField,
-  ToggleField,
-} from "./fields";
+import { EmptyNote, Item, Section, TextAreaField, TextField } from "./fields";
 import MediaUploader from "./MediaUploader";
 import { hasContent, chapterLabel } from "../../lib/site/derive";
 import { countLabel } from "../../lib/format";
@@ -948,7 +941,7 @@ export function AppearanceEditor({ draft }: { draft: DraftSite }) {
         The template and colour pickers live in `Dashboard.tsx`, above this — they
         decide what the fields below are for, so they have to be visible before
         the author scrolls into a long form. What is left here is the editor for
-        whichever template is currently selected, plus the 3D ornaments.
+        whichever template is currently selected.
 
         Switching template is non-destructive: `home.moments` holds the
         photographs for every template, so nothing is lost either way.
@@ -960,21 +953,6 @@ export function AppearanceEditor({ draft }: { draft: DraftSite }) {
       ) : (
         <StandardEditor draft={draft} />
       )}
-
-      <Section title="Extras" hint="Heavy 3D — can slow older phones">
-        <ToggleField
-          label="Spinning gold heart"
-          value={site.ornaments.hero3d}
-          onChange={(v) => draft.set("ornaments.hero3d", v)}
-          hint="Large animated 3D object on the front page"
-        />
-        <ToggleField
-          label="Drifting gold particles"
-          value={site.ornaments.particles}
-          onChange={(v) => draft.set("ornaments.particles", v)}
-          hint="Animated background on the home and gallery"
-        />
-      </Section>
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from "react";
 
-import { themeIds, themes } from "../../lib/site/themes";
+import { templateUsesThemes, themeIds, themes } from "../../lib/site/themes";
 
 /**
  * Form controls.
@@ -104,39 +104,6 @@ export function TextAreaField({
 }
 
 /* ------------------------------------------------------------------ *
- * TOGGLE
- * ------------------------------------------------------------------ */
-
-export function ToggleField({
-  label,
-  value,
-  onChange,
-  hint,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (next: boolean) => void;
-  hint?: string | undefined;
-}) {
-  const id = useId();
-
-  return (
-    <label className="toggle" htmlFor={id}>
-      <input
-        id={id}
-        type="checkbox"
-        checked={value}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span className="toggle-text">
-        {label}
-        {hint && <small>{hint}</small>}
-      </span>
-    </label>
-  );
-}
-
-/* ------------------------------------------------------------------ *
  * TEMPLATE
  * ------------------------------------------------------------------ */
 
@@ -168,15 +135,16 @@ const TEMPLATES: ReadonlyArray<{ id: string; label: string; note: string }> = [
 /**
  * Which layout the site uses.
  *
- * Deliberately a separate control from the theme picker above it, and the two
- * are orthogonal: any template works with any theme. Combining them into one
- * "style" list would mean eight presets to choose between and no way to keep a
- * layout you like while changing the colour.
+ * Deliberately a separate control from the theme picker above it. They are only
+ * partly orthogonal: modern reads the shared colour presets, while editorial
+ * and scrapbook carry complete palettes of their own. Combining them into one
+ * "style" list would still mean eight presets to choose between and no way to
+ * keep a layout you like while changing the colour.
  *
  * Switching is non-destructive and nothing is seeded on the way through. The
- * photographs live in `home.moments` and both templates read them, so the
- * modern template can be tried, judged, and abandoned with the uploads intact —
- * which is the only way anyone can decide whether they prefer it.
+ * photographs live in `home.moments` and all three templates read them, so a
+ * layout can be tried, judged, and abandoned with the uploads intact — which is
+ * the only way anyone can decide whether they prefer it.
  */
 export function TemplatePicker({
   value,
@@ -203,7 +171,9 @@ export function TemplatePicker({
         ))}
       </div>
       <p className="field-hint">
-        Colours are set separately below — any theme works with either template.
+        {templateUsesThemes(value)
+          ? "Colours are set separately below."
+          : "This template has its own fixed colours."}
       </p>
     </div>
   );

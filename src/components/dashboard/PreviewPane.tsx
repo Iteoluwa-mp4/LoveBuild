@@ -13,9 +13,9 @@ import type { Site } from "../../lib/site/schema";
  *
  * An iframe running the real site, not the components rendered inline. That is
  * deliberate: the point of a live preview is that it cannot lie. An inline copy
- * would need animations, scroll-snap and the 3D ornaments switched off to
- * survive a nested scroller — and every one of those switches is a way for the
- * preview to drift away from what visitors actually see.
+ * would need animations and scroll-snap switched off to survive a nested
+ * scroller — and every one of those switches is a way for the preview to drift
+ * away from what visitors actually see.
  *
  * The draft is posted in after a pause, so typing does not thrash a page that is
  * reloading and re-animating on every keystroke.

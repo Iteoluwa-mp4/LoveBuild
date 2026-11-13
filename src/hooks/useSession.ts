@@ -13,9 +13,10 @@ import { getFirebaseAuth, isFirebaseConfigured } from "../lib/site/firebase";
  * the login page.
  *
  * With Firebase configured, the first `onAuthStateChanged` callback resolves
- * "checking". Without it, the app keeps the local open mode it has always had —
- * no login screen, no project, no setup. That fallback is a feature of the
- * development build, not a security claim, and the copy in the app says so.
+ * "checking". Without it, development keeps the local open mode it has always
+ * had — no login screen, no project, no setup. That fallback is a feature of
+ * the development build, not a security claim. Production fails closed to the
+ * login screen instead of silently creating an anonymous local workspace.
  */
 
 export type SessionUser = {
@@ -94,8 +95,17 @@ export function useSession(): SessionState {
     }
   }, []);
 
-  // No project configured: the editor is open, exactly as before.
-  if (!configured) return { status: "signed-in", method: "local", user: null };
+  /*
+    No project configured. In development the editor stays open, exactly as
+    before, so a fresh clone works with no `.env.local`. A production build
+    must not turn a missing Firebase setting into an anonymous workspace, so
+    it fails closed and lets the login page explain the missing configuration.
+  */
+  if (!configured) {
+    return import.meta.env.DEV
+      ? { status: "signed-in", method: "local", user: null }
+      : { status: "signed-out" };
+  }
 
   if (user === undefined) return { status: "checking" };
   if (user === null) return { status: "signed-out" };

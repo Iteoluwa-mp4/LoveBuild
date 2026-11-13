@@ -10,11 +10,11 @@ import { getFirestore, type Firestore } from "firebase/firestore";
  * authorized domains, security rules and (later) App Check. That is why these
  * variables carry the `VITE_` prefix and `.env.example` says so.
  *
- * The app must still run with no Firebase project configured. That is not a
- * fallback bolted on afterwards — it is how the project has always worked, and
- * it is what keeps `npm run dev` usable on a fresh clone. When these variables
- * are absent, `getFirebaseAuth` returns null and `useSession` reports the local
- * open mode instead of a login screen.
+ * Development must still run with no Firebase project configured. That is not
+ * a fallback bolted on afterwards — it is how the project has always worked,
+ * and it is what keeps `npm run dev` usable on a fresh clone. When these
+ * variables are absent, `getFirebaseAuth` returns null and development reports
+ * the local open mode. Production fails closed to the login screen instead.
  */
 
 type FirebaseConfig = {

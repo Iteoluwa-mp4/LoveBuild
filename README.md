@@ -30,27 +30,30 @@ Done:
 
 - **Schema** — `src/lib/site/schema.ts`. The single source of truth. Zod, so the
   form, the database column and the components all agree.
-- **Themes** — `src/lib/site/themes.ts`. Five presets as pure data, applied to
-  `<html>` so the whole document follows, not just a nested div.
+- **Themes** — `src/lib/site/themes.ts`. Five presets as pure data, used by the
+  modern template and applied to `<html>` so the whole document follows.
 - **Derivation** — `src/lib/site/derive.ts`. Computed values and visibility rules.
 - **Template** — `src/components/site/`. Both pages render entirely from config.
 - **Three templates** — `site.template` picks the layout (`editorial`, `modern`
-  or `scrapbook`); `theme` picks the colours, independently. All three read the
-  same `home.moments` for their photographs, so switching keeps every upload.
+  or `scrapbook`). `theme` picks the colours for `modern`; `editorial` and
+  `scrapbook` carry their own palettes. All three read the same `home.moments`
+  for their photographs, so switching keeps every upload.
 - **Uploads** — `src/lib/site/cloudinary.ts`. Photos and videos go straight from
   the browser to Cloudinary and survive a reload. See *Uploads* below.
 - **Repository seam** — `src/lib/site/repository.ts`. One interface;
   `FirestoreSiteRepository` implements it when Firebase is configured;
   `LocalSiteRepository` is the no-project fallback.
 - **Auth** — `src/lib/site/auth.ts`. Firebase Authentication: email/password and
-  Google, with a local open mode when no project is configured. See below.
+  Google, with a local open mode in development when no project is configured.
+  A production build fails closed to the login screen. See below.
 - **Path editing** — `src/lib/site/path.ts`. Immutable get/set/splice/move by
   dotted path, so every input binds without knowing where it lives.
 - **Dashboard** — `/dashboard/:slug`. Form, live preview, outline, autosave.
 - **Shelf** — `/profile`. Every site the author has made, newest first, with
-  edit/view links and a "New site" button. `/new` is the create form on its own
+  edit/view links and a "New site" button. It is the first signed-in screen; an
+  empty shelf offers "Make the first one". `/new` is the create form on its own
   route so "make another" never has to reopen the newest site first.
-- **Tests** — 276 passing. `npm test`
+- **Tests** — 275 passing. `npm test`
 
 Still to do: transformed (`f_auto,q_auto`) delivery URLs and scoping the
 editorial stylesheet's document-level font and body rules.
@@ -58,20 +61,20 @@ editorial stylesheet's document-level font and body rules.
 ## Storage, auth and publishing
 
 With Firebase configured, sites are stored in Firestore and follow the account.
-With no `.env.local`, the app runs in a local open mode and stores them in this
-browser's localStorage — that is the development path, not a second product. The
+With no `.env.local`, `npm run dev` runs in a local open mode and stores them in
+this browser's localStorage — that is the development path, not a second product.
+A production build without Firebase fails closed to the login screen. The
 one external dependency for media is Cloudinary: it holds the bytes, Firestore
 holds the words and structure, and localStorage holds both in local mode.
 
 ### Authentication is real, and so is the lock
 
 `/login` is Firebase Authentication: email and password, or Google. The root path
-sends a signed-out visitor there; an existing session forwards on to the
-dashboard. The dashboard is unreachable without a session. Google supplies a
-display name and photo; password accounts derive a readable name from the email
-rather than asking for one. Verification is a notice in the dashboard, not a
-gate, and password resets are genuine because Firebase has a server to send
-them.
+sends a signed-out visitor there; an existing session forwards on to the shelf.
+The dashboard is unreachable without a session. Google supplies a display name
+and photo; password accounts derive a readable name from the email rather than
+asking for one. Verification is a notice in the dashboard, not a gate, and
+password resets are genuine because Firebase has a server to send them.
 
 Sites are owner-scoped now. A Firestore document carries `ownerId`, and the
 security rules in `firestore.rules` make drafts readable only by that uid.
@@ -79,11 +82,13 @@ Published sites are readable by anyone with the link. The editor's write paths
 are owner-only, so signing in is no longer a gate in front of browser-local data;
 it is the key.
 
-With no Firebase settings in `.env.local`, the app runs in a local open mode with
-no login screen. That is the development behaviour, and it is why a fresh clone
-works with no project. A deployment meant to be shared must set the four
-`VITE_FIREBASE_*` variables and create the Firestore database; see `.env.example`
-and *Firestore setup* below.
+With no Firebase settings in `.env.local`, `npm run dev` runs in a local open
+mode with no login screen. That is the development behaviour, and it is why a
+fresh clone works with no project. A production build without them fails closed
+to the login screen with a configuration message instead of creating an
+anonymous local workspace. A deployment meant to be shared must set the four
+`VITE_FIREBASE_*` variables and create the Firestore database; see
+`.env.example` and *Firestore setup* below.
 
 `useSession` still reports three states (`checking`, `signed-out`, `signed-in`)
 and `RequireAuth` still owns the gate, so swapping the provider did not touch the
@@ -146,8 +151,9 @@ Two settings live outside the repository:
 1. **Build-time variables.** Set the four `VITE_FIREBASE_*` values and the two
    `VITE_CLOUDINARY_*` values in the host's environment settings. They are
    compiled into the bundle, so changing them requires a new deployment. Without
-   the Firebase values the deployed build runs in local open mode and stores
-   sites in the visitor's browser — useful for a demo, wrong for real accounts.
+   the Firebase values the deployed build shows the login screen with a
+   configuration error. It does not create an anonymous local workspace; set
+   them before deploying.
 2. **Firebase Auth authorized domains.** Add the production hostname (and any
    Vercel preview hostname you actually use) under **Authentication → Settings →
    Authorized domains**. Email/password works without this, but Google sign-in
@@ -284,7 +290,7 @@ src/components/site/
     GalleryPage
     SiteNav  SiteFooter  ScrollToTop  primitives
     FilmFrame  GlossyButton  PixelTransition
-    ornaments/         three.js, lazily loaded
+    ornaments/themeColor  CSS colour -> three.js number, shared with modern
   modern/              the orbit template — site.template === "modern"
     HomePage           config-driven; takes `site` + `basePath`
     GalleryPage        same, for /gallery
@@ -378,10 +384,9 @@ diffing it and listing it in the outline.
 
 ## Why the preview is an iframe
 
-It renders the real template, not a copy. An inline preview would need animations,
-scroll-snap and the 3D ornaments switched off to survive a nested scroller — and
-every one of those switches is a way for the preview to drift from what visitors
-actually see. The draft is posted in over `postMessage` after a 400ms pause, and
+It renders the real template, not a copy. An inline preview would need animations
+and scroll-snap switched off to survive a nested scroller — and every one of
+those switches is a way for the preview to drift from what visitors actually see. The draft is posted in over `postMessage` after a 400ms pause, and
 the frame announces itself on mount so the first update is not lost.
 
 ## Scroll reveals

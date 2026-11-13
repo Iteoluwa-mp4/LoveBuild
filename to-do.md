@@ -84,10 +84,9 @@ lives in `site.editorial` and is editable from the dashboard, and it renders at
 - [ ] **Repo tidiness.** `components/site/nostalgic/ScrapBookTemplate.tsx` may
       predate and overlap `components/site/scrapbook/` — verify, and delete the
       dead one if so. Decide whether `.impeccable/` mocks belong in the repo.
-- [ ] **Bundle check.** Make sure `sphere-gallery-3d` and the three.js
-      ornaments stay lazy-loaded (not shipped to every visitor), and decide
-      whether the editorial template's Google Fonts `@import` should be
-      preloaded or dropped.
+- [ ] **Bundle check.** Make sure `sphere-gallery-3d` stays lazy-loaded (not
+      shipped to every visitor), and decide whether the editorial template's
+      Google Fonts `@import` should be preloaded or dropped.
 
 ## 6. Later, when the pain is felt
 

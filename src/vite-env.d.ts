@@ -17,7 +17,8 @@ interface ImportMetaEnv {
   /**
    * Firebase Authentication. Public identifiers, not secrets: they are compiled
    * into the bundle by design. See `.env.example`. When any of the four is
-   * absent, `getFirebaseAuth` returns null and the app runs in local open mode.
+   * absent, `getFirebaseAuth` returns null. Development runs in local open
+   * mode; production fails closed to the login screen.
    */
   readonly VITE_FIREBASE_API_KEY?: string;
   readonly VITE_FIREBASE_AUTH_DOMAIN?: string;

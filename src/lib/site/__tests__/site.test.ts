@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { createDraft, defaultSite, emptyMedia, emptySite, findSampleText } from "../default";
 import { visibleBlocks } from "../derive";
 import { findSubmissionIssues, siteSchema } from "../schema";
-import { defaultThemeId, resolveTheme, themeIds, themes } from "../themes";
+import {
+  defaultThemeId,
+  resolveTheme,
+  templateUsesThemes,
+  themeIds,
+  themes,
+} from "../themes";
 
 describe("schema", () => {
   it("accepts the seeded site", () => {
@@ -31,7 +37,6 @@ describe("schema", () => {
     expect(site.gallery.chapters).toEqual([]);
     expect(site.gallery.outro.lineOne).toBe("");
     expect(site.identity.name).toBe("");
-    expect(site.ornaments).toEqual({ hero3d: true, particles: true });
     // A blank site carries no template-specific copy either, so switching to
     // any template shows empty slots rather than placeholder wording.
     expect(site.template).toBe("editorial");
@@ -408,5 +413,12 @@ describe("themes", () => {
 
   it("seeds the default site with a theme that exists", () => {
     expect(resolveTheme(defaultSite().theme)).toBeDefined();
+  });
+
+  it("offers colour presets only to templates that read them", () => {
+    expect(templateUsesThemes("modern")).toBe(true);
+    expect(templateUsesThemes("editorial")).toBe(false);
+    expect(templateUsesThemes("scrapbook")).toBe(false);
+    expect(templateUsesThemes("unknown")).toBe(false);
   });
 });

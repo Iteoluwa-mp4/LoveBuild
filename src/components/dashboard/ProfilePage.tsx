@@ -180,13 +180,17 @@ export default function ProfilePage() {
   };
 
   const count = state.status === "ready" ? state.sites.length : null;
+  const hasSites = state.status === "ready" && state.sites.length > 0;
 
   return (
     <div className="dash profile">
       <header className="dash-bar">
         <div className="dash-brand">
           <h1 style={{ margin: 0 }}>
-            <Link to="/dashboard" title="Back to the editor">
+            <Link
+              to={hasSites ? "/dashboard" : "/profile"}
+              title={hasSites ? "Back to the editor" : "Your sites"}
+            >
               LoveBuilds
             </Link>
           </h1>
@@ -195,10 +199,12 @@ export default function ProfilePage() {
 
         <span className="dash-spacer" />
 
-        <Link className="btn" to="/dashboard">
-          <ArrowLeft size={14} />
-          Editor
-        </Link>
+        {hasSites && (
+          <Link className="btn" to="/dashboard">
+            <ArrowLeft size={14} />
+            Editor
+          </Link>
+        )}
 
         {session.status === "signed-in" && session.method === "firebase" && (
           <button type="button" className="btn" onClick={() => void signOut()}>

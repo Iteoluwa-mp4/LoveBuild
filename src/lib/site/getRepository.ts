@@ -7,8 +7,9 @@ import type { SiteRepository } from "./repository";
  * Chooses a backend.
  *
  * When Firebase is configured, sites live in Firestore and follow the account.
- * A fresh clone with no `.env.local` still runs, with sites in localStorage and
- * no login — that is the development path, not a second product.
+ * A fresh clone with no `.env.local` still runs in development, with sites in
+ * localStorage and no login — that is the development path, not a second
+ * product. A production build without Firebase fails closed at the auth gate.
  *
  * The choice is deliberately not made per user. Public pages must read even
  * when nobody is signed in, and a repository that switched implementation on
