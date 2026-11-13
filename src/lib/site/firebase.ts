@@ -1,6 +1,5 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
 
 /**
  * Firebase, initialised once.
@@ -49,12 +48,10 @@ export function isFirebaseConfigured(): boolean {
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
-let db: Firestore | null = null;
 
 /**
  * The one app instance, or null in local mode.
  *
- * Shared by Auth and Firestore so they are always talking to the same project.
  * `initializeApp` throws when called twice for the same name, and Vite's HMR
  * re-runs modules often enough that the difference matters.
  */
@@ -71,18 +68,4 @@ export function getFirebaseAuth(): Auth | null {
   if (!instance) return null;
   auth ??= getAuth(instance);
   return auth;
-}
-
-/**
- * The Firestore instance, or null in local mode.
- *
- * Firestore follows the Auth session automatically because both come from the
- * same app. A signed-out visitor can still read a published site; the security
- * rules decide that, not this function.
- */
-export function getFirebaseDb(): Firestore | null {
-  const instance = getFirebaseApp();
-  if (!instance) return null;
-  db ??= getFirestore(instance);
-  return db;
 }

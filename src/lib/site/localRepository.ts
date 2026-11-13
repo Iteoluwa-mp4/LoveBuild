@@ -10,7 +10,7 @@ import { parseForStorage, parseStoredSite } from "./parseSite";
  *
  * Its job is to let the dashboard be built and judged — is the form shape
  * survivable? — without standing up a database first. When the answer is known,
- * Step 4b swaps in Supabase and this stays alive behind a dev flag.
+ * Step 4b swaps in the hosted API and this stays alive behind a dev flag.
  *
  * Two honest limitations, surfaced in the UI rather than hidden:
  *   - Stored configs are JSON, so it holds text perfectly and bytes not at all.
@@ -167,7 +167,7 @@ export class LocalSiteRepository implements SiteRepository {
    * A draft is invisible here, exactly as it will be behind row level security.
    * Modelling that locally means the local backend and the real one fail in the
    * same places, so the dashboard's draft/live states can be developed against
-   * without the behaviour diverging once Supabase is switched on.
+   * without the behaviour diverging once the hosted API is switched on.
    */
   async getPublic(slug: string): Promise<Site | null> {
     if (readStatus(slug) !== "published") return null;

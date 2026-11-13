@@ -1,27 +1,28 @@
+import { ApiSiteRepository } from "./apiRepository";
 import { isFirebaseConfigured } from "./firebase";
-import { FirestoreSiteRepository } from "./firestoreRepository";
 import { LocalSiteRepository } from "./localRepository";
 import type { SiteRepository } from "./repository";
 
 /**
  * Chooses a backend.
  *
- * When Firebase is configured, sites live in Firestore and follow the account.
- * A fresh clone with no `.env.local` still runs in development, with sites in
- * localStorage and no login — that is the development path, not a second
- * product. A production build without Firebase fails closed at the auth gate.
+ * With Firebase configured, sites live in Neon and are reached through the
+ * same-origin `/api` route. A fresh clone with no `.env.local` still runs in
+ * development, with sites in localStorage and no login — that is the
+ * development path, not a second product. A production build without Firebase
+ * fails closed at the auth gate.
  *
  * The choice is deliberately not made per user. Public pages must read even
  * when nobody is signed in, and a repository that switched implementation on
- * sign-out would make the same link work and then stop working. The hosted
- * implementation handles both cases: Firestore's rules decide who can read
- * which document, and the owner-only methods ask Auth for the current uid.
+ * sign-out would make the same link work and then stop working. The API handles
+ * both cases: owner routes require a verified Firebase token, and the one
+ * public route only ever returns a published site.
  */
 let chosen: SiteRepository | null = null;
 
 export function getRepository(): SiteRepository {
   chosen ??= isFirebaseConfigured()
-    ? new FirestoreSiteRepository()
+    ? new ApiSiteRepository()
     : new LocalSiteRepository();
   return chosen;
 }

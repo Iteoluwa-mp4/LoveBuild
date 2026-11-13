@@ -6,7 +6,7 @@ import { siteSchema, type Site } from "./schema";
  *
  * Both repositories need the same answer to the same two questions — is this
  * safe to write, and can this old row still be read? Keeping the wording here
- * means a schema failure looks the same whether the bytes came from Firestore
+ * means a schema failure looks the same whether the bytes came from Neon
  * or localStorage.
  */
 

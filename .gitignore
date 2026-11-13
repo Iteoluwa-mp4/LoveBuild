@@ -4,7 +4,7 @@ dist-ssr
 *.local
 .vite
 
-# Env files hold the Supabase anon key and Cloudinary secrets.
+# Env files hold the Neon database URLs and Cloudinary secrets.
 .env
 .env.*
 !.env.example

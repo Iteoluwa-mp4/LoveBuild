@@ -4,13 +4,19 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k -n web,api -c cyan,magenta \"npm:dev:web\" \"npm:dev:api\"",
+    "dev:web": "vite",
+    "dev:api": "node --import tsx --watch server/dev.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "lint": "oxlint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:firestore": "tsx scripts/migrate-firestore.ts",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -20,6 +26,8 @@
     "drizzle-orm": "^0.45.4",
     "firebase": "^13.2.0",
     "gsap": "^3.15.0",
+    "hono": "^4.13.18",
+    "jose": "^6.2.17",
     "lucide-react": "^1.41.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -28,15 +36,18 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
+    "@hono/node-server": "^2.1.8",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^6.1.0",
+    "concurrently": "^10.0.7",
     "drizzle-kit": "^0.31.11",
     "oxlint": "^1.87.0",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vitest": "^3.2.4"

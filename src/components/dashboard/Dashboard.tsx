@@ -47,7 +47,7 @@ export default function Dashboard() {
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
 
-  // Firestore when configured, localStorage on a fresh clone. See getRepository.
+  // Neon through the API when configured, localStorage on a fresh clone. See getRepository.
   const draft = useDraftSite(slug, getRepository());
   const [siteStatus, setSiteStatus] = useState<SiteStatus | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);

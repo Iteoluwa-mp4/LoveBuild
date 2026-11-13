@@ -7,11 +7,12 @@ Priority order. Tick items off as you go.
 
 ## 1. Must fix before the uncle uses it for real
 
-- [ ] **Hosted storage.** Sites live in localStorage, so the link only works on the machine that made it. Needs a hosted backend (or somewhere to publish the data) so the recipient can open it. *(Cloudinary now holds the media, but the config with the words is still per-browser.)*
+- [x] **Hosted storage.** Sites live in Neon Postgres behind the `/api` route, so a link works on any machine and follows the account. *(Media is in Cloudinary; the config with the words is in Neon.)*
 - [x] **Persistent uploads.** Photos and videos now go straight from the browser to Cloudinary (`src/lib/site/cloudinary.ts`), URL written back, dead `blob:` URLs flagged. Superseded continuation: transformed delivery URLs (`f_auto,q_auto`) — see `to-do.md`.
 - [x] **Real auth.** Firebase Authentication (email/password and Google) now
-  gates the editor. Still a gate rather than a lock until sites move off
-  localStorage — see the Firestore step in `to-do.md`.
+  gates the editor, and the API verifies the ID token before any owner query.
+  Ownership is the Firebase uid in `sites.owner_id` — see the Neon step in
+  `to-do.md`.
 
 ## 2. Dashboard UI
 

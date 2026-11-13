@@ -19,7 +19,7 @@ import { publicUrl } from "../../lib/site/slug";
  * time. This is the other half of the tool — the shelf. It answers "what have I
  * made?" and "make another", which the editor header has no room for.
  *
- * The list comes from `SiteRepository.list()`. On Firestore that is per-account;
+ * The list comes from `SiteRepository.list()`. In the hosted build that is per-account;
  * on a fresh clone it is per-browser. Nothing in the rendering knows the
  * difference — but the page does offer to import browser-local sites once, so
  * switching to an account does not strand work that was made before it.
@@ -71,43 +71,62 @@ export default function ProfilePage() {
 
   useEffect(() => {
     let cancelled = false;
+    const repository = getRepository();
+    let firstLoad = true;
 
-    void (async () => {
-      const repository = getRepository();
+    const refresh = async () => {
+      // A hidden tab does not need to poll. The next visible tick catches up.
+      if (document.visibilityState !== "visible") return;
 
       try {
         const sites = await repository.list();
         if (cancelled) return;
         setState({ status: "ready", sites });
-
-        // Browser-local sites are only interesting when the account's list
-        // comes from somewhere else. In local mode they *are* the list.
-        if (repository.kind !== "remote" || !uid) return;
-
-        try {
-          const local = new LocalSiteRepository();
-          const found = await local.list();
-          if (cancelled) return;
-
-          const imported = readImported(uid);
-          setLocalSites(found.filter((site) => !imported.includes(site.slug)));
-        } catch {
-          // Reading localStorage is best-effort. The shelf above already
-          // loaded; failing to look for importable drafts must not replace it
-          // with an error.
-        }
+        firstLoad = false;
       } catch (cause) {
-        if (!cancelled) {
-          setState({
-            status: "error",
-            message: cause instanceof Error ? cause.message : "Could not load your sites.",
-          });
-        }
+        // A failed background refresh must not replace a shelf that is already
+        // on screen. Only the first load gets to show the error state.
+        if (cancelled || !firstLoad) return;
+        setState({
+          status: "error",
+          message: cause instanceof Error ? cause.message : "Could not load your sites.",
+        });
+      }
+    };
+
+    void (async () => {
+      await refresh();
+      if (cancelled || repository.kind !== "remote" || !uid) return;
+
+      // Browser-local sites are only interesting when the account's list
+      // comes from somewhere else. In local mode they *are* the list.
+      try {
+        const local = new LocalSiteRepository();
+        const found = await local.list();
+        if (cancelled) return;
+
+        const imported = readImported(uid);
+        setLocalSites(found.filter((site) => !imported.includes(site.slug)));
+      } catch {
+        // Reading localStorage is best-effort. The shelf above already
+        // loaded; failing to look for importable drafts must not replace it
+        // with an error.
       }
     })();
 
+    /*
+      A gentle shelf sync, not live collaboration. Twenty seconds is enough for
+      "the other device sees it" at this scale, and the visibility check means a
+      background tab costs nothing. The editor is still last-write-wins.
+    */
+    const timer =
+      repository.kind === "remote"
+        ? window.setInterval(() => void refresh(), 20_000)
+        : undefined;
+
     return () => {
       cancelled = true;
+      if (timer !== undefined) window.clearInterval(timer);
     };
   }, [uid]);
 

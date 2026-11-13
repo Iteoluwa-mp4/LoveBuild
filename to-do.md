@@ -1,25 +1,28 @@
 # to-do.md — things yet to come
 
 Carried over from `LOVEBUILD_TODO.md` and pruned against the code as of today:
-uploads now work (Cloudinary, 276 tests passing), the upload ring and publish
-dock are built, auth is real, and Firestore storage is implemented. What is left,
-in the order it is worth doing.
+uploads now work (Cloudinary, 285 tests passing), the upload ring and publish
+dock are built, auth is real, and Neon storage is implemented behind the API. What
+is left, in the order it is worth doing.
 
 ## 1. Storage is built; finish turning it on
 
-- [x] **Where do sites live?** Firestore. `FirestoreSiteRepository` stores one
-      owner-scoped document per slug, `firestore.rules` keeps drafts private and
-      published sites public, and `getRepository()` chooses it whenever Firebase
-      is configured. The local implementation remains the fresh-clone fallback.
-- [x] **Create the database and publish the rules.** The Firestore database
-      exists for `lovebuilds-582dd`, and `firestore.rules` is deployed via
-      `firebase deploy --only firestore:rules`. Re-run that command after
-      changing the rules.
+- [x] **Where do sites live?** Neon Postgres. `ApiSiteRepository` calls the
+      same-origin `/api` route, the API verifies the Firebase ID token, and
+      `sites.owner_id` scopes every owner query. Published sites are served by one
+      unauthenticated route. The local implementation remains the fresh-clone
+      fallback.
+- [x] **Create the database and apply the migration.** The Neon project exists
+      for `lovebuilds-582dd`, and `drizzle/0000_*.sql` has been applied with
+      `npm run db:migrate`. Re-run it after changing `server/schema.ts`.
+- [x] **Copy the existing Firestore sites.** `npm run db:migrate:firestore` uses
+      the Firebase CLI login, is idempotent, and copied the published site into
+      Neon. Firestore stays read-only as a backup.
 - [ ] **Import the browser's existing sites.** Sign in, open `/profile`, and use
       the one-time import card. It preserves published status, suffixes on a slug
       collision, and records what it copied per account.
 - [ ] **App Check.** The web config is public by design; attestation is what
-      stops a script from using it. Add reCAPTCHA Enterprise once the database is
+      stops a script from using it. Add reCAPTCHA Enterprise once the Neon API is
       live.
 - [ ] **A real export.** The import path proves data can move; the reverse does
       not exist yet. A download-everything button would make "keep a copy" true.

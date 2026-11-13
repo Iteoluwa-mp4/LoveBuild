@@ -41,8 +41,8 @@ Done:
 - **Uploads** — `src/lib/site/cloudinary.ts`. Photos and videos go straight from
   the browser to Cloudinary and survive a reload. See *Uploads* below.
 - **Repository seam** — `src/lib/site/repository.ts`. One interface;
-  `FirestoreSiteRepository` implements it when Firebase is configured;
-  `LocalSiteRepository` is the no-project fallback.
+  `ApiSiteRepository` implements it against the Neon-backed API when Firebase is
+  configured; `LocalSiteRepository` is the no-project fallback.
 - **Auth** — `src/lib/site/auth.ts`. Firebase Authentication: email/password and
   Google, with a local open mode in development when no project is configured.
   A production build fails closed to the login screen. See below.
@@ -53,19 +53,31 @@ Done:
   edit/view links and a "New site" button. It is the first signed-in screen; an
   empty shelf offers "Make the first one". `/new` is the create form on its own
   route so "make another" never has to reopen the newest site first.
-- **Tests** — 275 passing. `npm test`
+- **Tests** — 285 passing. `npm test`
 
-Still to do: transformed (`f_auto,q_auto`) delivery URLs and scoping the
-editorial stylesheet's document-level font and body rules.
+Still to do: transformed (`f_auto,q_auto`) delivery URLs, signed per-asset
+delivery (needs the Cloudinary API key/secret and a server signing step), and
+scoping the editorial stylesheet's document-level font and body rules.
 
 ## Storage, auth and publishing
 
-With Firebase configured, sites are stored in Firestore and follow the account.
-With no `.env.local`, `npm run dev` runs in a local open mode and stores them in
-this browser's localStorage — that is the development path, not a second product.
-A production build without Firebase fails closed to the login screen. The
-one external dependency for media is Cloudinary: it holds the bytes, Firestore
-holds the words and structure, and localStorage holds both in local mode.
+With Firebase configured, sites are stored in Neon Postgres and reached through
+the same-origin `/api` route. With no `.env.local`, `npm run dev` runs in a local
+open mode and stores them in this browser's localStorage — that is the
+development path, not a second product. A production build without Firebase
+fails closed to the login screen. The one external dependency for media is
+Cloudinary: it holds the bytes, Neon holds the words and structure, and
+localStorage holds both in local mode.
+
+The API verifies the Firebase ID token on every owner request against Google's
+public JWKS endpoint, so the deployment needs no service-account file. The
+database credential stays on the server; the browser only ever holds a Firebase
+token.
+
+The shelf refreshes every 20 seconds while its tab is visible, so another device
+sees a newly created or published site without a reload. That is shelf sync, not
+live collaboration: the editor remains last-write-wins, which is honest at this
+scale and much cheaper than a socket service.
 
 ### Authentication is real, and so is the lock
 
@@ -76,19 +88,19 @@ and photo; password accounts derive a readable name from the email rather than
 asking for one. Verification is a notice in the dashboard, not a gate, and
 password resets are genuine because Firebase has a server to send them.
 
-Sites are owner-scoped now. A Firestore document carries `ownerId`, and the
-security rules in `firestore.rules` make drafts readable only by that uid.
-Published sites are readable by anyone with the link. The editor's write paths
-are owner-only, so signing in is no longer a gate in front of browser-local data;
-it is the key.
+Sites are owner-scoped. The API reads the Firebase uid from the verified token and
+scopes every write to it; a draft is invisible to anyone else. Published sites are
+readable by anyone with the link through the one unauthenticated route. The
+editor's write paths are owner-only, so signing in is no longer a gate in front of
+browser-local data; it is the key.
 
 With no Firebase settings in `.env.local`, `npm run dev` runs in a local open
 mode with no login screen. That is the development behaviour, and it is why a
 fresh clone works with no project. A production build without them fails closed
 to the login screen with a configuration message instead of creating an
 anonymous local workspace. A deployment meant to be shared must set the four
-`VITE_FIREBASE_*` variables and create the Firestore database; see
-`.env.example` and *Firestore setup* below.
+`VITE_FIREBASE_*` variables, create the Neon database, and add the server-side
+environment; see `.env.example` and *Neon setup* below.
 
 `useSession` still reports three states (`checking`, `signed-out`, `signed-in`)
 and `RequireAuth` still owns the gate, so swapping the provider did not touch the
@@ -97,21 +109,24 @@ one auto-creating form: Firebase's email-enumeration protection returns the same
 error for a wrong password and an unknown address, so "create it if it is not
 there" cannot be told apart from "you mistyped your password".
 
-### Firestore setup
+### Neon setup
 
-One-time, in the Firebase Console for the project named in `.env.local`:
+The API and migrations need a Neon project. The one-time setup:
 
-1. **Firestore Database → Create database**, Native mode, pick a region.
-2. **Rules** tab → paste `firestore.rules` → Publish. The CLI route works too:
-   ```bash
-   firebase deploy --only firestore:rules
-   ```
-   `firebase.json` and `.firebaserc` are in the repo for it.
+```bash
+neon link                    # or: neon env pull
+npm run db:migrate           # applies drizzle/*.sql with DATABASE_URL_UNPOOLED
+```
+
+`DATABASE_URL` is the pooled runtime URL; `DATABASE_URL_UNPOOLED` is the direct
+URL used by `drizzle-kit` and scripts. Both are server-side only.
+
+The API also needs `FIREBASE_PROJECT_ID` (or `VITE_FIREBASE_PROJECT_ID`) to check
+the token issuer and audience. No service-account key is involved.
 
 The repository chooses itself: when the four `VITE_FIREBASE_*` values are present,
-`getRepository()` returns the Firestore implementation. There is no separate
-"use remote" switch to forget, and a fresh clone with no `.env.local` still uses
-localStorage.
+`getRepository()` returns `ApiSiteRepository`; there is no separate "use remote"
+switch to forget, and a fresh clone with no `.env.local` still uses localStorage.
 
 Existing browser-local sites are neither deleted nor uploaded silently. `/profile`
 shows a one-time **Import** card when it finds local sites that are not yet in the
@@ -119,34 +134,53 @@ account. Import copies each one, keeps a published site published, and appends t
 usual random suffix if an address is already taken. The record of what has been
 imported is per account, so signing into a different account does not inherit it.
 
-If the editor says *"Check that Firestore is set up and the security rules are
-published"*, that is the honest cause of six consecutive permission denials: the
-database does not exist yet, or the rules were never published. It is not the
-site's name.
+Existing Firestore sites are copied once, not dual-written:
+
+```bash
+firebase login               # the script reuses the CLI refresh token
+npm run db:migrate:firestore
+```
+
+The script is idempotent: a slug already in Neon is updated, so an interrupted
+run can be resumed. Firestore is no longer read by the app; keep its rules and
+data as a read-only backup until the Neon copy has been checked.
+
+If the editor cannot reach storage, check `npm run dev:api` in development and the
+host's `DATABASE_URL` / `FIREBASE_PROJECT_ID` in production. A 401 means the
+Firebase token was missing or expired; the client asks Firebase for a fresh one on
+the next request.
 
 ### Deploying
 
-The app is a client-side SPA. The host must send every unknown path to
-`index.html`, because `/dashboard/:slug`, `/profile`, `/new`, `/preview/` and
-`/s/:slug` are all handled by the router rather than by files on disk. Without
-that fallback the dashboard can look fine after a client-side navigation while
-the preview iframe and a hard refresh show the host's 404 page.
+The app is a client-side SPA plus one Edge Function. The host must send every
+unknown path to `index.html`, because `/dashboard/:slug`, `/profile`, `/new`,
+`/preview/` and `/s/:slug` are all handled by the router rather than by files on
+disk. Without that fallback the dashboard can look fine after a client-side
+navigation while the preview iframe and a hard refresh show the host's 404 page.
 
-`vercel.json` in the repository does this for Vercel, and pins the build command
-and output directory so the framework preset cannot disagree:
+`vercel.json` does this for Vercel, keeps `/api/*` out of the SPA fallback, and
+pins the build command and output directory so the framework preset cannot
+disagree:
 
 ```json
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
 }
 ```
 
-Redeploy after adding it. The same rewrite is needed on any other static host
-(Netlify `_redirects`, Firebase Hosting `rewrites`, and so on).
+The API lives in `api/[...route].ts` and deploys as a Vercel Edge Function. It
+uses only Web APIs: Hono, `jose`, the Neon HTTP driver and `fetch`. The app
+modules live in `server/` rather than beside the entry point, because Vercel
+turns every file under `api/` into a route. The same app is served locally by
+`server/dev.ts` through `@hono/node-server`, with Vite proxying `/api` to it.
 
-Two settings live outside the repository:
+Redeploy after changing `vercel.json`. The same rewrite is needed on any other
+host (Netlify `_redirects`, Firebase Hosting `rewrites`, and so on); a static host
+that cannot run the API is not enough for the Neon-backed build.
+
+Settings outside the repository:
 
 1. **Build-time variables.** Set the four `VITE_FIREBASE_*` values and the two
    `VITE_CLOUDINARY_*` values in the host's environment settings. They are
@@ -154,13 +188,18 @@ Two settings live outside the repository:
    the Firebase values the deployed build shows the login screen with a
    configuration error. It does not create an anonymous local workspace; set
    them before deploying.
-2. **Firebase Auth authorized domains.** Add the production hostname (and any
+2. **Server-side variables.** Add `DATABASE_URL`, `DATABASE_URL_UNPOOLED` and
+   `FIREBASE_PROJECT_ID` to the host. The API reads the pooled `DATABASE_URL` at
+   runtime; migrations are run from a workstation with the direct URL.
+3. **Firebase Auth authorized domains.** Add the production hostname (and any
    Vercel preview hostname you actually use) under **Authentication → Settings →
    Authorized domains**. Email/password works without this, but Google sign-in
    fails with `auth/unauthorized-domain` until the host is listed.
 
-Firestore rules still deploy separately with
-`firebase deploy --only firestore:rules`.
+Run `npm run db:migrate` against the production database before the first
+deployment that uses it. Firestore rules still deploy separately with
+`firebase deploy --only firestore:rules`; they now protect the read-only backup,
+not the live app.
 
 ### Publishing
 
@@ -189,7 +228,7 @@ resolve.** `isEphemeralUrl` flags `blob:` URLs — the only kind, on purpose: a
 a working image as broken. Anything ephemeral found in the config is shown by
 the uploader as a dead file worth re-picking.
 
-Two honest limits, stated rather than hidden:
+Three honest limits, stated rather than hidden:
 
 - **No `.env` → preview only.** Without `VITE_CLOUDINARY_CLOUD_NAME` and
   `VITE_CLOUDINARY_UPLOAD_PRESET`, an upload cannot be kept; the file previews
@@ -199,6 +238,11 @@ Two honest limits, stated rather than hidden:
   would turn a 12 MB phone photograph into something her phone can actually
   load — and it decides whether a video streams instead of downloading whole.
   That transform is the next small change with the largest visible payoff.
+- **The URL is not per-asset protected.** The stored URL is Cloudinary's public
+  `secure_url`, so anyone who learns it can load that asset. Signed delivery
+  needs `CLOUDINARY_API_SECRET` on the server plus a signing step after upload;
+  the secret is not configured yet, and the uploader intentionally does not
+  pretend otherwise.
 
 An unsigned preset's name is public by necessity — it ships to the browser — so
 the preset must be locked down on the Cloudinary side: pin a folder, allow only
@@ -209,22 +253,34 @@ into the bundle; they exist for the day uploads are signed.
 ## Commands
 
 ```bash
-npm run dev         # dev server
+npm run dev         # Vite + the local API server, together
+npm run dev:web     # Vite only
+npm run dev:api     # API only, on http://localhost:8787
 npm run build       # typecheck, then production build
-npm run typecheck   # tsc only
+npm run typecheck   # tsc only (app, API, scripts)
 npm test            # vitest, single run
 npm run lint
+npm run db:generate # generate a migration from server/schema.ts
+npm run db:migrate  # apply migrations with DATABASE_URL_UNPOOLED
+npm run db:migrate:firestore  # one-time copy from the Firebase CLI login
+npm run db:studio
 ```
+
+`dev:api` uses Node's own `--watch` through `tsx` rather than `tsx watch`;
+the latter does not start reliably when `concurrently` owns the process on
+Windows.
 
 ## Routes
 
-`/` is the dashboard, not a published site. LoveBuilds is a tool someone sits down
-at; the site is the thing it produces.
+`/` is the front door, not a published site. It sends a signed-out visitor to
+`/login`, and the login screen forwards a signed-in one to the shelf. LoveBuilds
+is a tool someone sits down at; the site is the thing it produces.
 
 | Route | What it is |
 |---|---|
-| `/` | redirects to the dashboard |
-| `/dashboard` | redirects to the newest site, or shows the create form when there are none |
+| `/` | redirects to `/login`; a signed-in visitor continues to `/profile` |
+| `/login` | sign in, create an account, or reset a password |
+| `/dashboard` | opens the newest site, or redirects to the shelf when there are none |
 | `/dashboard/:slug` | the editor |
 | `/profile` | the author's shelf — account, every site, and "New site" |
 | `/new` | the create form as its own route, so "make another" does not reopen the newest site |
@@ -233,7 +289,7 @@ at; the site is the thing it produces.
 | `/preview`, `/preview/gallery` | the frame the editor previews in. Deliberately **not** under `/s/`, so it can never be a link someone shares |
 | `/templates/modern`, `/templates/modern/gallery` | the modern template against the seed config. A development surface — `template` is in the schema, so `/s/:slug` serves whichever one a config selects |
 | `/templates/scrapbook`, `/templates/scrapbook/gallery` | the scrapbook template, same arrangement |
-| `/dev/themes`, `/dev/blocks`, `/dev/outline` | dev screens, deleted once the backend lands |
+| `/dev/themes`, `/dev/blocks`, `/dev/outline` | development screens kept for checking tokens and layout without a draft |
 | `/dev/editorial` | an experimental editorial (magazine) template, self-contained and not yet config-driven. Unregistered and unpublished by design |
 
 `SEED_SLUG` in `src/lib/site/default.ts` is the demo site. It is called `hers`
@@ -263,16 +319,34 @@ src/lib/site/
   path.ts            immutable edits by dotted config path
   repository.ts      the storage interface
   parseSite.ts       validate a config before write / after read
-  firestoreRepository.ts Firestore implementation — owner-scoped documents
+  apiRepository.ts   the Neon API, carrying the Firebase ID token
   localRepository.ts localStorage implementation (no-project fallback)
-  getRepository.ts   Firestore when configured, local otherwise
+  getRepository.ts   API when configured, local otherwise
   auth.ts            Firebase sign-in, sessions and sign-out
   authMessage.ts     Firebase error → plain sentence; name fallback
-  firebase.ts        Firebase app/auth/Firestore initialisation, or null
+  firebase.ts        Firebase app/auth initialisation, or null
   cloudinary.ts      browser → Cloudinary uploads; never persist a dead URL
   default.ts         sample copy + placeholder detection + createDraft
   load.ts            public site lookup by slug
   brand.ts           storage prefixes + preview message names
+
+api/
+  [...route].ts      Vercel Edge entry point — the only file Vercel sees as a function
+
+server/
+  app.ts             Hono routes, validation, error mapping
+  auth.ts            Firebase ID token verification against Google JWKS
+  db.ts              Neon HTTP driver + Drizzle
+  schema.ts          the `sites` table and status enum
+  store.ts           owner-scoped queries, slug retries, public read
+  dev.ts             local Node server on port 8787
+  __tests__/         HTTP contract, auth, ownership and visibility tests
+
+scripts/
+  migrate-firestore.ts  idempotent Firestore REST → Neon copy
+
+drizzle/
+  0000_*.sql          the schema migration; apply with db:migrate
 
 src/hooks/
   useDraftSite.ts    the editor's single source of truth
@@ -581,11 +655,11 @@ instructional placeholder copy rather than one person's words, and every untouch
 field is flagged until it is replaced — but a genuine blank option is still worth
 having alongside it.
 
-**Storage setup is still manual.** Firestore is implemented and the rules are in
-the repo, but creating the database and publishing `firestore.rules` are console
-steps. The app deploys as a static SPA (see *Deploying*), but there is no Firebase
-Hosting pipeline and no App Check — so the project relies on authorized domains,
-security rules and quota for now.
+**Storage setup is still manual.** The Neon schema and migrations are in the repo,
+but creating the project, running `db:migrate`, and setting the server environment
+are operator steps. The app deploys as a static SPA plus one Edge Function (see
+*Deploying*), but there is no App Check — so the API relies on Firebase token
+verification, authorized domains and Neon's own access controls for now.
 
 **Browser-local sites are imported by hand.** The `/profile` card copies them into
 the signed-in account, but there is no automatic migration, no export, and no
@@ -629,17 +703,18 @@ registered in `TEMPLATE_IDS`, editable from the dashboard, and its reveals now u
 Fonts and writes `:root`/`body` rules from inside the component. Moving those to a
 scoped wrapper or into `themes.ts` finishes the job.
 
-**App Check.** Firestore is live and owner-scoped, but nothing yet attests that
+**App Check.** The API verifies Firebase identity, but nothing yet attests that
 requests come from this app rather than a script holding the public project
 config. App Check with reCAPTCHA Enterprise is the next hardening step; until
-then the security rules are the wall, and they are the right wall, but quotas are
-the only defence against abuse.
+then Neon's access controls and the token check are the wall, and quotas are the
+only defence against abuse.
 
 **A real export.** The import path proves the data can move; the reverse does not
 exist. A "download everything" button would make the account portable and make
 "keep a copy" a promise the product can keep.
 
-**A decision, not a task.** The SQL option stays open on paper: `repository.ts`
-keeps the choice cheap, and Firestore's document model is a good fit for a config
-that is read and written whole. Relational queries would only matter if the next
-version asks questions across sites, which the shelf does not.
+**A JSONB column, deliberately.** The SQL option won: ownership and the shelf
+query are relational, while a site config is still read and written whole, so
+`site` is JSONB and the shared Zod schema remains the contract. Relational
+columns for individual fields would only matter if the next version asks
+questions across sites that the shelf does not.

@@ -5,6 +5,20 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    /*
+      The API runs beside Vite (`server/dev.ts`, port 8787). Keeping the browser on
+      same-origin `/api` in development and production means the repository does
+      not need an environment-specific base URL, and the Firebase token is never
+      sent cross-origin.
+    */
+    proxy: {
+      "/api": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     /*
       GSAP must be a single copy.

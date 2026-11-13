@@ -12,7 +12,7 @@
 
 web
 
-*(Inferred. Confirmed by the build: Vite + React 19, react-router, Firestore with a localStorage fallback, no native shell, `.env.example` in the repo root.)*
+*(Inferred. Confirmed by the build: Vite + React 19, react-router, Firebase Auth, a Neon-backed Hono API with a localStorage fallback, no native shell, `.env.example` in the repo root.)*
 
 ## Stack
 
@@ -68,7 +68,7 @@ idea" and `src/lib/site/schema.ts`, `path.ts`, `App.tsx#SitePages`.)*
 - **Shelf.** `/profile` — the account card plus every site, newest first, with
   Edit and (for live sites) View. The editor header carries an avatar button to
   it, and `/new` is the create form on its own route. The list comes from
-  `SiteRepository.list()`: per-account on Firestore, per-browser on a fresh
+  `SiteRepository.list()`: per-account in Neon, per-browser on a fresh
   clone. A one-time import card copies local sites into the signed-in account.
 - **Preview is a real page.** `/preview` renders the actual template in an
   iframe and receives the draft by `postMessage`. It is deliberately *not* under
@@ -83,10 +83,11 @@ idea" and `src/lib/site/schema.ts`, `path.ts`, `App.tsx#SitePages`.)*
   later save goes live immediately without asking.
 - **Auth.** Firebase Authentication at `/login`: email/password or Google. The
   dashboard is gated; a published gift page is not, and carries no auth UI at
-  all. Sessions are real, and the data is now owner-scoped in Firestore: security
-  rules keep drafts readable only by their uid while published sites stay public.
-  *(Confirmed — `auth.ts`, `useSession`, `RequireAuth`, `SiteFooter`,
-  `firestoreRepository.ts`, `firestore.rules`.)*
+  all. Sessions are real, and the data is owner-scoped in Neon: the API verifies
+  the Firebase ID token and scopes every query to its uid, while published sites
+  stay public through one unauthenticated route. *(Confirmed — `auth.ts`,
+  `useSession`, `RequireAuth`, `SiteFooter`, `apiRepository.ts`,
+  `server/app.ts`, `server/auth.ts`, `server/store.ts`.)*
 - **Uploads persist to Cloudinary.** `src/lib/site/cloudinary.ts` uploads straight
   from the browser to an unsigned `auto/upload` preset — no server in the path.
   The module's rule is **persist nothing that does not resolve**: a `blob:` URL
@@ -95,11 +96,14 @@ idea" and `src/lib/site/schema.ts`, `path.ts`, `App.tsx#SitePages`.)*
   Without `.env.local` configured, files remain preview-only and the dashboard
   says so in words. *(Confirmed — `cloudinary.ts`, `MediaUploader.tsx`,
   `cloudinary.test.ts`, `.env.example`.)*
-- **Delivery is still the raw URL.** Cloudinary stores the asset but the stored
-  URL has no `f_auto,q_auto` transform yet, so phones still download the original
-  bytes. Spotted as the deliberate next step in `uploadAsset`'s own comment.
-- **Dev commands.** `npm run dev`, `npm run build`, `npm run typecheck`,
-  `npm test`, `npm run lint`. *(Confirmed from `package.json`.)*
+- **Delivery is still the raw, unsigned URL.** Cloudinary stores the asset but
+  the stored URL has no `f_auto,q_auto` transform yet, so phones still download
+  the original bytes. It is also not signed per asset: anyone who learns the URL
+  can load it. Signing needs `CLOUDINARY_API_SECRET` on the server and a step
+  after upload; neither is configured yet.
+- **Dev commands.** `npm run dev` (Vite + API), `npm run build`,
+  `npm run typecheck`, `npm test`, `npm run lint`, and the `db:*` migration
+  scripts. *(Confirmed from `package.json`.)*
 
 ## Capabilities and Constraints
 
@@ -125,7 +129,7 @@ code:
   ScrollTrigger silently failed and left real content invisible on published
   pages.
 - **Never prefix a secret with `VITE_`.** It is compiled into the public bundle.
-- **276 tests pass** (`npm test`), including an assertion that no real photograph
+- **285 tests pass** (`npm test`), including an assertion that no real photograph
   ships with the sample config, that derived values are not stored, that uploads
   only ever persist a URL that resolves, and that a create collision suffixes the
   address instead of overwriting the first site.
@@ -135,10 +139,10 @@ Open product decisions, deliberately undecided:
 - Whether a review gate is ever wanted before publish (`submitted` status exists
   but is unused).
 - Whether the browser-local fallback stays forever as a no-account mode, or is
-  removed once Firestore is the only deployment story. It is deliberately still
+  removed once Neon is the only deployment story. It is deliberately still
   there for a fresh clone and offline development.
 - When App Check and a real export arrive. Both are hardening, not features; the
-  security rules already decide who can read a draft.
+  token check and owner-scoped queries already decide who can read a draft.
 
 A remaining exemption on record: the editorial template's stylesheet imports
 Google Fonts and writes `:root`/`body` rules from inside the component, so those
@@ -176,7 +180,7 @@ otherwise fully integrated: schema-backed, in `TEMPLATE_IDS`, reachable at
   (`src/components/site/scrapbook/shared.tsx`) — an existing, sanctioned pattern
   for synthetic image material.
 - **Seed slug** is `hers`, one constant in `default.ts`.
-- **276 passing tests** as the behavioural safety net.
+- **285 passing tests** as the behavioural safety net.
 - Absences future work must not fabricate: no customer testimonials, no named
   clients, no pricing, no usage benchmarks, no performance claims.
 
