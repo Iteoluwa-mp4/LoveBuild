@@ -7,6 +7,7 @@ import {
   signInWithPopup,
   signInWithRedirect,
   signOut as firebaseSignOut,
+  updateProfile,
 } from "firebase/auth";
 
 import { describeAuthError, isCancellation } from "./authMessage";
@@ -87,14 +88,21 @@ export async function signIn(email: string, password: string): Promise<AuthResul
 /**
  * Create an account.
  *
- * Only email and password. A name is not requested: Google supplies one for its
- * accounts, and for everyone else `displayNameFor` derives something readable
- * from the email until they have a reason to change it.
+ * The display name is optional. A name is not required to authenticate, but the
+ * sign-up form asks for one because the dashboard greets people by it; when it is
+ * supplied it is written to the Firebase profile so it follows the account
+ * rather than living only in the form. Google supplies its own name, and for
+ * everyone else `displayNameFor` still derives something readable from the email
+ * until they have a reason to change it.
  *
  * The verification email is best-effort. It is a notice in the dashboard, not a
  * gate, so failing to send it must not fail the sign-up that just succeeded.
  */
-export async function signUp(email: string, password: string): Promise<AuthResult> {
+export async function signUp(
+  email: string,
+  password: string,
+  displayName?: string,
+): Promise<AuthResult> {
   const auth = getFirebaseAuth();
   if (!auth) return notConfigured();
 
@@ -109,6 +117,20 @@ export async function signUp(email: string, password: string): Promise<AuthResul
 
   try {
     const { user } = await createUserWithEmailAndPassword(auth, address, password);
+    if (displayName?.trim()) {
+      try {
+        await updateProfile(user, { displayName: displayName.trim() });
+        /*
+          Refresh the token after changing the profile. `updateProfile` updates
+          the user record but does not necessarily notify token listeners, and
+          `useSession` follows those listeners — without this the shelf greets a
+          new account by its email-derived name until the next reload.
+        */
+        await user.getIdToken(true);
+      } catch {
+        /* The account exists; a missing name falls back to the email. */
+      }
+    }
     void sendEmailVerification(user).catch(() => {
       /* A missing verification email is not a failed account. */
     });

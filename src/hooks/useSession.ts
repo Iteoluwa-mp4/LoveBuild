@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getRedirectResult, onAuthStateChanged, type Auth, type User } from "firebase/auth";
+import { getRedirectResult, onIdTokenChanged, type Auth, type User } from "firebase/auth";
 
 import { displayNameFor } from "../lib/site/authMessage";
 import { getFirebaseAuth, isFirebaseConfigured } from "../lib/site/firebase";
@@ -12,7 +12,7 @@ import { getFirebaseAuth, isFirebaseConfigured } from "../lib/site/firebase";
  * how a protected route flashes its contents for a frame before redirecting to
  * the login page.
  *
- * With Firebase configured, the first `onAuthStateChanged` callback resolves
+ * With Firebase configured, the first `onIdTokenChanged` callback resolves
  * "checking". Without it, development keeps the local open mode it has always
  * had — no login screen, no project, no setup. That fallback is a feature of
  * the development build, not a security claim. Production fails closed to the
@@ -86,7 +86,13 @@ export function useSession(): SessionState {
     void getRedirectResult(auth).catch(() => {});
 
     try {
-      return onAuthStateChanged(auth, (next) => {
+      /*
+        Token changes, not just sign-in changes. Creating an account and then
+        setting its display name produces one sign-in event followed by a
+        refreshed token; listening only for sign-in would leave the greeting
+        showing the old, email-derived name until the next page load.
+      */
+      return onIdTokenChanged(auth, (next) => {
         setUser(next ? toSessionUser(next) : null);
       });
     } catch {

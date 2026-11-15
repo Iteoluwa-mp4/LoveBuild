@@ -85,8 +85,8 @@ scale and much cheaper than a socket service.
 `/login` is Firebase Authentication: email and password, or Google. The root path
 sends a signed-out visitor there; an existing session forwards on to the shelf.
 The dashboard is unreachable without a session. Google supplies a display name
-and photo; password accounts derive a readable name from the email rather than
-asking for one. Verification is a notice in the dashboard, not a gate, and
+and photo; email sign-ups can add a name of their own, which is stored on the
+Firebase profile. Verification is a notice in the dashboard, not a gate, and
 password resets are genuine because Firebase has a server to send them.
 
 Sites are owner-scoped. The API reads the Firebase uid from the verified token and
@@ -105,7 +105,7 @@ environment; see `.env.example` and *Neon setup* below.
 
 `useSession` still reports three states (`checking`, `signed-out`, `signed-in`)
 and `RequireAuth` still owns the gate, so swapping the provider did not touch the
-routes. The login page keeps sign-in and create-account as two modes rather than
+routes. The auth screen keeps sign-in and create-account as two modes rather than
 one auto-creating form: Firebase's email-enumeration protection returns the same
 error for a wrong password and an unknown address, so "create it if it is not
 there" cannot be told apart from "you mistyped your password".
@@ -402,7 +402,7 @@ src/components/site/
 src/components/dashboard/     THE EDITOR
   Dashboard  CreateSite  OutlinePanel  PreviewPane  MediaUploader
   PreviewPage  editors.tsx  fields.tsx  StatusBanner
-src/components/auth/          LoginPage  RequireAuth
+src/components/auth/          AuthScreen  RequireAuth
 src/components/dev/           dev screens
 ```
 

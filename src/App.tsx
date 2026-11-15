@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 
-import LoginPage from "./components/auth/LoginPage";
+import AuthScreen from "./components/auth/AuthScreen";
 import RequireAuth from "./components/auth/RequireAuth";
 import CreateSite from "./components/dashboard/CreateSite";
 import Dashboard from "./components/dashboard/Dashboard";
@@ -82,7 +82,7 @@ export default function App() {
           }
         />
 
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login" element={<AuthScreen />} />
 
         {/* The public site. Reachable by link, not by accident. */}
         <Route path="/s/:slug" element={<SiteRoute variant="home" />} />
