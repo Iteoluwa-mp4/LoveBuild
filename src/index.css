@@ -1,7 +1,7 @@
 /* The webfont import must come first: Tailwind expands its own @import into
    real rules at build time, which would leave this one after them and get it
    dropped by the browser. */
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap");
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------
@@ -50,7 +50,17 @@
    ------------------------------------------------------------------ */
 
 @layer base {
+  /*
+    The product surfaces are light now; published sites are still built on the
+    dark presets. `SiteShell` puts `data-theme` on <html>, so that attribute is
+    the honest split between the two: light scrollbars and native controls in
+    the app, dark ones on a themed page.
+  */
   html {
+    color-scheme: light;
+  }
+
+  html[data-theme] {
     color-scheme: dark;
   }
 
@@ -58,8 +68,8 @@
     margin: 0;
     /* Resolves from the tokens SiteShell publishes on <html>. The fallback only
        applies before any theme is applied, so a themed site never shows it. */
-    background: var(--theme-void, #150a22);
-    color: var(--theme-text, #efe3fa);
+    background: var(--theme-void, #fffaf4);
+    color: var(--theme-text, #302029);
     font-family: var(--font-sans);
   }
 

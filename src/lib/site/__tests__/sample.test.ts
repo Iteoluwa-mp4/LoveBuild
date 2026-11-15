@@ -109,7 +109,7 @@ describe("findSampleText", () => {
 describe("sampleTextLabel", () => {
   /**
    * Regression. A headline line lives at `home.hero.lines.0`, so the naive leaf
-   * name was the string "0" — the dashboard said "0 still has the placeholder
+   * name was the string "0" — the dashboard said "0 still has our example
    * text", which is true and completely useless.
    */
   it("names an array element rather than printing its index", () => {
@@ -117,12 +117,12 @@ describe("sampleTextLabel", () => {
   });
 
   it("describes an item inside a list, with its position", () => {
-    expect(sampleTextLabel("home.moments.0.caption")).toBe("Moment 1 Caption");
-    expect(sampleTextLabel("home.moments.1.secret")).toBe("Moment 2 Secret");
-    expect(sampleTextLabel("home.footer.cards.0.quote")).toBe("Card 1 Quote");
-    expect(sampleTextLabel("gallery.chapters.1.title")).toBe("Chapter 2 Title");
-    expect(sampleTextLabel("gallery.chapters.0.films.0.note")).toBe("Video 1 Note");
-    expect(sampleTextLabel("gallery.chapters.0.stills.1.caption")).toBe("Photo 2 Caption");
+    expect(sampleTextLabel("home.moments.0.caption")).toBe("Moment 1 caption");
+    expect(sampleTextLabel("home.moments.1.secret")).toBe("Moment 2 secret");
+    expect(sampleTextLabel("home.footer.cards.0.quote")).toBe("Card 1 quote");
+    expect(sampleTextLabel("gallery.chapters.1.title")).toBe("Chapter 2 title");
+    expect(sampleTextLabel("gallery.chapters.0.films.0.note")).toBe("Video 1 note");
+    expect(sampleTextLabel("gallery.chapters.0.stills.1.caption")).toBe("Photo 2 caption");
   });
 
   it("uses one-based positions, matching the form", () => {
@@ -133,8 +133,8 @@ describe("sampleTextLabel", () => {
 
   it("does not crash on a collection it has no name for", () => {
     // An unknown collection still reads as a position, so a new list added later
-    // produces a usable warning instead of "0 still has the placeholder text".
-    expect(sampleTextLabel("home.somethingNew.0.thing")).toBe("Something New 1 Thing");
+    // produces a usable warning instead of "0 still has our example text".
+    expect(sampleTextLabel("home.somethingNew.0.thing")).toBe("Something New 1 thing");
   });
 
   it("splits camelCase on a plain field", () => {
@@ -146,7 +146,8 @@ describe("findSampleIssues", () => {
   it("gives a readable message and a path to jump to", () => {
     const issues = findSampleIssues(defaultSite());
     const nameIssue = issues.find((i) => i.path === "identity.name");
-    expect(nameIssue?.message).toBe("Name still has the placeholder text");
+    expect(nameIssue?.message).toBe("Name still has our example text");
+    expect(nameIssue?.kind).toBe("sample");
   });
 
   it("is empty for a blank site", () => {
@@ -179,14 +180,14 @@ describe("findIssues", () => {
     });
 
     // No missing-field complaints left.
-    expect(findIssues(site).filter((i) => !i.message.includes("placeholder"))).toEqual([]);
+    expect(findIssues(site).filter((i) => i.kind !== "sample")).toEqual([]);
     expect(findIssues(site).length).toBeGreaterThan(0);
   });
 
   it("puts placeholder text first, since it is the easier miss", () => {
     const issues = findIssues(defaultSite());
-    const firstSample = issues.findIndex((i) => i.message.includes("placeholder"));
-    const firstMissing = issues.findIndex((i) => i.message.includes("missing") || i.message.includes("empty"));
+    const firstSample = issues.findIndex((i) => i.kind === "sample");
+    const firstMissing = issues.findIndex((i) => i.kind === "missing");
     expect(firstSample).toBeGreaterThanOrEqual(0);
     if (firstMissing >= 0) expect(firstSample).toBeLessThan(firstMissing);
   });

@@ -122,7 +122,7 @@ export default function App() {
         />
 
         <Route path="*" element={<NotFound />} />
-      </Routes>
+        </Routes>
     </BrowserRouter>
   );
 }
@@ -328,7 +328,7 @@ function LoadingScreen() {
       aria-label="Loading"
       className="h-svh w-full animate-pulse"
       style={{
-        background: "var(--theme-grad-hero-bg, linear-gradient(#3a1b5c, #0e0518))",
+        background: "var(--theme-grad-hero-bg, linear-gradient(#fffaf4, #ffe3eb))",
       }}
     />
   );
@@ -361,7 +361,7 @@ function Screen({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="flex min-h-svh flex-col items-center justify-center gap-3 px-6 text-center font-sans"
-      style={{ background: "var(--theme-void, #150a22)", color: "var(--theme-text, #efe3fa)" }}
+      style={{ background: "var(--theme-void, #fffaf4)", color: "var(--theme-text, #302029)" }}
     >
       {children}
     </div>

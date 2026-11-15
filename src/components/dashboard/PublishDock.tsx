@@ -1,5 +1,6 @@
 import { useState, type Ref } from "react";
 import { Link } from "react-router-dom";
+import { FiCheckCircle, FiCircle, FiSend } from "react-icons/fi";
 
 import { publicUrl } from "../../lib/site/slug";
 import type { SiteStatus } from "../../lib/site/schema";
@@ -98,7 +99,8 @@ export default function PublishDock({
       <div className="publish-dock-info">
         {published ? (
           <>
-            <p className="publish-dock-title">
+            <p className="publish-dock-title publish-dock-title-live">
+              <FiCheckCircle aria-hidden="true" />
               Live —{" "}
               <Link
                 to={publicUrl(slug)}
@@ -116,12 +118,14 @@ export default function PublishDock({
           </>
         ) : confirming ? (
           <>
-            <p className="publish-dock-title">Publish this site?</p>
+            <p className="publish-dock-title">
+              <FiSend aria-hidden="true" />
+              Publish this site?
+            </p>
             <p className="publish-dock-meta">
               {state.missing > 0 ? (
                 <>
-                  Some things are still missing or placeholder, so whoever opens it will see
-                  them.
+                  Some things still need finishing, so anyone with the link will see the gaps.
                 </>
               ) : (
                 <>The link will work for anyone who has it.</>
@@ -130,7 +134,10 @@ export default function PublishDock({
           </>
         ) : (
           <>
-            <p className="publish-dock-title">Not published yet</p>
+            <p className="publish-dock-title">
+              <FiCircle aria-hidden="true" />
+              Not published yet
+            </p>
             <p className="publish-dock-meta">
               Publishing makes the link work for anyone who has it.
             </p>

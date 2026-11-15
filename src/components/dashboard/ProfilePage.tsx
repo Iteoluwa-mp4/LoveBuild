@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Globe, PenLine, Plus } from "lucide-react";
+import { FiFolder, FiLayout } from "react-icons/fi";
 
 import "../../dashboard.css";
 import { useSession } from "../../hooks/useSession";
@@ -207,10 +208,11 @@ export default function ProfilePage() {
         <div className="dash-brand">
           <h1 style={{ margin: 0 }}>
             <Link
+              className="dash-wordmark"
               to={hasSites ? "/dashboard" : "/profile"}
               title={hasSites ? "Back to the editor" : "Your sites"}
             >
-              LoveBuilds
+              LoveBuilds<span>.</span>
             </Link>
           </h1>
           <span className="dash-brand-slug">/ your sites</span>
@@ -307,7 +309,10 @@ export default function ProfilePage() {
         <section className="profile-sites" aria-labelledby="profile-sites-heading">
           <div className="profile-heading">
             <div>
-              <h2 id="profile-sites-heading">Your sites</h2>
+              <h2 id="profile-sites-heading" className="profile-heading-title">
+                <FiFolder aria-hidden="true" />
+                Your sites
+              </h2>
               <p className="field-hint">
                 {count === null
                   ? "Loading…"
@@ -350,6 +355,7 @@ export default function ProfilePage() {
                 <li key={site.slug} className="profile-item">
                   <div className="profile-item-main">
                     <div className="profile-item-title">
+                      <FiLayout className="profile-item-icon" aria-hidden="true" />
                       <span>{site.name}</span>
                       <span className={`profile-status profile-status-${site.status}`}>
                         {STATUS_LABEL[site.status]}

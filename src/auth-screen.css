@@ -4,8 +4,6 @@
    never touches `body`, so mounting it cannot restyle the dashboard or a
    published site that happens to be in the browser history. */
 
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap");
-
 .auth-screen {
   --ink: #302029;
   --muted: #9b7d88;
@@ -19,6 +17,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
+  color-scheme: light;
   background: radial-gradient(circle at 12% 90%, #ffd9dc 0, transparent 32%), #f8f1f1;
   color: var(--ink);
   font-family: "Manrope", sans-serif;

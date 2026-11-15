@@ -468,7 +468,7 @@ export function findSampleText(site: Site): string[] {
  *
  * Generic handling matters because array paths are unbounded: moments and
  * chapters are added at runtime, and a hand-kept list would report them as
- * "caption still has the placeholder text" with no indication which one.
+ * "caption still has our example text" with no indication which one.
  */
 const SAMPLE_LABELS: Record<string, string> = {
   "home.hero.lines.0": "Headline, line 1",
@@ -513,7 +513,12 @@ export function sampleTextLabel(path: string): string {
     const known = ARRAY_LABELS[collection];
     const item = known ?? leafName(collection);
     const position = `${item} ${index + 1}`;
-    return parentIsIndex && !leafIsIndex ? `${position} ${leafName(parts.at(-1)!)}` : position;
+    if (!parentIsIndex || leafIsIndex) return position;
+
+    // "Moment 1 caption", not "Moment 1 Caption" — it reads as part of a
+    // sentence in the issue list, not as a heading.
+    const detail = leafName(parts.at(-1)!);
+    return `${position} ${detail.charAt(0).toLowerCase()}${detail.slice(1)}`;
   }
 
   return leafName(parts.at(-1) ?? path);

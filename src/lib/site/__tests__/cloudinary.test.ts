@@ -352,7 +352,7 @@ describe("cloudinary", () => {
         ),
       ).toBe(false);
       // Empty is a separate case with its own message in the to-do list:
-      // "has no file yet", not "needs re-uploading".
+      // "hasn't been added yet", not "got lost on reload".
       expect(needsReupload(withUrl(""))).toBe(false);
     });
   });

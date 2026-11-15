@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from "react";
+import { FiAperture, FiBookOpen, FiDroplet, FiScissors } from "react-icons/fi";
 
 import { templateUsesThemes, themeIds, themes } from "../../lib/site/themes";
 
@@ -114,21 +115,24 @@ export function TextAreaField({
  * dashboard needs either. The schema carries the ids alone — a `description`
  * field there would be stored on every config forever and shown nowhere.
  */
-const TEMPLATES: ReadonlyArray<{ id: string; label: string; note: string }> = [
+const TEMPLATES: ReadonlyArray<{ id: string; label: string; note: string; icon: ReactNode }> = [
   {
     id: "editorial",
     label: "Editorial",
     note: "A printed magazine issue. Photos as field notes, your words as the editor's letter.",
+    icon: <FiBookOpen />,
   },
   {
     id: "modern",
     label: "Modern",
     note: "Wide type and a drifting sphere. Photos become a filmstrip and an orbit.",
+    icon: <FiAperture />,
   },
   {
     id: "scrapbook",
     label: "Scrapbook",
     note: "Taped polaroids at odd angles, paper ground, handwriting face.",
+    icon: <FiScissors />,
   },
 ];
 
@@ -165,7 +169,12 @@ export function TemplatePicker({
             aria-pressed={value === template.id}
             onClick={() => onChange(template.id)}
           >
-            <span className="theme-name">{template.label}</span>
+            <span className="theme-name">
+              <span className="theme-icon" aria-hidden="true">
+                {template.icon}
+              </span>
+              {template.label}
+            </span>
             <span className="field-hint">{template.note}</span>
           </button>
         ))}
@@ -210,7 +219,12 @@ export function ThemePicker({ value, onChange }: { value: string; onChange: (id:
               <span className="theme-preview" aria-hidden="true">
                 <i />
               </span>
-              <span className="theme-name">{theme.label}</span>
+              <span className="theme-name">
+                <span className="theme-icon" aria-hidden="true">
+                  <FiDroplet />
+                </span>
+                {theme.label}
+              </span>
             </button>
           );
         })}
@@ -237,19 +251,35 @@ export function ThemePicker({ value, onChange }: { value: string; onChange: (id:
  * two groups that genuinely want to be open on arrival.
  */
 export function Section({
+  id,
   title,
   hint,
+  icon,
   defaultOpen = false,
   children,
 }: {
+  /**
+   * Where a jump lands, from `SECTION_ID`.
+   *
+   * Optional only because the sections nothing points at do not need one; a
+   * section that any button can name must have it, or that button silently
+   * does nothing.
+   */
+  id?: string | undefined;
   title: string;
   hint?: string | undefined;
+  icon?: ReactNode | undefined;
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
   return (
-    <details className="dash-section" open={defaultOpen}>
+    <details className="dash-section" id={id} open={defaultOpen}>
       <summary>
+        {icon && (
+          <span className="dash-section-icon" aria-hidden="true">
+            {icon}
+          </span>
+        )}
         <span className="dash-section-title">{title}</span>
         {hint && <span className="dash-section-hint">{hint}</span>}
       </summary>
@@ -270,6 +300,7 @@ export function Section({
 export function Item({
   index,
   title,
+  icon,
   editableTitle,
   badges,
   onUp,
@@ -282,6 +313,8 @@ export function Item({
 }: {
   index: number;
   title: string;
+  /** A small glyph for the row heading, e.g. a camera for a photo. */
+  icon?: ReactNode | undefined;
   /**
    * When set, the heading is the field itself rather than a read-only summary.
    *
@@ -309,6 +342,11 @@ export function Item({
   // Without a toggle handler the item is always open — the plain variant is
   // still used for footer cards and anything else small enough not to need it.
   const collapsible = onToggle !== undefined;
+  const iconEl = icon ? (
+    <span className="item-icon" aria-hidden="true">
+      {icon}
+    </span>
+  ) : null;
 
   return (
     <div className="item" data-open={String(collapsible ? open : true)}>
@@ -324,6 +362,7 @@ export function Item({
             <span className="item-caret" aria-hidden="true">
               {open ? "▾" : "▸"}
             </span>
+            {iconEl}
             {!editableTitle && (
               <>
                 <span className="item-index">{index + 1}</span>
@@ -332,6 +371,8 @@ export function Item({
             )}
           </button>
         )}
+
+        {!collapsible && iconEl}
 
         {editableTitle ? (
           <>

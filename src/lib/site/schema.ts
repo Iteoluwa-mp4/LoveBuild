@@ -473,6 +473,8 @@ export type Issue = {
   /** Dotted path to the offending field, for the dashboard to highlight. */
   path: string;
   message: string;
+  /** Missing altogether, or still holding our example wording. */
+  kind: "sample" | "missing";
 };
 
 /**
@@ -510,7 +512,7 @@ export function submissionChecks(site: Site): SubmissionCheck[] {
   const need = (path: string, value: string, label: string) => {
     checks.push({
       path,
-      message: `${label} is empty`,
+      message: `${label} is blank`,
       ok: value.trim().length > 0,
     });
   };
@@ -522,7 +524,7 @@ export function submissionChecks(site: Site): SubmissionCheck[] {
 
   checks.push({
     path: "home.moments",
-    message: "Add at least one moment",
+    message: "Add your first moment",
     ok: site.home.moments.length > 0,
   });
 
@@ -531,7 +533,7 @@ export function submissionChecks(site: Site): SubmissionCheck[] {
   const checkMedia = (media: Media, path: string) => {
     checks.push({
       path: `${path}.url`,
-      message: "File is missing",
+      message: "Add a file",
       ok: media.url.trim().length > 0,
     });
   };
@@ -543,7 +545,7 @@ export function submissionChecks(site: Site): SubmissionCheck[] {
 
   checks.push({
     path: "gallery.chapters",
-    message: "Add at least one chapter",
+    message: "Add your first chapter",
     ok: site.gallery.chapters.length > 0,
   });
 
@@ -551,7 +553,7 @@ export function submissionChecks(site: Site): SubmissionCheck[] {
     need(`gallery.chapters.${ci}.title`, chapter.title, "Chapter title");
     checks.push({
       path: `gallery.chapters.${ci}`,
-      message: `"${chapter.title || `Chapter ${ci + 1}`}" has no films or photographs`,
+      message: `"${chapter.title || `Chapter ${ci + 1}`}" needs a video or photo`,
       ok: chapter.films.length > 0 || chapter.stills.length > 0,
     });
     chapter.films.forEach((film, fi) => {
@@ -569,5 +571,5 @@ export function submissionChecks(site: Site): SubmissionCheck[] {
 export function findSubmissionIssues(site: Site): Issue[] {
   return submissionChecks(site)
     .filter((check) => !check.ok)
-    .map(({ path, message }) => ({ path, message }));
+    .map(({ path, message }) => ({ path, message, kind: "missing" }));
 }

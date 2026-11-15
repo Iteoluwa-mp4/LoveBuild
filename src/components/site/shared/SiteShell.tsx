@@ -33,10 +33,15 @@ export default function SiteShell({
 
   useEffect(() => {
     const root = document.documentElement;
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    const previousThemeColor = themeColor?.getAttribute("content") ?? null;
+
     for (const [key, value] of Object.entries(theme.tokens)) {
       root.style.setProperty(key, value);
     }
     root.setAttribute("data-theme", site.theme);
+    /* The browser chrome should follow the page, not the app's cream default. */
+    themeColor?.setAttribute("content", theme.palette.void);
 
     return () => {
       for (const key of Object.keys(theme.tokens)) {
@@ -45,6 +50,8 @@ export default function SiteShell({
       if (root.getAttribute("data-theme") === site.theme) {
         root.removeAttribute("data-theme");
       }
+      if (previousThemeColor === null) themeColor?.removeAttribute("content");
+      else themeColor?.setAttribute("content", previousThemeColor);
     };
   }, [theme, site.theme]);
 

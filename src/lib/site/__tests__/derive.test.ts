@@ -463,7 +463,7 @@ describe("siteOutline", () => {
     ]);
   });
 
-  it("flags a chapter that has no films or photographs", () => {
+  it("flags a chapter that has no photos or videos", () => {
     const site = emptySite("x");
     site.gallery.chapters.push(
       { id: "ch0", label: "", title: "First", blurb: undefined, films: [], stills: [] },
@@ -473,7 +473,7 @@ describe("siteOutline", () => {
     site.gallery.chapters[1].stills = [];
     // chapters is always true, but individual chapter entries have shown=false when empty
     const entry = siteOutline(site).find((e) => e.path === "gallery.chapters.1");
-    expect(entry?.detail).toBe("No films or photographs yet");
+    expect(entry?.detail).toBe("No photos or videos yet");
   });
 
   it("explains why an empty toggle will not appear", () => {
@@ -741,7 +741,7 @@ describe("uploadProgress", () => {
 });
 
 /**
- * The list behind the "Still to do" header.
+ * The list behind the "What's Left?" header.
  *
  * It exists because the header used to be driven by `findIssues`, which counts
  * every empty field and every field still holding the sample wording — 97 things
@@ -802,14 +802,15 @@ describe("uploadItems", () => {
 
   /**
    * A caption still holding the sample wording reads as finished, which is
-   * exactly why it is worth naming differently from an empty one: "is empty"
+   * exactly why it is worth naming differently from a blank one: "is blank"
    * would send the author looking for a gap that is not visibly there.
    */
   it("tells a sample caption apart from an empty one", () => {
     const sample = uploadItems(defaultSite()).find(
       (item) => item.path.endsWith(".caption") && !item.ok,
     );
-    expect(sample?.message).toContain("placeholder");
+    expect(sample?.message).toContain("example text");
+    expect(sample?.kind).toBe("sample");
   });
 
   /**
@@ -845,7 +846,7 @@ describe("uploadItems", () => {
 
     const item = uploadItems(site).find((entry) => entry.path === "home.moments.0.image.url");
     expect(item?.ok).toBe(false);
-    expect(item?.message).toContain("re-uploading");
+    expect(item?.message).toContain("got lost on reload");
 
     // And the count follows the list, so the header cannot call it done while
     // the row underneath says otherwise.

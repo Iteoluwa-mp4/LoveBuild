@@ -28,7 +28,7 @@ import {
  *
  * If Cloudinary is not configured, step 2 does not happen and the slot is left
  * empty rather than filled with a lie — empty is detectable, is already
- * reported by the dashboard's to-do list, and reads honestly as "still to do".
+ * reported by the dashboard's to-do list, and reads honestly as "What's Left?".
  *
  * Everything below is `onChange` of a `Media`; the form does not care where the
  * URL came from, which is why this can change without touching the editors.

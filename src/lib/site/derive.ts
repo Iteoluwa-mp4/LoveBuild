@@ -39,7 +39,8 @@ import { momentsAnchor, sitePaths } from "./paths";
 export function findSampleIssues(site: Site): Issue[] {
   return findSampleText(site).map((path) => ({
     path,
-    message: `${sampleTextLabel(path)} still has the placeholder text`,
+    message: `${sampleTextLabel(path)} still has our example text`,
+    kind: "sample",
   }));
 }
 
@@ -190,6 +191,8 @@ export type UploadItem = {
   path: string;
   /** What is outstanding, in words the author can act on. */
   message: string;
+  /** Set when unfinished: is it blank, or still holding our example wording? */
+  kind?: "sample" | "missing" | undefined;
   /** True when this one is done. */
   ok: boolean;
 };
@@ -210,8 +213,8 @@ export function uploadItems(site: Site): UploadItem[] {
    *
    * Three cases, and they read differently on purpose:
    *
-   *   - **Empty** — never filled in. "has no file yet" is work still owed, and
-   *     it is obviously the case from the field itself.
+   *   - **Empty** — never filled in. "hasn't been added yet" is work still owed,
+   *     and it is obviously the case from the field itself.
    *   - **A `blob:` URL** — *was* filled in, looked finished, and died with the
    *     tab that created it. This is data written by an earlier build, before
    *     uploads reached Cloudinary. It is the dangerous case: a non-empty
@@ -225,11 +228,13 @@ export function uploadItems(site: Site): UploadItem[] {
    */
   const media = (path: string, label: string, url: string): UploadItem => {
     const value = url.trim();
-    if (value.length === 0) return { path, message: `${label} has no file yet`, ok: false };
+    if (value.length === 0)
+      return { path, message: `${label} hasn't been added yet`, kind: "missing", ok: false };
     if (value.startsWith("blob:"))
       return {
         path,
-        message: `${label} needs re-uploading — its file did not survive a reload`,
+        message: `${label} got lost on reload — add it again`,
+        kind: "missing",
         ok: false,
       };
     return { path, message: label, ok: true };
@@ -244,9 +249,10 @@ export function uploadItems(site: Site): UploadItem[] {
    * that can drift until the list shows a row the count has already cleared.
    */
   const text = (path: string, value: string, label: string): UploadItem => {
-    if (value.trim().length === 0) return { path, message: `${label} is empty`, ok: false };
+    if (value.trim().length === 0)
+      return { path, message: `${label} is blank`, kind: "missing", ok: false };
     if (placeholders.has(path))
-      return { path, message: `${label} still has the placeholder text`, ok: false };
+      return { path, message: `${label} still has our example text`, kind: "sample", ok: false };
     return { path, message: label, ok: true };
   };
 
@@ -254,7 +260,8 @@ export function uploadItems(site: Site): UploadItem[] {
 
   items.push({
     path: "home.moments",
-    message: "Add at least one photograph",
+    message: "Add your first moment",
+    kind: "missing",
     ok: site.home.moments.length > 0,
   });
 
@@ -265,7 +272,8 @@ export function uploadItems(site: Site): UploadItem[] {
 
   items.push({
     path: "gallery.chapters",
-    message: "Add at least one chapter",
+    message: "Add your first chapter",
+    kind: "missing",
     ok: site.gallery.chapters.length > 0,
   });
 
@@ -273,7 +281,8 @@ export function uploadItems(site: Site): UploadItem[] {
     /* A reel with nothing in it has no upload behind it either. */
     items.push({
       path: `gallery.chapters.${ci}`,
-      message: `"${chapter.title || `Chapter ${ci + 1}`}" has no films or photographs`,
+      message: `"${chapter.title || `Chapter ${ci + 1}`}" needs a video or photo`,
+      kind: "missing",
       ok: chapter.films.length > 0 || chapter.stills.length > 0,
     });
 
@@ -770,9 +779,9 @@ export function siteOutline(site: Site): OutlineEntry[] {
       // the site", not "is finished", so the unfinished part goes in the detail.
       shown: true,
       detail: empty
-        ? "No films or photographs yet"
+        ? "No photos or videos yet"
         : [
-            chapter.films.length && countLabel(chapter.films.length, "film"),
+            chapter.films.length && countLabel(chapter.films.length, "video"),
             chapter.stills.length && countLabel(chapter.stills.length, "photo"),
           ]
             .filter(Boolean)

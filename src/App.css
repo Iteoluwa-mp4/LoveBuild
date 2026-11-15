@@ -1,11 +1,24 @@
-/* Temporary. Replaced in Step 3 by the real template styles. */
+/* Dev-only screens (`/dev/*`). The product palette, kept local so these pages
+   can be read without a theme being published on the document. The theme cards
+   still render their own `--theme-*` tokens, because their job is to show those
+   presets — not the studio chrome around them. */
 
 .dev-screen {
+  --dev-bg: #fffaf4;
+  --dev-panel: #ffffff;
+  --dev-ink: #302029;
+  --dev-dim: #866b75;
+  --dev-pink: #f25683;
+  --dev-pink-deep: #c52e71;
+  --dev-blush: #ffe3eb;
+  --dev-line: #f0dfe3;
+
   min-height: 100svh;
   padding: 2.5rem;
+  color-scheme: light;
   font-family: var(--font-sans);
-  background: var(--theme-void, #150a22);
-  color: var(--theme-text, #efe3fa);
+  background: var(--dev-bg);
+  color: var(--dev-ink);
 }
 
 .dev-eyebrow {
@@ -13,7 +26,7 @@
   font-weight: 600;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--theme-gold, #d9a94e);
+  color: var(--dev-pink-deep);
 }
 
 .dev-title {
@@ -21,16 +34,13 @@
   font-family: var(--font-display, Georgia, serif);
   font-size: clamp(1.8rem, 4vw, 2.8rem);
   line-height: 1.05;
-  background: var(--theme-grad-title);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: var(--dev-ink);
 }
 
 .dev-note {
   margin-top: 0.75rem;
   max-width: 46rem;
-  color: var(--theme-lavender, #c9a6e8);
+  color: var(--dev-dim);
   line-height: 1.6;
 }
 
@@ -47,8 +57,13 @@
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
-  color: var(--theme-on-gold, #3a2408);
-  background: var(--theme-grad-gold-btn);
+  color: #fff;
+  background: var(--dev-pink-deep);
+  transition: background-color 0.15s ease;
+}
+
+.dev-nav a:hover {
+  background: #a8245e;
 }
 
 .dev-grid {
@@ -61,7 +76,16 @@
 .dev-card {
   padding: 1rem 1.15rem;
   border-radius: 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--theme-gold) 35%, transparent);
+  border: 1px solid var(--dev-line);
+  background: var(--dev-panel);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+/* A theme card carries its own tokens, and its gradient is the point. */
+.dev-card[data-theme] {
+  border-color: color-mix(in srgb, var(--theme-gold) 35%, transparent);
   background: var(--theme-grad-glass);
   backdrop-filter: blur(12px);
 }
@@ -70,21 +94,21 @@
   margin: 0 0 0.4rem;
   font-family: var(--font-display, Georgia, serif);
   font-size: 1.15rem;
-  color: var(--theme-gold-bright, #f4d98a);
+  color: var(--theme-gold-bright, var(--dev-ink));
 }
 
 .dev-card p {
   margin: 0;
   font-size: 0.82rem;
   line-height: 1.55;
-  color: var(--theme-lavender, #c9a6e8);
+  color: var(--theme-lavender, var(--dev-dim));
 }
 
 .dev-swatch {
   height: 4rem;
   border-radius: 0.6rem;
   margin-top: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--theme-gold) 25%, transparent);
+  border: 1px solid var(--dev-line);
 }
 
 .dev-token {
@@ -92,17 +116,19 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.4rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--theme-lavender) 15%, transparent);
+  border-bottom: 1px solid var(--dev-line);
   font-size: 0.8rem;
 }
 
 .dev-token span:first-child {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--theme-lavender, #c9a6e8);
+  color: var(--dev-dim);
 }
 
 .dev-token span:last-child {
-  color: var(--theme-gold-bright, #f4d98a);
+  color: var(--dev-pink-deep);
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 /* Outline list */
@@ -123,9 +149,9 @@
 }
 
 .outline-row[data-shown="false"] {
-  opacity: 0.5;
+  opacity: 0.6;
   border-style: dashed;
-  border-color: color-mix(in srgb, var(--theme-lavender) 25%, transparent);
+  border-color: color-mix(in srgb, var(--dev-pink) 30%, transparent);
 }
 
 .outline-dot {
@@ -137,11 +163,11 @@
 }
 
 .outline-row[data-shown="true"] .outline-dot {
-  background: var(--theme-gold, #d9a94e);
+  background: var(--dev-pink);
 }
 
 .outline-row[data-shown="false"] .outline-dot {
-  background: color-mix(in srgb, var(--theme-lavender) 40%, transparent);
+  background: var(--dev-dim);
 }
 
 .outline-label {
@@ -151,7 +177,7 @@
 
 .outline-detail {
   font-size: 0.78rem;
-  color: var(--theme-lavender, #c9a6e8);
+  color: var(--dev-dim);
 }
 
 .outline-badge {
@@ -161,6 +187,6 @@
   text-transform: uppercase;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--theme-violet) 60%, transparent);
-  color: var(--theme-gold-bright, #f4d98a);
+  background: var(--dev-blush);
+  color: var(--dev-pink-deep);
 }

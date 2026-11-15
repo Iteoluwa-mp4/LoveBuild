@@ -56,7 +56,7 @@ Done:
   route so "make another" never has to reopen the newest site first.
 - **Tests** — 300 passing. `npm test`
 
-Still to do: smaller derivative delivery (authenticated assets cannot transform
+What's Left?: smaller derivative delivery (authenticated assets cannot transform
 on the fly), and scoping the editorial stylesheet's document-level font and body
 rules.
 

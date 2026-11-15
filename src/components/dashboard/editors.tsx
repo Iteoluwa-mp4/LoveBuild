@@ -1,4 +1,20 @@
 import { useCallback, useState } from "react";
+import {
+  FiArchive,
+  FiBookOpen,
+  FiCamera,
+  FiFeather,
+  FiFilm,
+  FiFlag,
+  FiFolder,
+  FiGrid,
+  FiImage,
+  FiMail,
+  FiMessageCircle,
+  FiMessageSquare,
+  FiStar,
+  FiUser,
+} from "react-icons/fi";
 
 import type { DraftSite } from "../../hooks/useDraftSite";
 import { EmptyNote, Item, Section, TextAreaField, TextField } from "./fields";
@@ -6,6 +22,7 @@ import MediaUploader from "./MediaUploader";
 import { hasContent, chapterLabel } from "../../lib/site/derive";
 import { countLabel } from "../../lib/format";
 import type { Chapter, Film, Moment, Still } from "../../lib/site/schema";
+import { SECTION_ID } from "./jumpTarget";
 import { initiallyOpenItems } from "./openItems";
 
 /**
@@ -79,7 +96,7 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
 
   return (
     <>
-      <Section title="Site name" hint="Shown in the top-left corner">
+      <Section id={SECTION_ID.identity} title="Site name" hint="Shown in the top-left corner" icon={<FiUser />}>
         <TextField
           label="Name"
           value={site.identity.name}
@@ -90,7 +107,7 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
         />
       </Section>
 
-      <Section title="First impression" hint="The first thing she sees">
+      <Section id={SECTION_ID.hero} title="First impression" hint="The first thing she sees" icon={<FiStar />}>
         <TextField
           label="Headline, line 1"
           value={site.home.hero.lines[0] ?? ""}
@@ -189,8 +206,10 @@ function MomentsEditor({
 
   return (
     <Section
+      id={SECTION_ID.moments}
       title={`Photographs (${site.home.moments.length})`}
       hint={hint}
+      icon={<FiCamera />}
     >
       {site.home.moments.length === 0 && (
         <EmptyNote>
@@ -266,6 +285,7 @@ function MomentEditor({
     <Item
       index={index}
       title={hasContent(moment.caption) ? moment.caption : momentTagPreview(moment, index)}
+      icon={<FiCamera />}
       editableTitle={{
         value: moment.caption,
         onChange: (v) => draft.set(`${base}.caption`, v),
@@ -351,8 +371,10 @@ function QuoteEditor({ draft }: { draft: DraftSite }) {
 
   return (
     <Section
+      id={SECTION_ID.quote}
       title="Quote and letter"
       hint={hasContent(quote.text) ? undefined : "Hidden — no quote written"}
+      icon={<FiMessageCircle />}
       defaultOpen={false}
     >
       <p className="field-hint">
@@ -451,8 +473,10 @@ function FooterEditor({ draft }: { draft: DraftSite }) {
 
   return (
     <Section
+      id={SECTION_ID.footer}
       title="Closing section"
       hint={hasContent(footer.heading) ? undefined : "Hidden — nothing written"}
+      icon={<FiFlag />}
       defaultOpen={false}
     >
       <TextField
@@ -484,6 +508,7 @@ function FooterEditor({ draft }: { draft: DraftSite }) {
           key={card.id}
           index={i}
           title={hasContent(card.quote) ? card.quote : "Empty card"}
+          icon={<FiMessageSquare />}
           onUp={i > 0 ? () => draft.move("home.footer.cards", i, i - 1) : undefined}
           onDown={
             i < footer.cards.length - 1 ? () => draft.move("home.footer.cards", i, i + 1) : undefined
@@ -550,8 +575,10 @@ export function GalleryEditor({ draft }: { draft: DraftSite }) {
   return (
     <>
       <Section
+        id={SECTION_ID.chapters}
         title={`Chapters (${gallery.chapters.length})`}
         hint={`${countLabel(totalFilms, "video")} · ${countLabel(totalStills, "photo")}`}
+        icon={<FiFolder />}
       >
         {gallery.chapters.length === 0 && (
           <EmptyNote>
@@ -595,7 +622,13 @@ export function GalleryEditor({ draft }: { draft: DraftSite }) {
         </div>
       </Section>
 
-      <Section title="Gallery intro and outro" hint="Optional" defaultOpen={false}>
+      <Section
+        id={SECTION_ID.galleryIntro}
+        title="Gallery intro and outro"
+        hint="Optional"
+        icon={<FiFilm />}
+        defaultOpen={false}
+      >
         <TextField
           label="Small label at the top"
           value={gallery.hero.eyebrow}
@@ -688,6 +721,7 @@ function ChapterEditor({
     <Item
       index={index}
       title={`${chapterLabel(chapter.label, index)}. ${hasContent(chapter.title) ? chapter.title : "Untitled"}`}
+      icon={<FiFolder />}
       badges={
         empty ? (
           <span className="badge badge-warn">Empty</span>
@@ -832,6 +866,7 @@ function FilmEditor({
     <Item
       index={index}
       title={hasContent(film.title) ? film.title : "Untitled video"}
+      icon={<FiFilm />}
       editableTitle={{
         value: film.title,
         onChange: (v) => draft.set(`${path}.${index}.title`, v),
@@ -894,6 +929,7 @@ function StillEditor({
     <Item
       index={index}
       title={hasContent(still.caption) ? still.caption : "Untitled photo"}
+      icon={<FiImage />}
       editableTitle={{
         value: still.caption,
         onChange: (v) => draft.set(`${path}.${index}.caption`, v),
@@ -1007,7 +1043,12 @@ function EditorialEditor({ draft }: { draft: DraftSite }) {
 
   return (
     <>
-      <Section title="The masthead" hint="The name of the whole issue">
+      <Section
+        id={SECTION_ID.identity}
+        title="The masthead"
+        hint="The name of the whole issue"
+        icon={<FiBookOpen />}
+      >
         <TextField
           label="Issue title"
           value={site.identity.name}
@@ -1028,7 +1069,12 @@ function EditorialEditor({ draft }: { draft: DraftSite }) {
 
       <MomentsEditor draft={draft} open={openMoments} editorial />
 
-      <Section title="The quote" hint="Set very large, between the stories">
+      <Section
+        id={SECTION_ID.quote}
+        title="The quote"
+        hint="Set very large, between the stories"
+        icon={<FiMessageCircle />}
+      >
         <TextAreaField
           label="The pull-quote"
           value={editorial.quote}
@@ -1040,7 +1086,12 @@ function EditorialEditor({ draft }: { draft: DraftSite }) {
         />
       </Section>
 
-      <Section title="From the editor" hint="The letter that closes the issue">
+      <Section
+        id={SECTION_ID.letter}
+        title="From the editor"
+        hint="The letter that closes the issue"
+        icon={<FiFeather />}
+      >
         <TextAreaField
           label="The letter"
           value={editorial.letter}
@@ -1079,7 +1130,7 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
     <>
       <MomentsEditor draft={draft} open={openMoments} modern />
 
-      <Section title="First impression" hint="The first thing she sees">
+      <Section id={SECTION_ID.hero} title="First impression" hint="The first thing she sees" icon={<FiStar />}>
         <TextField
           label="Small label above the headline"
           value={modern.hero.eyebrow}
@@ -1136,7 +1187,12 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
         </div>
       </Section>
 
-      <Section title="Her note" hint="Opens when she taps the button">
+      <Section
+        id={SECTION_ID.modernNote}
+        title="Her note"
+        hint="Opens when she taps the button"
+        icon={<FiMail />}
+      >
         <TextField
           label="Small label"
           value={modern.letter.kicker}
@@ -1161,7 +1217,12 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
         />
       </Section>
 
-      <Section title="Photo strip" hint="The row of narrow slices">
+      <Section
+        id={SECTION_ID.modernStrip}
+        title="Photo strip"
+        hint="The row of narrow slices"
+        icon={<FiImage />}
+      >
         <TextField
           label="Small label"
           value={modern.strip.eyebrow}
@@ -1185,7 +1246,12 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
         />
       </Section>
 
-      <Section title="Archive" hint="The drifting sphere on the home page">
+      <Section
+        id={SECTION_ID.modernArchive}
+        title="Archive"
+        hint="The drifting sphere on the home page"
+        icon={<FiArchive />}
+      >
         <TextField
           label="Small label"
           value={modern.archive.eyebrow}
@@ -1216,7 +1282,13 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
         />
       </Section>
 
-      <Section title="Archive page" hint="What she sees at /gallery" defaultOpen={false}>
+      <Section
+        id={SECTION_ID.modernGallery}
+        title="Archive page"
+        hint="What she sees at /gallery"
+        icon={<FiGrid />}
+        defaultOpen={false}
+      >
         <TextField
           label="Small label"
           value={modern.gallery.eyebrow}
@@ -1262,7 +1334,13 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
         />
       </Section>
 
-      <Section title="Closing" hint="The last thing she reads" defaultOpen={false}>
+      <Section
+        id={SECTION_ID.modernClosing}
+        title="Closing"
+        hint="The last thing she reads"
+        icon={<FiFlag />}
+        defaultOpen={false}
+      >
         <TextAreaField
           label="Heading"
           value={modern.closing.heading}

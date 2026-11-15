@@ -1,6 +1,7 @@
 import { type FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { FiPlusCircle } from "react-icons/fi";
 
 import { EmptyNote, TextField } from "./fields";
 import { getRepository } from "../../lib/site/getRepository";
@@ -70,6 +71,9 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
 
         <div className="dash-section">
           <div className="dash-section-head" style={{ cursor: "default" }}>
+            <span className="dash-section-icon" aria-hidden="true">
+              <FiPlusCircle />
+            </span>
             <span className="dash-section-title">Create your site</span>
           </div>
           <div className="dash-section-body">
@@ -107,7 +111,7 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
                 {check.ok ? (
                   <>
                     Your site will be at{" "}
-                    <code style={{ color: "var(--dash-gold)" }}>{publicUrl(check.slug)}</code>. If
+                    <code style={{ color: "var(--dash-pink-deep)" }}>{publicUrl(check.slug)}</code>. If
                     that address is already taken, we&rsquo;ll add a short suffix so yours still
                     works.
                   </>

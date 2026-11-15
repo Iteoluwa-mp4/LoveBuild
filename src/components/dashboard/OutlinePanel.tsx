@@ -1,3 +1,5 @@
+import { FiEye } from "react-icons/fi";
+
 import { siteOutline, visibleBlocks } from "../../lib/site/derive";
 import type { Site } from "../../lib/site/schema";
 
@@ -30,7 +32,10 @@ export default function OutlinePanel({
   return (
     <div className="outline">
       <div className="outline-head">
-        On the site right now
+        <span className="outline-head-title">
+          <FiEye aria-hidden="true" />
+          On the site right now
+        </span>
         <span className="field-count">
           {live}/{total} sections
         </span>

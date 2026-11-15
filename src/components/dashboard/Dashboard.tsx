@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CircleUserRound, Globe, Mail } from "lucide-react";
+import { FiDroplet, FiHome, FiImage, FiLayout, FiList } from "react-icons/fi";
 
 import "../../dashboard.css";
 import { AppearanceEditor } from "./editors";
 import { Section, TemplatePicker, ThemePicker } from "./fields";
+import { SECTION_ID, sectionIdFor } from "./jumpTarget";
 import OutlinePanel from "./OutlinePanel";
 import PreviewPane from "./PreviewPane";
 import ProgressRing from "./ProgressRing";
 import PublishDock from "./PublishDock";
 import { useDraftSite } from "../../hooks/useDraftSite";
+import { useScrollToSection } from "../../hooks/useScrollToSection";
 import { useSession } from "../../hooks/useSession";
 import { SEED_SLUG } from "../../lib/site/default";
 import { getRepository, repositoryKind } from "../../lib/site/getRepository";
@@ -65,19 +68,33 @@ export default function Dashboard() {
     means the ring clears the dock whatever the dock is doing.
   */
   const dockRef = useRef<HTMLDivElement>(null);
-  const [dockHeight, setDockHeight] = useState(0);
+  const [dockOffset, setDockOffset] = useState(0);
 
   useEffect(() => {
     const el = dockRef.current;
     if (!el) return;
 
-    const measure = () => setDockHeight(el.getBoundingClientRect().height);
+    /*
+      What the ring needs is the distance from the viewport bottom to the dock's
+      top, not the dock's height: the form's bottom padding leaves the dock a
+      little above the viewport edge, so height alone would put the ring too low
+      and let it graze the dock's border.
+    */
+    const measure = () => {
+      const { top } = el.getBoundingClientRect();
+      setDockOffset(Math.max(0, window.innerHeight - top));
+    };
     measure();
 
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+    /*
+      The dock only mounts once the draft has loaded, and this component stays
+      mounted through its spinner. Re-running when `loading` clears is what lets
+      the first render with a dock find it instead of remembering `null`.
+    */
+  }, [draft.loading]);
 
   const site = draft.site;
 
@@ -106,11 +123,11 @@ export default function Dashboard() {
   // holding the sample text is listed as such rather than as "empty", because
   // it reads as finished and that is exactly why it gets missed.
   const sampleIssues = useMemo(
-    () => todo.filter((item) => item.message.includes("placeholder")),
+    () => todo.filter((item) => item.kind === "sample"),
     [todo],
   );
   const missingIssues = useMemo(
-    () => todo.filter((item) => !item.message.includes("placeholder")),
+    () => todo.filter((item) => item.kind === "missing"),
     [todo],
   );
 
@@ -158,28 +175,34 @@ export default function Dashboard() {
     }
   };
 
-  /** Opens the section owning a config path, so the outline can point at it. */
+  /*
+    The shared scroller, bound to no target: which section a click means is
+    worked out per click, in `jumpTo`.
+  */
+  const scrollToSection = useScrollToSection();
+
+  /**
+   * Opens the section owning a config path, and glides the form to it.
+   *
+   * Every pointing button goes through here — each `edit →` in What's Left?,
+   * and every row of the outline.
+   *
+   * Which section owns the path is `sectionIdFor`'s answer rather than a
+   * heading's: headings carry counts ("Photographs (4)") and drift the moment
+   * the list changes, and matching them is exactly how these buttons came to
+   * point at every outstanding thing and quietly take you nowhere.
+   *
+   * The scroll is the shared hook, which opens the section on the way — so the
+   * author lands among the fields rather than on a collapsed summary bar.
+   * A path with no section under the selected template (the gallery's chapters
+   * while the modern form is up — it has no chapters editor) resolves to
+   * nothing and the button does nothing, which is honest: there is nowhere to
+   * go.
+   */
   const jumpTo = (path: string) => {
-    const head = path.split(".")[0];
-    const sectionTitle =
-      head === "gallery"
-        ? "Chapters"
-        : path.startsWith("home.moments")
-          ? "Moments"
-          : path.startsWith("home.quote")
-            ? "Quote and letter"
-            : path.startsWith("home.footer")
-              ? "Closing section"
-              : path.startsWith("home.hero")
-                ? "First impression"
-                : null;
-
-    const target = Array.from(
-      document.querySelectorAll<HTMLDetailsElement>(".dash-section"),
-    ).find((el) => el.querySelector(".dash-section-title")?.textContent === sectionTitle);
-
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (target && !target.open) target.open = true;
+    const id = sectionIdFor(path);
+    if (!id) return;
+    scrollToSection(`#${id}`);
   };
 
   /**
@@ -221,8 +244,8 @@ export default function Dashboard() {
       <header className="dash-bar">
         <div className="dash-brand">
           <h1 style={{ margin: 0 }}>
-            <Link to="/profile" title="All sites">
-              LoveBuilds
+            <Link className="dash-wordmark" to="/profile" title="All sites">
+              LoveBuilds<span>.</span>
             </Link>
           </h1>
           <span className="dash-brand-slug">/</span>
@@ -315,7 +338,7 @@ export default function Dashboard() {
       {progress && (
         <div
           className="dash-ring-dock"
-          style={{ "--dock-h": `${dockHeight}px` } as CSSProperties}
+          style={{ "--dock-offset": `${dockOffset}px` } as CSSProperties}
         >
           <ProgressRing
             percent={progress.percent}
@@ -374,25 +397,26 @@ export default function Dashboard() {
             What is outstanding, and a way to jump to each thing.
 
             The list exists because a count alone never says which field to fix.
-            Placeholder text is listed separately from empty fields because they
-            are different mistakes: an empty field is obviously empty, and a
-            field full of the sample wording looks finished.
+            Example text is listed separately from blank fields because they are
+            different mistakes: a blank field is obviously blank, and a field
+            still holding our sample wording looks finished.
 
             Scoped to media work on purpose — see `todo` above. Headings and
             button labels are not tasks, so they are not listed as tasks.
           */}
           {todo.length > 0 && (
             <Section
-              title="Still to do"
+              title="What's Left?"
               hint={`${todo.length} ${todo.length === 1 ? "thing" : "things"}`}
+              icon={<FiList />}
             >
               {sampleIssues.length > 0 && (
                 <>
                   <p className="field-hint">
                     {sampleIssues.length}{" "}
-                    {sampleIssues.length === 1 ? "field still has" : "fields still have"} the
-                    placeholder text. These read as filled in, so they are easy to miss — replace
-                    them with your own words.
+                    {sampleIssues.length === 1 ? "field still has" : "fields still have"} our
+                    example text. They look finished, so they're easy to miss — swap in your own
+                    words.
                   </p>
                   <ul className="dash-issues">
                     {sampleIssues.map((issue) => (
@@ -404,7 +428,7 @@ export default function Dashboard() {
                             className="go-link"
                             onClick={() => jumpTo(issue.path)}
                           >
-                            go →
+                            edit →
                           </button>
                         )}
                       </li>
@@ -415,7 +439,7 @@ export default function Dashboard() {
 
               {missingIssues.length > 0 && (
                 <>
-                  <p className="field-hint">These are empty or missing:</p>
+                  <p className="field-hint">Still to add:</p>
                   <ul className="dash-issues">
                     {missingIssues.map((issue) => (
                       <li key={issue.path}>
@@ -426,7 +450,7 @@ export default function Dashboard() {
                             className="go-link"
                             onClick={() => jumpTo(issue.path)}
                           >
-                            go →
+                            edit →
                           </button>
                         )}
                       </li>
@@ -447,7 +471,12 @@ export default function Dashboard() {
             `AppearanceEditor` still owns the conditional editor switch, so the
             fields below follow whatever is chosen here.
           */}
-          <Section title="Template" hint="The layout of the whole site">
+          <Section
+            id={SECTION_ID.template}
+            title="Template"
+            hint="The layout of the whole site"
+            icon={<FiLayout />}
+          >
             <TemplatePicker
               value={site.template}
               onChange={(id) => draft.set("template", id)}
@@ -455,7 +484,12 @@ export default function Dashboard() {
           </Section>
 
           {templateUsesThemes(site.template) && (
-            <Section title="Colours" hint="Five ready-made palettes">
+            <Section
+              id={SECTION_ID.colours}
+              title="Colours"
+              hint="Five ready-made palettes"
+              icon={<FiDroplet />}
+            >
               <ThemePicker value={site.theme} onChange={(id) => draft.set("theme", id)} />
             </Section>
           )}
@@ -503,6 +537,7 @@ export default function Dashboard() {
               aria-pressed={previewPage === "home"}
               onClick={() => setPreviewPage("home")}
             >
+              <FiHome aria-hidden="true" />
               Front page
             </button>
             <button
@@ -511,6 +546,7 @@ export default function Dashboard() {
               aria-pressed={previewPage === "gallery"}
               onClick={() => setPreviewPage("gallery")}
             >
+              <FiImage aria-hidden="true" />
               Gallery
             </button>
           </div>

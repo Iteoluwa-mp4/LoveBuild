@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FiEye, FiMonitor, FiSmartphone, FiTablet } from "react-icons/fi";
 
 import {
   MSG_PREVIEW_CONFIG,
@@ -150,6 +151,7 @@ const data = event.data as Partial<Incoming> | Partial<EditMessage>;
     <div className="preview">
       <div className="preview-bar">
         <span className="field-label" style={{ margin: 0 }}>
+          <FiEye aria-hidden="true" />
           Preview
         </span>
         <div className="segmented">
@@ -159,6 +161,7 @@ const data = event.data as Partial<Incoming> | Partial<EditMessage>;
             aria-pressed={device === "desktop"}
             onClick={() => onDeviceChange("desktop")}
           >
+            <FiMonitor aria-hidden="true" />
             Wide
           </button>
           <button
@@ -167,6 +170,7 @@ const data = event.data as Partial<Incoming> | Partial<EditMessage>;
             aria-pressed={device === "tablet"}
             onClick={() => onDeviceChange("tablet")}
           >
+            <FiTablet aria-hidden="true" />
             Tablet
           </button>
           <button
@@ -175,6 +179,7 @@ const data = event.data as Partial<Incoming> | Partial<EditMessage>;
             aria-pressed={device === "phone"}
             onClick={() => onDeviceChange("phone")}
           >
+            <FiSmartphone aria-hidden="true" />
             Phone
           </button>
         </div>
