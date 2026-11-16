@@ -59,7 +59,7 @@ export default function ScrapbookGalleryPage({ site, basePath }: { site: Site; b
       <div className="sb-fibre" aria-hidden="true" />
       <div className="sb-vignette" aria-hidden="true" />
 
-      <ScrapbookTopBar active="gallery" paths={paths} />
+      <ScrapbookTopBar active="gallery" paths={paths} initials={site.identity.initials} />
 
       <main>
         <section className="sg-head">

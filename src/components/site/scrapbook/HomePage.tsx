@@ -76,12 +76,19 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
       <div className="sb-fibre" aria-hidden="true" />
       <div className="sb-vignette" aria-hidden="true" />
 
-      <ScrapbookTopBar active="home" paths={paths} />
+      <ScrapbookTopBar active="home" paths={paths} initials={site.identity.initials} />
 
       <main>
         <section className="sb-cover">
           <div className="sb-cover-head">
-            <p className="sb-type-small">collected for you · since forever</p>
+            {/*
+              Her name, slotted into the one line on the cover that addresses
+              her. "you" is the fallback, so a site with no name written yet
+              reads as intended rather than as an empty greeting.
+            */}
+            <p className="sb-type-small">
+              collected for {site.identity.name.trim() || "you"} · since forever
+            </p>
             <h1 className="sb-hand-h1 text-slate-500">
               {headline.map((line, i) => (
                 <Fragment key={`${i}-${line}`}>

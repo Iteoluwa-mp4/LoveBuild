@@ -68,6 +68,13 @@ export default function EditorialHomePage({ site, basePath }: { site: Site; base
 
   const person = hasContent(site.editorial.person) ? site.editorial.person : site.identity.name;
 
+  /**
+   * The monogram — "O + Y" — opening the masthead line. It is the imprint a
+   * magazine prints at the head of the page, so it leads the line when there
+   * is one; blank leaves the line exactly as it was, opening with the person.
+   */
+  const mark = site.identity.initials.trim();
+
   useScrollReveal(rootRef, HOME_REVEAL_SELECTOR);
 
   return (
@@ -83,10 +90,14 @@ export default function EditorialHomePage({ site, basePath }: { site: Site; base
       <header className="editorial-cover">
         {/*
           The masthead. The middle two entries are the publication's; the
-          person's name and the link to the figures are the site's.
+          monogram and the person's name and the link to the figures are the
+          site's.
         */}
         <nav className="editorial-nav">
-          <span>{person}</span>
+          <span>
+            {mark ? `${mark} · ` : ""}
+            {person}
+          </span>
           <span>private edition · vol. 01</span>
           <span>{site.slug}</span>
           <a href={paths.gallery}>figures</a>

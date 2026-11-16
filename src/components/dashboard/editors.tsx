@@ -80,6 +80,61 @@ const newId = () =>
     : `id-${Math.random().toString(36).slice(2, 10)}`;
 
 /* ================================================================== *
+ * IDENTITY — shared by every template's editor
+ * ================================================================== */
+
+/**
+ * The two fields every template offers: her name and the monogram.
+ *
+ * Extracted so all three editors ask for them identically — the same paths,
+ * the same placeholders, the same limits — and so a fourth template cannot
+ * ship with one of them missing. This is a contract, not an convenience:
+ * `identity.name` is what a template slots in wherever its copy addresses her,
+ * `identity.initials` ("O + Y") is the mark it prints in the top bar or the
+ * masthead, and a form that does not offer both leaves a value on the page
+ * that nothing can change.
+ *
+ * The *label* on the name varies because the same value plays a different
+ * role: the scrapbook greets her on the cover, the modern puts it under the
+ * headline, the editorial sets it as the issue title. The field, the path and
+ * the placeholder do not vary — they are the same name everywhere.
+ */
+function IdentityFields({
+  draft,
+  nameLabel = "Her name",
+  nameHint,
+}: {
+  draft: DraftSite;
+  /** "Issue title" on the editorial, where the name *is* the cover. */
+  nameLabel?: string;
+  nameHint?: string;
+}) {
+  const site = draft.site;
+  if (!site) return null;
+
+  return (
+    <>
+      <TextField
+        label={nameLabel}
+        value={site.identity.name}
+        onChange={(v) => draft.set("identity.name", v)}
+        placeholder="Her name, or a nickname only she would recognise"
+        hint={nameHint ?? "Wherever the page says her name, this is what it says."}
+        maxLength={120}
+      />
+      <TextField
+        label="Monogram"
+        value={site.identity.initials}
+        onChange={(v) => draft.set("identity.initials", v)}
+        placeholder="O + Y"
+        hint="Her initials and yours, joined with a + — the mark the page prints where a publication would print its imprint. Clear it and the template's own mark comes back."
+        maxLength={12}
+      />
+    </>
+  );
+}
+
+/* ================================================================== *
  * HOME
  * ================================================================== */
 
@@ -95,15 +150,13 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
 
   return (
     <>
-      <Section id={SECTION_ID.identity} title="Site name" hint="Shown in the top-left corner" icon={<FiUser />}>
-        <TextField
-          label="Name"
-          value={site.identity.name}
-          onChange={(v) => draft.set("identity.name", v)}
-          placeholder="Her name, or a nickname only she would recognise"
-          hint="Shown in the corner and in the browser tab."
-          maxLength={120}
-        />
+      <Section
+        id={SECTION_ID.identity}
+        title="Her name and monogram"
+        hint="The name on the cover, the mark in the top bar"
+        icon={<FiUser />}
+      >
+        <IdentityFields draft={draft} />
       </Section>
 
       <Section id={SECTION_ID.hero} title="First impression" hint="The first thing she sees" icon={<FiStar />}>
@@ -1056,13 +1109,10 @@ function EditorialEditor({ draft }: { draft: DraftSite }) {
         hint="The cover title — the first thing she sees"
         icon={<FiStar />}
       >
-        <TextField
-          label="Issue title"
-          value={site.identity.name}
-          onChange={(v) => draft.set("identity.name", v)}
-          placeholder="Her name, or a nickname only she would recognise"
-          hint="Printed across the cover, and in the browser tab."
-          maxLength={120}
+        <IdentityFields
+          draft={draft}
+          nameLabel="Issue title"
+          nameHint="Printed across the cover, and in the browser tab."
         />
         <TextField
           label="Who it is about"
@@ -1135,6 +1185,21 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
 
   return (
     <>
+      {/*
+        First, because it is the value every other section addresses. The
+        modern template prints the name under the headline and in the sphere,
+        and the monogram in the top bar's wordmark — so without this section
+        the form would offer no way to change either.
+      */}
+      <Section
+        id={SECTION_ID.identity}
+        title="Her name and monogram"
+        hint="The name under the headline, the mark in the top bar"
+        icon={<FiUser />}
+      >
+        <IdentityFields draft={draft} />
+      </Section>
+
       <MomentsEditor draft={draft} open={openMoments} modern />
 
       <Section id={SECTION_ID.hero} title="First impression" hint="The first thing she sees" icon={<FiStar />}>

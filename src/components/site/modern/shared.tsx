@@ -116,16 +116,35 @@ export function TopBar({
   active,
   status,
   paths,
+  initials,
 }: {
   active: "home" | "gallery";
   status: string;
   /** Derived in `paths.ts`, never written out here. */
   paths: ModernPaths;
+  /**
+   * The monogram, `identity.initials`. The wordmark is this template's own
+   * mark, so it steps aside only when there is a personal one to print —
+   * blank means "OURS." again, never an empty corner.
+   */
+  initials?: string;
 }) {
+  const mark = initials?.trim();
+
   return (
     <header className="topbar">
-      <a className="wordmark" href={paths.home} aria-label="Ours home">
-        <span>O</span>URS<span className="wordmark-dot">.</span>
+      <a
+        className="wordmark"
+        href={paths.home}
+        aria-label={mark ? `${mark} home` : "Ours home"}
+      >
+        {mark ? (
+          mark
+        ) : (
+          <>
+            <span>O</span>URS<span className="wordmark-dot">.</span>
+          </>
+        )}
       </a>
       <nav className="topnav" aria-label="Sections">
         <a href={paths.home} aria-current={active === "home" ? "page" : undefined}>

@@ -102,6 +102,7 @@ export default function ModernGallery({ site, basePath }: { site: Site; basePath
           active="gallery"
           status={`archive open / ${String(memories.length).padStart(2, "0")} signals`}
           paths={paths}
+          initials={site.identity.initials}
         />
 
       <main id="top">

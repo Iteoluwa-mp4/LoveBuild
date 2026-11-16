@@ -15,6 +15,7 @@ import type { Site } from "../schema";
 describe("isSampleText", () => {
   it("recognises a field still holding its wording", () => {
     expect(isSampleText("identity.name", "Her name")).toBe(true);
+    expect(isSampleText("identity.initials", "O + Y")).toBe(true);
     expect(isSampleText("home.hero.primaryCta", "Open the gallery")).toBe(true);
   });
 
@@ -140,14 +141,30 @@ describe("sampleTextLabel", () => {
   it("splits camelCase on a plain field", () => {
     expect(sampleTextLabel("home.quote.verdictValue")).toBe("Verdict Value");
   });
+
+  it("names the two identity fields the way the form does", () => {
+    // "Name still has our example text" said which field but not whose name;
+    // the form calls them "Her name" and "Monogram", so the list does too.
+    expect(sampleTextLabel("identity.name")).toBe("Her name");
+    expect(sampleTextLabel("identity.initials")).toBe("Monogram");
+  });
 });
 
 describe("findSampleIssues", () => {
   it("gives a readable message and a path to jump to", () => {
     const issues = findSampleIssues(defaultSite());
     const nameIssue = issues.find((i) => i.path === "identity.name");
-    expect(nameIssue?.message).toBe("Name still has our example text");
+    expect(nameIssue?.message).toBe("Her name still has our example text");
     expect(nameIssue?.kind).toBe("sample");
+  });
+
+  it("flags an untouched monogram alongside the name", () => {
+    // Both personal fields are sample-seeded, so an untouched site is nudged
+    // about both — and `identity.*` jumps to whichever section is on screen.
+    const issues = findSampleIssues(defaultSite());
+    const markIssue = issues.find((i) => i.path === "identity.initials");
+    expect(markIssue?.message).toBe("Monogram still has our example text");
+    expect(markIssue?.kind).toBe("sample");
   });
 
   it("is empty for a blank site", () => {

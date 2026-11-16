@@ -44,6 +44,9 @@ export default function EditorialGalleryPage({ site, basePath }: { site: Site; b
 
   const person = hasContent(site.editorial.person) ? site.editorial.person : site.identity.name;
 
+  /** The monogram, opening the masthead line — see the cover page's note. */
+  const mark = site.identity.initials.trim();
+
   useScrollReveal(rootRef, GALLERY_REVEAL_SELECTOR);
 
   return (
@@ -58,7 +61,10 @@ export default function EditorialGalleryPage({ site, basePath }: { site: Site; b
 
       <header className="editorial-cover editorial-cover-figures">
         <nav className="editorial-nav">
-          <span>{person}</span>
+          <span>
+            {mark ? `${mark} · ` : ""}
+            {person}
+          </span>
           <span>figures &amp; credits</span>
           <a href={paths.home}>back to the issue</a>
         </nav>

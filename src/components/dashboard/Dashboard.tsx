@@ -476,6 +476,7 @@ export default function Dashboard() {
             title="Template"
             hint="The layout of the whole site"
             icon={<FiLayout />}
+            defaultOpen = {true}
           >
             <TemplatePicker
               value={site.template}

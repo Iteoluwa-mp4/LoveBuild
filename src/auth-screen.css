@@ -532,6 +532,31 @@
   font-size: 10px;
 }
 
+/* The sign-up acknowledgement, directly above the button it applies to. It
+   opens the same dialog as the footer link — one policy, two ways in. */
+.auth-screen .auth-consent {
+  margin: 18px 0 -18px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.auth-screen .auth-consent button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--magenta);
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-screen .auth-consent button:hover {
+  color: var(--pink);
+}
+
 .auth-screen .primary-button {
   display: flex;
   justify-content: space-between;
@@ -628,6 +653,171 @@
   letter-spacing: 0.1em;
 }
 
+/* The footer's way into the policy. Inherits the footer's mono/uppercase
+   treatment; the underline is what says it is a link rather than chrome. */
+.auth-screen .auth-privacy-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(181, 162, 167, 0.55);
+}
+
+.auth-screen .auth-privacy-link:hover {
+  color: var(--magenta);
+}
+
+/* --- Privacy policy dialog --- */
+
+.auth-screen .privacy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 4vw, 40px);
+  background: rgba(48, 32, 41, 0.55);
+  animation: privacy-fade 0.2s ease both;
+}
+
+.auth-screen .privacy-card {
+  width: min(560px, 100%);
+  max-height: min(80svh, 720px);
+  overflow-y: auto;
+  /* A scroll that reaches the end of the card must not chain to the page
+     behind it — the reader is inside the policy, not past it. */
+  overscroll-behavior: contain;
+  padding: clamp(24px, 5vw, 38px);
+  border: 1px solid #f0e6e5;
+  border-radius: 6px;
+  background: var(--cream);
+  box-shadow: 0 30px 80px rgba(48, 32, 41, 0.35);
+  animation: privacy-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-screen .privacy-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.auth-screen .privacy-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font: 9px "DM Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.auth-screen .privacy-draft {
+  padding: 3px 7px;
+  border: 1px solid rgba(242, 86, 131, 0.4);
+  border-radius: 3px;
+  background: rgba(242, 86, 131, 0.08);
+  color: var(--magenta);
+}
+
+.auth-screen .privacy-card h2 {
+  margin: 8px 0 0;
+  font-size: clamp(22px, 4vw, 28px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.auth-screen .privacy-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e7dadd;
+  border-radius: 3px;
+  background: #fff;
+  color: #5d4651;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.auth-screen .privacy-close:hover {
+  border-color: var(--pink);
+  color: var(--magenta);
+}
+
+.auth-screen .privacy-intro {
+  margin: 16px 0 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0e6e5;
+  color: #5d4651;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.auth-screen .privacy-card h3 {
+  margin: 22px 0 6px;
+  color: var(--ink);
+  font: 600 11px "DM Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.auth-screen .privacy-card section p {
+  margin: 0 0 8px;
+  color: #5d4651;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.auth-screen .privacy-card section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.auth-screen .privacy-card section li {
+  margin: 0 0 6px;
+  color: #5d4651;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.auth-screen .privacy-card section li::marker {
+  color: var(--pink);
+}
+
+.auth-screen .privacy-updated {
+  margin: 26px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid #f0e6e5;
+  color: var(--muted);
+  font: 9px "DM Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@keyframes privacy-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes privacy-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
 @media (max-width: 800px) {
   .auth-screen {
     padding: 0;
@@ -699,6 +889,12 @@
 
   .auth-screen .auth-footer {
     padding: 18px 24px;
+    /* Three items now (the policy link joined them), too wide for a small
+       phone on one line — wrap to a centred stack rather than overflow. */
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 16px;
+    text-align: center;
   }
 }
 
@@ -707,5 +903,6 @@
   .auth-screen *::before,
   .auth-screen *::after {
     transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

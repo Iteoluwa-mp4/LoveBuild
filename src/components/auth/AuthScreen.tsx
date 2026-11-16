@@ -44,6 +44,9 @@ export default function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
+  /** The privacy policy dialog. One source for both ways in: the footer link
+   *  and the consent line under the sign-up form. */
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   /**
    * `createUserWithEmailAndPassword` signs the new account in immediately, so
    * the session subscription reports success while the display name and the
@@ -363,6 +366,16 @@ export default function AuthScreen() {
                 </p>
               )}
 
+              {creating && (
+                <p className="auth-consent">
+                  By creating an account you agree to our{" "}
+                  <button type="button" onClick={() => setPrivacyOpen(true)}>
+                    privacy policy
+                  </button>
+                  .
+                </p>
+              )}
+
               <button className="primary-button" type="submit" disabled={disabled}>
                 {busy === "email"
                   ? creating
@@ -392,13 +405,244 @@ export default function AuthScreen() {
 
           <footer className="auth-footer">
             <span>made for the soft-hearted</span>
+            <button type="button" className="auth-privacy-link" onClick={() => setPrivacyOpen(true)}>
+              privacy policy
+            </button>
             <span>© 2026 LoveBuilds</span>
           </footer>
         </div>
       </section>
+
+      <PrivacyPolicy open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </main>
   );
 }
+
+/**
+ * The privacy policy, as a dialog on the front door rather than a route.
+ *
+ * It lives on this page — not at `/privacy` — because this is the only page
+ * that needs it: someone reading it is about to hand over an email address,
+ * and sending them to another route to find out what happens to it is the
+ * wrong order. A dialog also keeps the answer one tap away from the field it
+ * applies to, in both modes of this screen.
+ *
+ * The copy is a draft and says so in the card. LoveBuilds is still being
+ * built; a policy that pretends to be final is worse than one that shows when
+ * it was written.
+ *
+ * Focus behaviour is the small honest version of a modal: focus moves to the
+ * close button, Tab cycles inside the card, Escape and the backdrop close it,
+ * and focus returns to whatever opened it.
+ */
+function PrivacyPolicy({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  /**
+   * The latest `onClose`, read from inside the keydown listener.
+   *
+   * Held in a ref so the effect below depends only on `open`: the parent
+   * re-renders on every keystroke in the form behind the dialog, and an effect
+   * keyed on an inline arrow would re-run — yanking focus back to the close
+   * button — for every character typed.
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previous = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const card = cardRef.current;
+      if (!card) return;
+      const focusable = card.querySelectorAll<HTMLElement>("button, a[href]");
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      // Past either edge, wrap to the other side: Tab cannot walk out of the
+      // card and into the form sitting behind the backdrop.
+      if (event.shiftKey && (active === first || !card.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !card.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previous?.focus();
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="privacy-overlay"
+      onMouseDown={(event) => {
+        // mousedown rather than click: a text selection that starts inside the
+        // card and ends on the backdrop must not close the policy mid-read.
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="privacy-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="privacy-title"
+        ref={cardRef}
+      >
+        <div className="privacy-head">
+          <div>
+            <p className="privacy-kicker">
+              <span className="privacy-draft">draft</span>
+              lovebuilds · privacy
+            </p>
+            <h2 id="privacy-title">Your privacy, in plain words.</h2>
+          </div>
+          <button
+            type="button"
+            className="privacy-close"
+            onClick={onClose}
+            aria-label="Close privacy policy"
+            ref={closeRef}
+          >
+            ✕
+          </button>
+        </div>
+
+        <p className="privacy-intro">
+          LoveBuilds keeps stories between the people they are for. This is a draft of
+          how it handles that — written while the product is still being built, and it
+          will be reviewed again before launch.
+        </p>
+
+        {PRIVACY_SECTIONS.map((section) => (
+          <section key={section.heading}>
+            <h3>{section.heading}</h3>
+            {section.paragraphs?.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+            {section.points && (
+              <ul>
+                {section.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ))}
+
+        <p className="privacy-updated">last updated 16 november 2026 · draft</p>
+      </div>
+    </div>
+  );
+}
+
+type PolicySection = {
+  heading: string;
+  paragraphs?: string[];
+  points?: string[];
+};
+
+/**
+ * The draft policy itself.
+ *
+ * Data rather than markup, so the wording can be reviewed and replaced in one
+ * place — this is the text a lawyer will eventually read, and it should not be
+ * buried inside JSX. Everything here describes what the app *does* today:
+ * Firebase Authentication, Cloudinary for media, the Neon database behind the
+ * same-origin `/api` route, and browser storage for drafts. It also states the
+ * absences that matter — no advertising, no analytics — because leaving those
+ * unspoken would be its own kind of lie.
+ */
+const PRIVACY_SECTIONS: PolicySection[] = [
+  {
+    heading: "What we collect",
+    paragraphs: [
+      "Your account: the email address you sign up with, the display name you choose, and your password. The password is held by Firebase Authentication — we never see it in plain text.",
+    ],
+    points: [
+      "Google sign-in shares your name, email address and profile picture from Google.",
+      "What you make: the sites you write — copy, photographs and videos you upload — plus the small drafts the editor keeps so a refresh does not lose your work.",
+    ],
+  },
+  {
+    heading: "How it is used",
+    paragraphs: [
+      "To run LoveBuilds: sign you in, save your sites, show your previews, publish what you choose to publish, and send a password reset when you ask for one.",
+      "And for nothing else. No advertising, no third-party analytics or tracking pixels, and your content is never sold.",
+    ],
+  },
+  {
+    heading: "What is public",
+    paragraphs: [
+      "Publishing puts a site at its link, where anyone with the link can read it — that is the point of publishing. Drafts are never public.",
+    ],
+  },
+  {
+    heading: "Where it is kept",
+    points: [
+      "Accounts and sessions: Firebase, on Google Cloud.",
+      "Photographs and videos: Cloudinary, served from its CDN.",
+      "Your sites: our database, reached through this app's own API — or this browser's local storage in a development build with no backend configured.",
+    ],
+  },
+  {
+    heading: "Cookies",
+    paragraphs: [
+      "No advertising cookies. Firebase uses browser storage to keep you signed in, and the editor uses session storage to carry a draft between views. That is the whole list.",
+    ],
+  },
+  {
+    heading: "Sharing",
+    paragraphs: [
+      "Only with the services named above, and only as far as running LoveBuilds requires — or where the law requires it.",
+    ],
+  },
+  {
+    heading: "Keeping and deleting",
+    paragraphs: [
+      "Your account and its content are kept for as long as the account exists. Want everything gone? Ask, and the account and everything saved to it will be deleted.",
+    ],
+  },
+  {
+    heading: "Children",
+    paragraphs: [
+      "LoveBuilds is not directed at children under 13, and we do not knowingly collect their information.",
+    ],
+  },
+  {
+    heading: "Changes",
+    paragraphs: [
+      "This is a draft, so expect edits before launch. When it changes for real, the date at the bottom moves with it.",
+    ],
+  },
+  {
+    heading: "Contact",
+    paragraphs: [
+      "Questions, or a request to delete everything: hello@lovebuilds.example — a placeholder address while this policy is a draft.",
+    ],
+  },
+];
 
 /** The poster-shaped half. Decorative, so it is hidden from assistive tech. */
 function FilmIllustration() {

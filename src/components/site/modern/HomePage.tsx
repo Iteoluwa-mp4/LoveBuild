@@ -119,7 +119,7 @@ export default function ModernTemplate({ site, basePath }: { site: Site; basePat
     <div ref={rootRef} className="site-shell">
       <AmbientField />
       <div className="grain" />
-      <TopBar active="home" status="transmission private / 01" paths={paths} />
+      <TopBar active="home" status="transmission private / 01" paths={paths} initials={site.identity.initials} />
 
       <main id="top">
         <section ref={heroRef} className="hero-section">

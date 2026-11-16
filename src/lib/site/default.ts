@@ -82,7 +82,13 @@ export function sample(): Site {
     slug: SEED_SLUG,
     theme: defaultThemeId,
 
-    identity: { name: "Her name" },
+    /*
+      Both personal fields, seeded. The name is the greeting every template
+      slots in wherever it addresses her; the monogram is the mark in the top
+      bar. "O + Y" is as arbitrary as "Her name" is — it is example wording,
+      and `findSampleText` flags both until they are replaced.
+    */
+    identity: { name: "Her name", initials: "O + Y" },
 
     home: {
       hero: {
@@ -471,6 +477,8 @@ export function findSampleText(site: Site): string[] {
  * "caption still has our example text" with no indication which one.
  */
 const SAMPLE_LABELS: Record<string, string> = {
+  "identity.name": "Her name",
+  "identity.initials": "Monogram",
   "home.hero.lines.0": "Headline, line 1",
   "home.hero.lines.1": "Headline, line 2",
   "home.hero.lines.2": "Headline, line 3",

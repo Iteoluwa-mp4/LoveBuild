@@ -94,6 +94,44 @@ The rules:
 
 ---
 
+## 0c. The contract: her name and the monogram
+
+Two values belong to *her*, not to any one layout, so every template has to
+offer both and slot them in:
+
+| Field | What it is | Where it goes |
+|---|---|---|
+| `identity.name` | Her name — what the copy calls her | Wherever the page addresses her: the modern's hero meta and sphere, the editorial's issue title, the scrapbook's cover greeting |
+| `identity.initials` | The monogram — `O + Y` | Wherever the page prints a short mark: the top bar's wordmark, the masthead line |
+
+The rules:
+
+- **Offer both in the editor, always.** Use `IdentityFields` from
+  `editors.tsx` — the same paths, placeholders and limits on every template —
+  wrapped in the template's own `Section`. The *label* on the name may vary
+  (`"Issue title"` on the editorial, where the name is the cover); the field
+  does not. A form that cannot change a value the page prints is the §0
+  defect one level down.
+- **Slot them in wherever the design has a natural home for them**, and say
+  where in the section hint. The name greets her where the copy addresses
+  her; the monogram takes the place of the template's own short mark.
+- **Blank falls back to the template's designed default, never to nothing.**
+  Clearing the monogram brings back `OURS.` / `ours` / the slug, and clearing
+  the name degrades to the greeting the template shipped with. An empty
+  corner where a mark belongs is a rendering bug, not a fallback.
+- **One field each, shared by every template** — never a per-template copy.
+  Two lists of her name would disagree the moment one was edited, which is
+  the same reasoning as one list of photographs (§1).
+- Both are sample-seeded (`"Her name"`, `"O + Y"`), so `findSampleText`
+  flags them until they are replaced, and `identity.*` paths jump to the
+  section that owns them through the existing `SECTION_BY_PATH` entry —
+  no jump wiring needed for a new field under `identity.*`.
+- A page with no natural home for the monogram does not invent one; it
+  simply does not print it. The *option* exists on every template either
+  way, because the field is shared and the form is not.
+
+---
+
 ## 1. Schema and defaults
 
 - `src/lib/site/schema.ts`
@@ -210,4 +248,7 @@ Then: `npm run typecheck`, `npm run lint`, `npm test`.
 6. Click every button that opens something — a note, a panel, a photograph,
    an expanded row — on the home page and the gallery. Each reveal comes
    into view (§0b).
-7. Publish, open `/s/:slug` → the published page matches the preview.
+7. Type a name and a monogram (`O + Y`) → both appear where §0c promises:
+   the greeting in the copy and the mark in the top bar or masthead. Clear
+   them → the template's own mark comes back, never an empty corner.
+8. Publish, open `/s/:slug` → the published page matches the preview.

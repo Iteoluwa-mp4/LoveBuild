@@ -430,11 +430,29 @@ export const siteSchema = z.object({
   /** Which template renders the site. Independent of `theme`. */
   template: templateSchema,
 
-  /** Only the site name lives here. Nav labels are chrome and belong to the
-   *  components, not the config. */
+  /**
+   * Who the site is for, in the two forms every template has a place for.
+   *
+   * `name` is her name — the value each template slots in wherever its copy
+   * addresses her (the cover greeting, the hero meta, the issue title).
+   * `initials` is the monogram, "O + Y", the short mark a page prints where a
+   * publication would print its imprint: the top bar, the masthead. One field
+   * rather than one per template, so a template switch cannot leave two
+   * versions of her name disagreeing about who this is for.
+   *
+   * Both are optional in the schema and sample-seeded in `default.ts`, so a
+   * draft has something to look at and `findSampleText` flags what has not
+   * been replaced. A blank value is meaningful rather than an error: each
+   * template falls back to its own designed default, so clearing the monogram
+   * brings back the wordmark it shipped with instead of printing nothing.
+   *
+   * Nav labels remain chrome and belong to the components, not the config.
+   */
   identity: z
     .object({
       name: z.string().max(60).default(""),
+      /** The couple's monogram, e.g. "O + Y". Empty falls back per template. */
+      initials: z.string().max(12).default(""),
     })
     .prefault({}),
 

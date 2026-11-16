@@ -22,15 +22,22 @@ export type { ScrapbookMemory };
 export function ScrapbookTopBar({
   active,
   paths,
+  initials,
 }: {
   active: "home" | "gallery";
   paths: ScrapbookPaths;
+  /**
+   * The monogram, `identity.initials`. This template's mark is the word
+   * "ours" written out by hand, and it is what shows when there is no
+   * monogram to print — a blank field must not leave the corner empty.
+   */
+  initials?: string;
 }) {
   return (
     <header className="sb-topbar">
       <a className="sb-mark" href={paths.home}>
         <span className="sb-mark-dot" />
-        ours
+        {initials?.trim() || "ours"}
       </a>
 
       <nav className="sb-nav" aria-label="Sections">
