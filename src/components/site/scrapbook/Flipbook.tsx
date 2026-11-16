@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ScrapbookMemory } from "./shared";
+import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
 
 /**
  * A flipbook.
@@ -131,6 +132,16 @@ export default function Flipbook({
     startedAt: number;
     active: boolean;
   } | null>(null);
+
+  /*
+    Armed with `nearest`, because the book is a fixed widget the reader is
+    already looking at: opening the cover and turning a leaf change `leaf`,
+    the scroll runs, and it does nothing unless the book has somehow ended up
+    out of view. What it guarantees is that "open me →" never reveals a book
+    below the fold — and the pick that opens the big panel below is handled
+    by the gallery page that owns that panel.
+  */
+  useScrollToReveal(closed ? null : leaf, bookRef, { block: "nearest" });
 
   /** `leaf` mirrored into a ref so handlers and the walk can read it without waiting for a render. */
   const leafRef = useRef(0);

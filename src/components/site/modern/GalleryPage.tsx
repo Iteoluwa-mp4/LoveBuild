@@ -16,6 +16,7 @@ import { modernPaths } from "./paths";
 import { modernMemories } from "../../../lib/site/derive";
 import { cssColorNumber } from "../classic/ornaments/themeColor";
 import type { Site } from "../../../lib/site/schema";
+import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -36,7 +37,17 @@ gsap.registerPlugin(ScrollTrigger);
  */
 export default function ModernGallery({ site, basePath }: { site: Site; basePath: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const detailRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState<number | null>(null);
+
+  /*
+    The detail renders after the whole index, so picking the second row of
+    twenty puts what was asked for a screen below the click. The trigger is
+    `active` rather than a boolean: it changes for every row, and each pick is
+    a destination of its own. Null — nothing picked — does not scroll, so the
+    first paint of the page stays where it is.
+  */
+  useScrollToReveal(active, detailRef);
 
   // The site's own moments, so this archive and the home page's strip are the
   // same photographs in two arrangements.
@@ -196,7 +207,7 @@ export default function ModernGallery({ site, basePath }: { site: Site; basePath
         </section>
 
         {current && (
-          <section className="memory-detail" aria-live="polite">
+          <section ref={detailRef} className="memory-detail" aria-live="polite">
             <figure>
               <img src={current.image} alt={current.caption} />
               <figcaption>

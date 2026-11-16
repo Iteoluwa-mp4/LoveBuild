@@ -30,7 +30,7 @@
  * modern one's.
  */
 export const SECTION_ID = {
-  /** "Site name" on the standard form, "The masthead" on the editorial. */
+  /** "Site name" on the standard form, "First impression" on the editorial. */
   identity: "section-identity",
   /** "First impression" — the hero, whichever template is selected. */
   hero: "section-hero",

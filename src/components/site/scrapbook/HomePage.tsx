@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 
 import type { Site } from "../../../lib/site/schema";
 
@@ -11,6 +11,7 @@ import {
 } from "./shared";
 import { scrapbookPaths } from "./paths";
 import { scrapbookMemories } from "../../../lib/site/derive";
+import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
 
 /**
  * The scrapbook template's cover.
@@ -27,6 +28,16 @@ import { scrapbookMemories } from "../../../lib/site/derive";
  */
 export default function ScrapbookHomePage({ site, basePath }: { site: Site; basePath: string }) {
   const [openNote, setOpenNote] = useState<number | null>(null);
+  const readRef = useRef<HTMLDivElement>(null);
+
+  /*
+    The note mounts under the strip of chips, which is usually near the bottom
+    of what the reader can see. The trigger is the index itself, not a boolean:
+    `0` is the first chip and must count as open, and moving from one note to
+    the next changes it again — the panel is the same element, but the reader
+    asked twice and should be taken to it twice.
+  */
+  useScrollToReveal(openNote, readRef);
   const paths = useMemo(() => scrapbookPaths(basePath), [basePath]);
 
   /**
@@ -40,6 +51,26 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
   /** The four photos shown on the cover. */
   const cover = useMemo(() => memories.slice(0, 4), [memories]);
 
+  /**
+   * The cover headline, from `home.hero.lines` — the same three fields as the
+   * "First impression" section of the form.
+   *
+   * This was hardcoded as "things I meant / to keep", which meant the section
+   * titled "First impression" edited three lines that appeared nowhere on the
+   * page while the page's own heading could not be edited at all. One source,
+   * so what the form says is what the cover says.
+   *
+   * Blank lines are dropped rather than rendered as empty ones — the same
+   * "leave blank for a shorter headline" rule the other templates follow — and
+   * an entirely empty section falls back to the original words, so clearing the
+   * field degrades to the heading this template shipped with instead of an
+   * empty cover.
+   */
+  const headline = useMemo(() => {
+    const lines = site.home.hero.lines.map((line) => line.trim()).filter(Boolean);
+    return lines.length > 0 ? lines : ["things I meant", "to keep"];
+  }, [site.home.hero.lines]);
+
   return (
     <div className="sb-shell">
       <div className="sb-fibre" aria-hidden="true" />
@@ -52,9 +83,12 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
           <div className="sb-cover-head">
             <p className="sb-type-small">collected for you · since forever</p>
             <h1 className="sb-hand-h1 text-slate-500">
-              things I meant
-              <br />
-              to keep
+              {headline.map((line, i) => (
+                <Fragment key={`${i}-${line}`}>
+                  {i > 0 && <br />}
+                  {line}
+                </Fragment>
+              ))}
             </h1>
             <span className="sb-stamp sb-stamp-cover">keep this one</span>
           </div>
@@ -133,7 +167,7 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
             left the panel dereferencing a position that no longer exists.
           */}
           {openNote !== null && memories[openNote] && (
-            <div className="sb-read" aria-live="polite">
+            <div ref={readRef} className="sb-read" aria-live="polite">
               <p className="sb-type-small">{memories[openNote].date}</p>
               <p className="sb-read-note sb-hand">{memories[openNote].note}</p>
               <button

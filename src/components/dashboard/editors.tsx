@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import {
   FiArchive,
-  FiBookOpen,
   FiCamera,
   FiFeather,
   FiFilm,
@@ -1043,11 +1042,19 @@ function EditorialEditor({ draft }: { draft: DraftSite }) {
 
   return (
     <>
+      {/*
+        "First impression" here too, and deliberately so: the cover title this
+        section edits *is* the first thing a visitor reads on this template,
+        exactly as `home.hero.lines` is on the scrapbook and `modern.hero.lines`
+        on the modern. The id stays `identity` because that is what the jumps
+        point at — only the name changed, so a jump to the issue title still
+        lands on the field that holds it.
+      */}
       <Section
         id={SECTION_ID.identity}
-        title="The masthead"
-        hint="The name of the whole issue"
-        icon={<FiBookOpen />}
+        title="First impression"
+        hint="The cover title — the first thing she sees"
+        icon={<FiStar />}
       >
         <TextField
           label="Issue title"

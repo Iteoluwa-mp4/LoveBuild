@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { Site } from "../../../lib/site/schema";
 
@@ -12,6 +12,7 @@ import {
 } from "./shared";
 import { scrapbookPaths } from "./paths";
 import { scrapbookMemories } from "../../../lib/site/derive";
+import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
 
 /**
  * The scrapbook template's album.
@@ -43,6 +44,15 @@ export default function ScrapbookGalleryPage({ site, basePath }: { site: Site; b
   */
   const [shownIndex, setShownIndex] = useState<number | null>(null);
   const shown = shownIndex !== null ? (memories[shownIndex] ?? null) : null;
+  const detailRef = useRef<HTMLElement>(null);
+
+  /*
+    The panel is deliberately below the book rather than over it — which means
+    picking a photograph from the middle of a spread puts the thing that was
+    asked for under the fold. Same rule as the cover's note: the index is the
+    trigger, so `0` counts as open and every later pick scrolls again.
+  */
+  useScrollToReveal(shownIndex, detailRef);
 
   return (
     <div className="sb-shell">
@@ -73,7 +83,7 @@ export default function ScrapbookGalleryPage({ site, basePath }: { site: Site; b
         {/* The selected photograph, outside the book so a turn never competes
             with a panel opening underneath it. */}
         {shown && (
-          <section className="sg-detail" aria-live="polite">
+          <section ref={detailRef} className="sg-detail" aria-live="polite">
             <button
               type="button"
               className="sg-detail-close"

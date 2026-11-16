@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ModernMemory } from "../../../lib/site/derive";
 import { MODERN_STRIP_CSS } from "./strip-css";
+import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
 
 /**
  * The photo strip: a row of narrow vertical slices, one in focus.
@@ -85,6 +86,7 @@ export default function PhotoStrip({
 
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
+  const captionRef = useRef<HTMLDivElement>(null);
 
   const count = memories.length;
 
@@ -135,6 +137,18 @@ export default function PhotoStrip({
    * fighting you.
    */
   const [tick, setTick] = useState(0);
+
+  /*
+    `null` until the reader picks a slice. The auto-advance writes `chosen`
+    directly and never calls `select`, so this changes only on a deliberate
+    click or keypress — a strip that scrolled the page by itself every three
+    seconds would be unusable. `nearest` because the caption sits directly
+    under the strip the reader is already looking at: it moves only if the
+    caption has ended up off screen.
+  */
+  const picked = tick === 0 ? null : tick;
+  useScrollToReveal(picked, captionRef, { block: "nearest" });
+
   useEffect(() => {
     if (paused || hidden || count <= 1) return;
     if (prefersReducedMotion()) return;
@@ -245,7 +259,7 @@ export default function PhotoStrip({
         for a screen reader it is the only thing that says which photograph is
         selected, since the slices themselves are images with no alt text.
       */}
-      <div className="strip-caption" aria-live="polite">
+      <div ref={captionRef} className="strip-caption" aria-live="polite">
         <strong>{current.label}</strong>
         <span>{current.caption}</span>
       </div>

@@ -16,6 +16,7 @@ import { modernPaths } from "./paths";
 import { modernMemories } from "../../../lib/site/derive";
 import { cssColorNumber } from "../classic/ornaments/themeColor";
 import type { Site } from "../../../lib/site/schema";
+import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -31,7 +32,15 @@ gsap.registerPlugin(ScrollTrigger);
 export default function ModernTemplate({ site, basePath }: { site: Site; basePath: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
+  const letterRef = useRef<HTMLElement>(null);
   const [opened, setOpened] = useState(false);
+
+  /*
+    The note opens *below* a hero that fills the viewport, so without this the
+    reader taps "Open your note", the panel unrolls under the fold, and nothing
+    on screen appears to have happened.
+  */
+  useScrollToReveal(opened, letterRef);
 
   // Keyed on the moments rather than on `site`, because the template renders one
   // moment list and nothing else on this page derives from the config object.
@@ -203,6 +212,7 @@ export default function ModernTemplate({ site, basePath }: { site: Site; basePat
         </section>
 
         <section
+          ref={letterRef}
           className={`letter-panel ${opened ? "is-open" : ""}`}
           aria-live="polite"
         >
