@@ -176,7 +176,10 @@ const homeSchema = z
         subline: z.string().max(300).default(""),
         /** Label only. The target is derived: primary opens the gallery. */
         primaryCta: z.string().max(60).default(""),
-        /** Label only. The target is derived: secondary jumps to #moments. */
+        /**
+         * Label only. The target is derived: secondary jumps to the template's
+         * moments section — the album on the scrapbook.
+         */
         secondaryCta: z.string().max(60).default(""),
       })
       .prefault({}),

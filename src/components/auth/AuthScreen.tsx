@@ -1,8 +1,9 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 
 import { useSession } from "../../hooks/useSession";
+import { CONTACT } from "../../lib/contact";
 import { FALLBACK_AUTH_ERROR } from "../../lib/site/authMessage";
 import {
   MIN_PASSWORD_LENGTH,
@@ -405,9 +406,19 @@ export default function AuthScreen() {
 
           <footer className="auth-footer">
             <span>made for the soft-hearted</span>
-            <button type="button" className="auth-privacy-link" onClick={() => setPrivacyOpen(true)}>
-              privacy policy
-            </button>
+            {/*
+              The footer's two links travel as a pair: `space-between` would
+              otherwise push them to opposite ends of the bar, and privacy and
+              contact are the same kind of errand.
+            */}
+            <span className="auth-footer-links">
+              <button type="button" className="auth-privacy-link" onClick={() => setPrivacyOpen(true)}>
+                privacy policy
+              </button>
+              <Link className="auth-privacy-link" to="/contact">
+                contact
+              </Link>
+            </span>
             <span>© 2026 LoveBuilds</span>
           </footer>
         </div>
@@ -621,7 +632,7 @@ const PRIVACY_SECTIONS: PolicySection[] = [
   {
     heading: "Keeping and deleting",
     paragraphs: [
-      "Your account and its content are kept for as long as the account exists. Want everything gone? Ask, and the account and everything saved to it will be deleted.",
+      "Your account and its content are kept for as long as the account exists. Want everything gone? Delete it yourself from the profile page — the account, its sites and their public links all go with it — or ask, and we will delete it for you.",
     ],
   },
   {
@@ -639,13 +650,13 @@ const PRIVACY_SECTIONS: PolicySection[] = [
   {
     heading: "Contact",
     paragraphs: [
-      "Questions, or a request to delete everything: hello@lovebuilds.example — a placeholder address while this policy is a draft.",
+      `Questions, or a request to delete everything: ${CONTACT.email}.`,
     ],
   },
 ];
 
 /** The poster-shaped half. Decorative, so it is hidden from assistive tech. */
-function FilmIllustration() {
+export function FilmIllustration() {
   return (
     <div className="auth-art" aria-hidden="true">
       <div className="auth-art-grid" />

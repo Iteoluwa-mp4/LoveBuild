@@ -1,6 +1,10 @@
 import {
+  EmailAuthProvider,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
+  deleteUser,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -10,7 +14,7 @@ import {
   updateProfile,
 } from "firebase/auth";
 
-import { describeAuthError, isCancellation } from "./authMessage";
+import { FALLBACK_AUTH_ERROR, describeAuthError, isCancellation } from "./authMessage";
 import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 
 /**
@@ -206,6 +210,120 @@ export async function resendVerification(): Promise<AuthResult> {
     return { ok: true };
   } catch (cause) {
     return failure(cause);
+  }
+}
+
+/**
+ * Re-prove ownership of the signed-in account without ending the session.
+ *
+ * This is the confirmation step of account deletion, and it runs *before* any
+ * data is touched — so a wrong password or a closed window costs nothing.
+ * It is also what makes Firebase allow the deletion at all: `deleteUser`
+ * refuses from a session that has not authenticated recently, and rather than
+ * hoping the threshold passes, asking here makes the outcome deterministic.
+ *
+ * Password accounts need `password`. Google accounts open the popup and ignore
+ * it. Any other provider has nothing we can re-prove from this side and passes
+ * through; if Firebase still wants a fresh login, `removeAccount` reports that
+ * after the data is gone, which is recoverable rather than silent.
+ */
+export async function reauthenticate(password?: string): Promise<AuthResult> {
+  const auth = getFirebaseAuth();
+  const user = auth?.currentUser;
+  if (!auth || !user) return { ok: false, message: "Sign in first." };
+
+  const google = user.providerData.some((entry) => entry.providerId === "google.com");
+  if (google) {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    try {
+      await reauthenticateWithPopup(user, provider);
+      return { ok: true };
+    } catch (cause) {
+      /*
+        No redirect fallback here, unlike sign-in. A redirect abandons the
+        delete flow mid-flight and returns to a page that has forgotten what
+        it was doing, so this path says what happened instead.
+      */
+      return reauthFailure(cause);
+    }
+  }
+
+  const passwordAccount = user.providerData.some((entry) => entry.providerId === "password");
+  if (!passwordAccount) return { ok: true };
+  if (!password) {
+    return { ok: false, message: "Enter your password to confirm. Nothing has been deleted." };
+  }
+  if (!user.email) {
+    return { ok: false, message: "This account has no email address to confirm with." };
+  }
+
+  try {
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+    return { ok: true };
+  } catch (cause) {
+    return reauthFailure(cause);
+  }
+}
+
+/**
+ * A failed re-authentication, in the context this flow needs.
+ *
+ * The sign-in copy is deliberately generic — it must not reveal whether an
+ * account exists. Here the person is already signed in, so "that email and
+ * password don't match" would be strange; the password is the only thing
+ * being checked, and saying so is both true and kinder. Every message ends
+ * by stating that nothing was deleted, because that is the fact someone
+ * most wants at this moment.
+ */
+function reauthFailure(cause: unknown): AuthResult {
+  const code = readCode(cause);
+  if (isCancellation(code)) return { ok: false, message: "", cancelled: true };
+
+  const detail =
+    code === "auth/wrong-password" || code === "auth/invalid-credential"
+      ? "That password didn't match."
+      : describeAuthError(code) === FALLBACK_AUTH_ERROR
+        ? "Couldn't confirm it's you."
+        : describeAuthError(code);
+
+  return { ok: false, message: `${detail} Nothing has been deleted.` };
+}
+
+/**
+ * Delete the signed-in identity itself.
+ *
+ * Call this only once the account's data is already gone. Every failure
+ * message therefore opens by stating that state — the sites are deleted, the
+ * account is not — instead of pretending nothing has happened, and the
+ * recovery path for Firebase's recent-login demand is spelled out rather than
+ * left as a code.
+ */
+export async function removeAccount(): Promise<AuthResult> {
+  const user = getFirebaseAuth()?.currentUser;
+  if (!user) {
+    return {
+      ok: false,
+      message: "Your sites are already deleted, but this session has ended. Sign in again to delete the account.",
+    };
+  }
+
+  try {
+    await deleteUser(user);
+    return { ok: true };
+  } catch (cause) {
+    const code = readCode(cause);
+    const detail =
+      code === "auth/requires-recent-login"
+        ? "Sign out, sign back in, and delete the account again to finish."
+        : describeAuthError(code) === FALLBACK_AUTH_ERROR
+          ? "Try again."
+          : describeAuthError(code);
+
+    return {
+      ok: false,
+      message: `Your sites are already deleted — the account is still here. ${detail}`,
+    };
   }
 }
 

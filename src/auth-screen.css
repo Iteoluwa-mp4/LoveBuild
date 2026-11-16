@@ -673,6 +673,53 @@
   color: var(--magenta);
 }
 
+/* The footer's two links travel as a pair — `space-between` would push
+   privacy and contact to opposite ends of the bar. */
+.auth-screen .auth-footer-links {
+  display: flex;
+  gap: 16px;
+}
+
+/* --- Contact page --- */
+
+.auth-screen .contact-list {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-screen .contact-block {
+  padding: 16px 18px;
+  border: 1px solid #f0e6e5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.auth-screen .contact-label {
+  margin: 0 0 8px;
+  color: #b5a2a7;
+  font: 9px "DM Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.auth-screen .contact-block a {
+  display: block;
+  color: var(--magenta);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  /* The email is longer than the panel is wide at narrow sizes. */
+  overflow-wrap: anywhere;
+}
+
+.auth-screen .contact-block a + a {
+  margin-top: 6px;
+}
+
+.auth-screen .contact-block a:hover {
+  color: var(--pink);
+}
+
 /* --- Privacy policy dialog --- */
 
 .auth-screen .privacy-overlay {

@@ -178,6 +178,22 @@ export function createApp({
     return c.body(null, 204);
   });
 
+  /**
+   * Everything the account owns in this database, in one query.
+   *
+   * Step two of account deletion, called by the browser while the Firebase
+   * session is still alive. The identity itself lives in Firebase and is
+   * deleted by the client immediately after — the order matters, because the
+   * reverse would leave rows pointing at a uid nobody can sign in as.
+   *
+   * Idempotent on purpose: retrying after a failed step three finds nothing
+   * left to remove and answers the same way.
+   */
+  app.delete("/account", requireAuth, async (c) => {
+    const removed = await store.removeAll(c.get("uid"));
+    return c.json({ ok: true, removed });
+  });
+
   app.notFound((c) => c.json({ error: "Not found." }, 404));
 
   app.onError((error, c) => {

@@ -132,6 +132,32 @@ The rules:
 
 ---
 
+## 0d. The contract: every field renders, and the limit is the schema's
+
+Both rules come from the same defect. The scrapbook's form offered a hero
+subtitle, two button labels, a quote-and-letter block and a closing
+section; the page rendered none of them, and the subtitle and the main
+button label were still counted as outstanding work at publish time — the
+author was chased to finish fields nobody would ever see.
+
+- **Every field the editor shows for a template must render on that
+  template's page.** The form is a promise. Gate whole sections through
+  `visibleBlocks` rather than re-deriving "is this empty" inside the page,
+  so the dashboard outline and the page can never disagree about whether a
+  block exists. Where the design has no home for a field, the field does not
+  go in that template's editor at all — that is what makes the editors
+  template-specific. Hiding the input is how a dead field gets buried;
+  wiring it in is how it gets fixed.
+- **`maxLength` mirrors the schema cap — the same number at both ends.**
+  The browser limit is the save limit: one character past
+  `z.string().max(60)` and the whole autosave is rejected as an invalid
+  config, which reads as "the save is broken" rather than "that field is too
+  long". Add the field to the schema first, then copy the number into the
+  editor. Mismatches here have shipped more than once, which is why this is a
+  contract rather than a habit.
+
+---
+
 ## 1. Schema and defaults
 
 - `src/lib/site/schema.ts`

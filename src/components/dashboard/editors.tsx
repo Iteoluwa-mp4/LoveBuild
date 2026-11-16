@@ -114,13 +114,19 @@ function IdentityFields({
 
   return (
     <>
+      {/*
+        60 matches `identity.name` in the schema. The browser limit is the
+        save limit: one character past it and the whole autosave is rejected
+        as an invalid config, which reads as a save failure rather than as a
+        field that is too long.
+      */}
       <TextField
         label={nameLabel}
         value={site.identity.name}
         onChange={(v) => draft.set("identity.name", v)}
         placeholder="Her name, or a nickname only she would recognise"
         hint={nameHint ?? "Wherever the page says her name, this is what it says."}
-        maxLength={120}
+        maxLength={60}
       />
       <TextField
         label="Monogram"
@@ -185,12 +191,19 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
           maxLength={90}
         />
 
+        {/*
+          Each maxLength below mirrors the schema exactly (300, 60, 60) — the
+          same rule as the name field: the browser limit is the save limit.
+          These three are also required by `submissionChecks`, so the cover
+          has to render them or the author is chased to fill in fields they
+          can never see.
+        */}
         <TextAreaField
           label="A line underneath"
           value={site.home.hero.subline}
           onChange={(v) => draft.set("home.hero.subline", v)}
           rows={3}
-          maxLength={500}
+          maxLength={300}
           hint="Why this is for her. One or two sentences."
         />
 
@@ -199,7 +212,7 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
             label="Big button label"
             value={site.home.hero.primaryCta}
             onChange={(v) => draft.set("home.hero.primaryCta", v)}
-            maxLength={120}
+            maxLength={60}
             hint="Opens the gallery"
             placeholder="Open the gallery"
           />
@@ -207,7 +220,7 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
             label="Second button label"
             value={site.home.hero.secondaryCta}
             onChange={(v) => draft.set("home.hero.secondaryCta", v)}
-            maxLength={120}
+            maxLength={60}
             hint="Scrolls down the page. Leave blank to hide it."
             placeholder="Keep scrolling"
           />
@@ -474,7 +487,7 @@ function QuoteEditor({ draft }: { draft: DraftSite }) {
           label="Score label"
           value={quote.verdictLabel}
           onChange={(v) => draft.set("home.quote.verdictLabel", v)}
-          maxLength={120}
+          maxLength={60}
           hint="The little score beside the quote. Both blank hides it."
           placeholder="Verdict:"
         />
@@ -482,7 +495,7 @@ function QuoteEditor({ draft }: { draft: DraftSite }) {
           label="Score"
           value={quote.verdictValue}
           onChange={(v) => draft.set("home.quote.verdictValue", v)}
-          maxLength={120}
+          maxLength={60}
           placeholder="10 / 10"
         />
       </div>
@@ -497,14 +510,14 @@ function QuoteEditor({ draft }: { draft: DraftSite }) {
               label="Reveal button"
               value={quote.toggleReveal}
               onChange={(v) => draft.set("home.quote.toggleReveal", v)}
-              maxLength={120}
+              maxLength={40}
               placeholder="Show the letter"
             />
             <TextField
               label="Close button"
               value={quote.toggleBack}
               onChange={(v) => draft.set("home.quote.toggleBack", v)}
-              maxLength={120}
+              maxLength={40}
               placeholder="Back to the quote"
             />
           </div>
@@ -550,7 +563,7 @@ function FooterEditor({ draft }: { draft: DraftSite }) {
         label="Button label"
         value={footer.ctaLabel}
         onChange={(v) => draft.set("home.footer.ctaLabel", v)}
-        maxLength={120}
+        maxLength={60}
         hint="Opens the gallery. Leave blank to hide the button."
         placeholder="Watch the gallery"
       />
@@ -572,7 +585,7 @@ function FooterEditor({ draft }: { draft: DraftSite }) {
             label="Label"
             value={card.tag}
             onChange={(v) => draft.set(`home.footer.cards.${i}.tag`, v)}
-            maxLength={120}
+            maxLength={40}
             placeholder={`Clip ${String(i + 1).padStart(2, "0")}`}
           />
           <TextAreaField

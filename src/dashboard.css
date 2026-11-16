@@ -388,6 +388,7 @@
 }
 
 .field input[type="text"],
+.field input[type="password"],
 .field textarea,
 .field select {
   width: 100%;
@@ -1581,6 +1582,57 @@
 
 .profile-empty p {
   margin: 0;
+}
+
+/*
+ * Account deletion. Red-tinted border, calm prose: this section should read
+ * as a firm warning rather than as an error the page is having. The only
+ * red text is the action itself and a failure, so the consequences stay
+ * legible instead of shouting.
+ */
+.profile-danger {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--dash-bad) 32%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--dash-bad) 4%, var(--dash-panel));
+}
+
+.profile-danger h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.profile-danger p {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: var(--dash-dim);
+}
+
+.profile-danger-confirm {
+  color: var(--dash-text);
+  font-weight: 550;
+}
+
+.profile-danger-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.profile-danger-field {
+  width: min(20rem, 100%);
+}
+
+.profile-danger-error {
+  margin: 0;
+  color: var(--dash-bad);
+  font-size: 0.85rem;
+  font-weight: 550;
 }
 
 /* The profile icon in the editor header, with a Google avatar when there is one. */

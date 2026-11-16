@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from "
 
 import AuthScreen from "./components/auth/AuthScreen";
 import RequireAuth from "./components/auth/RequireAuth";
+import ContactPage from "./components/contact/ContactPage";
 import CreateSite from "./components/dashboard/CreateSite";
 import Dashboard from "./components/dashboard/Dashboard";
 import PreviewPage from "./components/dashboard/PreviewPage";
@@ -83,6 +84,13 @@ export default function App() {
         />
 
         <Route path="/login" element={<AuthScreen />} />
+
+        {/*
+          Contact the developer. Public, like `/login`: the login footer
+          links here, and a visitor who cannot sign in still has to be able
+          to reach a human.
+        */}
+        <Route path="/contact" element={<ContactPage />} />
 
         {/* The public site. Reachable by link, not by accident. */}
         <Route path="/s/:slug" element={<SiteRoute variant="home" />} />

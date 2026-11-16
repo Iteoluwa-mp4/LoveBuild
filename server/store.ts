@@ -23,6 +23,14 @@ export interface SiteStore {
   save(ownerId: string, site: Site): Promise<void>;
   setStatus(ownerId: string, slug: string, status: SiteStatus): Promise<void>;
   remove(ownerId: string, slug: string): Promise<void>;
+  /**
+   * Every site the account owns, in one statement. Returns how many went.
+   *
+   * Account deletion needs this as a single operation: a loop over `remove`
+   * from the browser would be a partial failure waiting to happen, and the
+   * row that survives is a published site nobody can take down.
+   */
+  removeAll(ownerId: string): Promise<number>;
 }
 
 const MAX_SLUG_ATTEMPTS = 6;
@@ -154,6 +162,15 @@ export function createDrizzleStore(): SiteStore {
       await db
         .delete(sites)
         .where(and(eq(sites.slug, slug), eq(sites.ownerId, ownerId)));
+    },
+
+    async removeAll(ownerId) {
+      const db = getDb();
+      const removed = await db
+        .delete(sites)
+        .where(eq(sites.ownerId, ownerId))
+        .returning({ slug: sites.slug });
+      return removed.length;
     },
   };
 }

@@ -78,6 +78,12 @@ class MemoryStore implements SiteStore {
     const row = this.rows.get(slug);
     if (row?.ownerId === ownerId) this.rows.delete(slug);
   }
+
+  async removeAll(ownerId: string): Promise<number> {
+    const doomed = [...this.rows.entries()].filter(([, row]) => row.ownerId === ownerId);
+    for (const [slug] of doomed) this.rows.delete(slug);
+    return doomed.length;
+  }
 }
 
 describe("api", () => {
@@ -334,6 +340,52 @@ describe("api", () => {
     });
     expect(alice.status).toBe(204);
     expect(store.rows.has("hers")).toBe(false);
+  });
+
+  it("refuses to wipe an account without a token", async () => {
+    const response = await app.request("/api/account", { method: "DELETE" });
+    expect(response.status).toBe(401);
+
+    const invalid = await app.request("/api/account", {
+      method: "DELETE",
+      headers: auth("nobody"),
+    });
+    expect(invalid.status).toBe(401);
+    expect(store.rows.size).toBe(0);
+  });
+
+  it("wipes every site the caller owns and leaves other accounts alone", async () => {
+    await store.create("user-alice", emptySite("first"));
+    await store.create("user-alice", emptySite("second"));
+    await store.create("user-bob", emptySite("theirs"));
+
+    const response = await app.request("/api/account", {
+      method: "DELETE",
+      headers: auth("alice"),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true, removed: 2 });
+    expect(store.rows.has("first")).toBe(false);
+    expect(store.rows.has("second")).toBe(false);
+    expect(store.rows.has("theirs")).toBe(true);
+  });
+
+  it("answers a second wipe the same way, so a retry after a failure is safe", async () => {
+    await store.create("user-alice", emptySite("only"));
+
+    const first = await app.request("/api/account", {
+      method: "DELETE",
+      headers: auth("alice"),
+    });
+    await expect(first.json()).resolves.toEqual({ ok: true, removed: 1 });
+
+    const again = await app.request("/api/account", {
+      method: "DELETE",
+      headers: auth("alice"),
+    });
+    expect(again.status).toBe(200);
+    await expect(again.json()).resolves.toEqual({ ok: true, removed: 0 });
   });
 
   it("reports the invalid field instead of storing a broken config", async () => {

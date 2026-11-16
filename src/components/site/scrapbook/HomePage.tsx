@@ -10,7 +10,7 @@ import {
   Tape,
 } from "./shared";
 import { scrapbookPaths } from "./paths";
-import { scrapbookMemories } from "../../../lib/site/derive";
+import { scrapbookMemories, visibleBlocks } from "../../../lib/site/derive";
 import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
 
 /**
@@ -38,6 +38,27 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
     asked twice and should be taken to it twice.
   */
   useScrollToReveal(openNote, readRef);
+
+  /*
+    The second cover button's destination, derived the way the schema promises:
+    it jumps to the moments, which on this page are the album. Keyed on a
+    counter rather than a boolean so every press scrolls again — a reader who
+    has already been down there and presses it a second time means it.
+  */
+  const albumRef = useRef<HTMLElement>(null);
+  const [keepScrolling, setKeepScrolling] = useState<number | null>(null);
+  useScrollToReveal(keepScrolling, albumRef);
+
+  /*
+    The longer letter behind the quote's button. A boolean, so there is no
+    "0 counts as open" subtlety here: the scroll runs when it flips to true —
+    the letter mounts under the button, usually below the fold — and closing
+    it is a collapse rather than a destination, so closing scrolls nowhere.
+  */
+  const [letterOpen, setLetterOpen] = useState(false);
+  const letterRef = useRef<HTMLDivElement>(null);
+  useScrollToReveal(letterOpen, letterRef);
+
   const paths = useMemo(() => scrapbookPaths(basePath), [basePath]);
 
   /**
@@ -71,6 +92,48 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
     return lines.length > 0 ? lines : ["things I meant", "to keep"];
   }, [site.home.hero.lines]);
 
+  /*
+    The rest of "First impression": the line under the headline and the two
+    button labels. Trimmed once, here, so a stray space cannot render an empty
+    paragraph or an empty button — blank means the field was never filled in,
+    and blank stays hidden.
+  */
+  const subline = site.home.hero.subline.trim();
+  const primaryCta = site.home.hero.primaryCta.trim();
+  const secondaryCta = site.home.hero.secondaryCta.trim();
+
+  /*
+    The two blocks below the album, gated through the same `visibleBlocks`
+    the dashboard outline already uses. The form's "Quote and letter" and
+    "Closing section" exist on every config whatever the template says, and
+    the outline hides them when they are empty — one list, so the outline and
+    the page can never disagree about whether a block is there.
+  */
+  const blocks = visibleBlocks(site);
+  const quote = site.home.quote;
+  const closing = site.home.footer;
+
+  /*
+    The quote's last sentence, highlighted — the form promises it ("The last
+    sentence gets highlighted automatically"). Split on sentence boundaries;
+    a quote with no internal punctuation to split on is one sentence, and the
+    last sentence of a one-sentence quote is the whole thing, so the marker
+    covers all of it rather than none of it.
+  */
+  const quoteSentences = blocks.quote ? quote.text.trim().split(/(?<=[.!?…])\s+/) : [];
+  const quoteLast = quoteSentences[quoteSentences.length - 1] ?? "";
+  const quoteRest = quoteSentences.slice(0, -1).join(" ");
+
+  // The letter, split the way the schema describes it: paragraphs on blank lines.
+  const letterParagraphs = blocks.quoteTruth ? quote.truth.trim().split(/\n\s*\n/) : [];
+  const revealLabel = quote.toggleReveal.trim() || "Read the rest";
+  const backLabel = quote.toggleBack.trim() || "Back to the quote";
+
+  // Cards with nothing written on them are placeholders, not content.
+  const closingCards = closing.cards.filter(
+    (card) => card.tag.trim().length > 0 || card.quote.trim().length > 0,
+  );
+
   return (
     <div className="sb-shell">
       <div className="sb-fibre" aria-hidden="true" />
@@ -97,7 +160,26 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
                 </Fragment>
               ))}
             </h1>
+            {subline && <p className="sb-cover-sub sb-hand">{subline}</p>}
             <span className="sb-stamp sb-stamp-cover">keep this one</span>
+            {(primaryCta || secondaryCta) && (
+              <div className="sb-cover-cta">
+                {primaryCta && (
+                  <a className="sb-btn" href={paths.gallery}>
+                    {primaryCta}
+                  </a>
+                )}
+                {secondaryCta && (
+                  <button
+                    type="button"
+                    className="sb-btn"
+                    onClick={() => setKeepScrolling((n) => (n ?? 0) + 1)}
+                  >
+                    {secondaryCta}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/*
@@ -143,7 +225,7 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
           </div>
         </section>
 
-        <section id="album" className="sb-album">
+        <section id="album" ref={albumRef} className="sb-album">
           <div className="sb-album-head">
             <h2 className="sb-hand-h2 sb-hand">
               the ones that stayed
@@ -193,6 +275,89 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
             </a>
           </div>
         </section>
+
+        {/*
+          The quote and the letter behind it — the form's "Quote and letter"
+          block. The whole section hangs off `quote.text`: clear the quote and
+          it goes away, exactly as the editor's hint promises.
+        */}
+        {blocks.quote && (
+          <section className="sb-quote">
+            <div className="sb-quote-card">
+              <span className="sb-brad sb-brad-tl" aria-hidden="true" />
+              <span className="sb-brad sb-brad-br" aria-hidden="true" />
+              <blockquote className="sb-quote-text sb-hand">
+                {quoteRest && <>{quoteRest} </>}
+                <mark className="sb-quote-mark">{quoteLast}</mark>
+              </blockquote>
+              {(quote.verdictLabel.trim() || quote.verdictValue.trim()) && (
+                <p className="sb-quote-verdict sb-type">
+                  {quote.verdictLabel.trim()} {quote.verdictValue.trim()}
+                </p>
+              )}
+              {quote.author.trim() && (
+                <p className="sb-quote-author sb-hand">— {quote.author.trim()}</p>
+              )}
+              {quote.authorSub.trim() && (
+                <p className="sb-quote-author-sub sb-type-small">{quote.authorSub.trim()}</p>
+              )}
+              {blocks.quoteTruth && (
+                <button
+                  type="button"
+                  className="sb-btn sb-quote-toggle"
+                  aria-expanded={letterOpen}
+                  onClick={() => setLetterOpen(!letterOpen)}
+                >
+                  {letterOpen ? backLabel : revealLabel}
+                </button>
+              )}
+              {blocks.quoteTruth && letterOpen && (
+                <div ref={letterRef} className="sb-quote-letter">
+                  {letterParagraphs.map((paragraph, i) => (
+                    <p key={i} className="sb-hand">
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/*
+          The closing section: heading, the fan of cards, the button into the
+          gallery. It hangs off the heading-or-subline pair the outline uses,
+          and the cards cannot outlive it — the rule `visibleBlocks` enforces.
+        */}
+        {blocks.footer && (
+          <section className="sb-closing">
+            {closing.heading.trim() && (
+              <h2 className="sb-hand-h2 sb-hand">{closing.heading.trim()}</h2>
+            )}
+            {closing.subline.trim() && (
+              <p className="sb-closing-sub sb-hand">{closing.subline.trim()}</p>
+            )}
+            {blocks.footerCards && closingCards.length > 0 && (
+              <div className="sb-fan">
+                {closingCards.map((card) => (
+                  <figure key={card.id} className="sb-fan-card">
+                    {card.tag.trim() && (
+                      <figcaption className="sb-type-small">{card.tag.trim()}</figcaption>
+                    )}
+                    <blockquote className="sb-hand">{card.quote.trim()}</blockquote>
+                  </figure>
+                ))}
+              </div>
+            )}
+            {closing.ctaLabel.trim() && (
+              <div className="sb-closing-cta">
+                <a className="sb-btn" href={paths.gallery}>
+                  {closing.ctaLabel.trim()}
+                </a>
+              </div>
+            )}
+          </section>
+        )}
       </main>
 
       <ScrapbookFooter paths={paths} />
@@ -245,6 +410,19 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
                   padding-bottom:1px; transition:.2s;
                 }
                 .sb-cover-note a:hover { color:var(--ink); border-bottom-color:var(--ink); }
+
+                /* The subline and the two buttons from "First impression". */
+                .sb-cover-sub {
+                  margin:20px 0 0; max-width:34ch;
+                  font-size:clamp(24px,2.2vw,31px);
+                  line-height:1.35; color:var(--ink-soft);
+                }
+                .sb-cover-cta {
+                  display:flex; flex-wrap:wrap; gap:16px; margin-top:32px;
+                }
+                /* The buttons are a <button>, the gallery one a link: both get
+                   the sticker look, neither keeps a UA border or underline. */
+                .sb-cover-cta .sb-btn { border:0; cursor:pointer; text-decoration:none; }
 
                 /* ---------- the letter ---------- */
                 .sb-letter { max-width:1180px; margin:0 auto; padding:0 6vw 12vh; }
@@ -321,6 +499,72 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
                   transition:transform .15s ease, box-shadow .15s ease;
                 }
                 .sb-btn:hover { transform:translate(2px,3px); box-shadow:2px 2px 0 var(--paper-shadow); }
+
+                /* ---------- quote and letter ---------- */
+                .sb-quote { max-width:1180px; margin:0 auto; padding:0 6vw 12vh; }
+                .sb-quote-card {
+                  position:relative; max-width:760px; margin:0 auto;
+                  padding:clamp(30px,5vw,52px) clamp(28px,5vw,54px);
+                  background:var(--paper-deep);
+                  box-shadow:0 16px 34px -18px rgba(74,58,34,.55);
+                  transform:rotate(.7deg);
+                }
+                .sb-quote-text {
+                  margin:0; font-size:clamp(27px,3vw,40px); line-height:1.35;
+                  color:var(--ink);
+                }
+                /* The marker swipe: a scrapbook highlights with a pen, not with
+                   a link colour, and the last sentence is the one she underlines. */
+                .sb-quote-mark {
+                  background:linear-gradient(transparent 58%, rgba(230,57,70,.28) 58%);
+                  color:inherit;
+                }
+                .sb-quote-verdict {
+                  margin:22px 0 0; font-size:15px; letter-spacing:.1em;
+                  text-transform:uppercase; color:var(--red);
+                }
+                .sb-quote-author { margin:18px 0 0; font-size:30px; color:var(--ink); }
+                .sb-quote-author-sub { margin:6px 0 0; }
+                .sb-quote-toggle { margin-top:26px; }
+                .sb-quote-letter {
+                  margin-top:26px; padding-top:22px;
+                  border-top:1px dashed var(--ink-faint);
+                }
+                .sb-quote-letter p {
+                  margin:0 0 16px; font-size:clamp(23px,2.4vw,29px);
+                  line-height:1.5; color:var(--ink-soft);
+                }
+                .sb-quote-letter p:last-child { margin-bottom:0; }
+
+                /* ---------- closing ---------- */
+                .sb-closing {
+                  max-width:1180px; margin:0 auto; padding:2vh 6vw 12vh;
+                  text-align:center;
+                }
+                .sb-closing-sub {
+                  margin:16px auto 0; max-width:44ch;
+                  font-size:clamp(23px,2.3vw,30px); line-height:1.4;
+                  color:var(--ink-soft);
+                }
+                .sb-fan {
+                  display:flex; flex-wrap:wrap; justify-content:center;
+                  gap:22px; margin:44px 0 40px;
+                }
+                .sb-fan-card {
+                  margin:0; width:min(100%,300px); padding:20px 22px;
+                  background:#fdfaf3; text-align:left;
+                  border:1px solid rgba(180,164,136,.5);
+                  box-shadow:0 12px 26px -16px rgba(74,58,34,.55);
+                }
+                /* Slapped down by hand: never square, never the same twice. */
+                .sb-fan-card:nth-child(odd) { transform:rotate(-1.8deg); }
+                .sb-fan-card:nth-child(even) { transform:rotate(1.5deg); }
+                .sb-fan-card:nth-child(3n) { transform:rotate(.5deg); }
+                .sb-fan-card figcaption { margin:0 0 10px; }
+                .sb-fan-card blockquote {
+                  margin:0; font-size:23px; line-height:1.4; color:var(--ink);
+                }
+                .sb-closing-cta { display:flex; justify-content:center; }
 
                 @media (max-width:900px) {
                   .sb-cover { grid-template-columns:1fr; min-height:auto; padding-top:4vh; }

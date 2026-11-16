@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Globe, PenLine, Plus } from "lucide-react";
 import { FiFolder, FiLayout } from "react-icons/fi";
 
 import "../../dashboard.css";
 import { useSession } from "../../hooks/useSession";
+import { deleteAccount } from "../../lib/site/account";
 import { signOut } from "../../lib/site/auth";
 import { STORAGE_PREFIX } from "../../lib/site/brand";
 import { getRepository } from "../../lib/site/getRepository";
@@ -67,6 +68,13 @@ export default function ProfilePage() {
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  /** Account deletion: idle → confirming → busy, with a message on failure. */
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const passwordFieldId = useId();
 
   const uid = user?.uid;
 
@@ -199,6 +207,67 @@ export default function ProfilePage() {
     }
   };
 
+  /**
+   * Account deletion, as a two-step confirm in place.
+   *
+   * The password (for email accounts) is the confirmation rather than a
+   * separate ceremony: it is the same proof `deleteAccount` needs from
+   * Firebase before it will allow the deletion, so asking once covers both.
+   * Google accounts get the popup for the same reason — the provider is the
+   * proof.
+   *
+   * On success there is almost nothing to clean up: the session listener
+   * reports nobody and `RequireAuth` replaces this page with the login
+   * screen. The button stays "Deleting…" until that happens, because a
+   * second click during the redirect would be a second attempt at a flow
+   * that is already halfway through.
+   */
+  const startAccountDelete = () => {
+    setDeletePassword("");
+    setDeleteError(null);
+    setConfirmingDelete(true);
+  };
+
+  const cancelAccountDelete = () => {
+    setConfirmingDelete(false);
+    setDeletePassword("");
+    setDeleteError(null);
+  };
+
+  const confirmAccountDelete = async () => {
+    if (deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+
+    const result = await deleteAccount(
+      user?.provider === "password" ? { password: deletePassword } : undefined,
+    );
+
+    if (result.ok) {
+      // The account is gone; its import history in this browser would be a
+      // key pointing at a uid that no longer exists.
+      if (uid) {
+        try {
+          localStorage.removeItem(importedKey(uid));
+        } catch {
+          // Storage may be unavailable. The worst case is one stale key.
+        }
+      }
+      return;
+    }
+
+    setDeleteBusy(false);
+
+    // A closed Google window means "not now" — fold back to the idle state
+    // rather than flashing an error at someone who merely changed their mind.
+    if (result.cancelled) {
+      cancelAccountDelete();
+      return;
+    }
+
+    setDeleteError(result.message);
+  };
+
   const count = state.status === "ready" ? state.sites.length : null;
   const hasSites = state.status === "ready" && state.sites.length > 0;
 
@@ -226,6 +295,10 @@ export default function ProfilePage() {
             Editor
           </Link>
         )}
+
+        <Link className="btn" to="/contact" title="Questions, bugs or requests">
+          Contact
+        </Link>
 
         {session.status === "signed-in" && session.method === "firebase" && (
           <button type="button" className="btn" onClick={() => void signOut()}>
@@ -392,6 +465,92 @@ export default function ProfilePage() {
             </ul>
           )}
         </section>
+
+        {/*
+          Account deletion, at the bottom of the shelf where destructive
+          things belong. Firebase accounts only: a local build has no account
+          to delete, and saying so would invite a question the page cannot
+          answer.
+        */}
+        {session.status === "signed-in" && session.method === "firebase" && (
+          <section className="profile-danger" aria-labelledby="profile-danger-heading">
+            <div className="profile-danger-copy">
+              <h2 id="profile-danger-heading">Delete account</h2>
+              <p>
+                This permanently deletes your account
+                {count ? ` and the ${count} ${count === 1 ? "site" : "sites"} in it` : ""}.
+                Anything published stops working for anyone who has the link, and there is no
+                undo.
+              </p>
+              {confirmingDelete && (
+                <p className="profile-danger-confirm">
+                  {user?.provider === "password"
+                    ? "Type your password to confirm — nothing is deleted until it matches."
+                    : "A Google window will open to confirm it's you — nothing is deleted until you allow it."}
+                </p>
+              )}
+            </div>
+
+            {confirmingDelete ? (
+              <form
+                className="profile-danger-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void confirmAccountDelete();
+                }}
+              >
+                {user?.provider === "password" && (
+                  <div className="field profile-danger-field">
+                    <label className="field-label" htmlFor={passwordFieldId}>
+                      Confirm your password
+                    </label>
+                    <input
+                      id={passwordFieldId}
+                      type="password"
+                      value={deletePassword}
+                      autoComplete="current-password"
+                      autoFocus
+                      onChange={(event) => setDeletePassword(event.target.value)}
+                    />
+                  </div>
+                )}
+
+                <div className="btn-row">
+                  <button
+                    type="submit"
+                    className="btn btn-danger"
+                    disabled={
+                      deleteBusy ||
+                      (user?.provider === "password" && deletePassword.trim() === "")
+                    }
+                  >
+                    {deleteBusy ? "Deleting…" : "Yes, delete everything"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={cancelAccountDelete}
+                    disabled={deleteBusy}
+                  >
+                    Keep my account
+                  </button>
+                </div>
+
+                {deleteError && (
+                  <p className="profile-danger-error" role="alert">
+                    {deleteError}
+                  </p>
+                )}
+              </form>
+            ) : (
+              <div className="btn-row">
+                <button type="button" className="btn btn-danger" onClick={startAccountDelete}>
+                  Delete account
+                </button>
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );

@@ -108,7 +108,7 @@ export default function PublishDock({
                 rel="noreferrer"
                 className="publish-dock-link"
               >
-                /s/{slug}
+                love-build.vercel.app/s/{slug}
               </Link>
             </p>
             <p className="publish-dock-meta">
