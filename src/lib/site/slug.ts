@@ -63,7 +63,7 @@ export function checkSlug(raw: string): SlugCheck {
 
 /** The public address for a site. */
 export function publicUrl(slug: string): string {
-  return `lovebuild.vercel.app/s/${slug}`;
+  return `/s/${slug}`;
 }
 
 /** The longest address the create form accepts, and that a suffix must respect. */
