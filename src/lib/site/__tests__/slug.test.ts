@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { siteSchema } from "../schema";
 import {
+  absolutePublicUrl,
   checkSlug,
   MAX_SLUG_LENGTH,
   publicUrl,
@@ -114,6 +115,25 @@ describe("checkSlug", () => {
 describe("publicUrl", () => {
   it("puts the slug under /s", () => {
     expect(publicUrl("for-sarah")).toBe("/s/for-sarah");
+  });
+});
+
+describe("absolutePublicUrl", () => {
+  /**
+   * What the copy-link button puts on the clipboard. A bare path is not a
+   * link anywhere outside the tab it was copied in, so the host has to be
+   * part of the string.
+   */
+  it("resolves the path against the origin", () => {
+    expect(absolutePublicUrl("for-sarah", "https://love-build.vercel.app")).toBe(
+      "https://love-build.vercel.app/s/for-sarah",
+    );
+  });
+
+  it("keeps a localhost origin intact", () => {
+    expect(absolutePublicUrl("for-sarah", "http://localhost:5173")).toBe(
+      "http://localhost:5173/s/for-sarah",
+    );
   });
 });
 

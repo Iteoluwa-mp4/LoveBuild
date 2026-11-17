@@ -66,6 +66,19 @@ export function publicUrl(slug: string): string {
   return `/s/${slug}`;
 }
 
+/**
+ * The same address as a complete URL, for the clipboard.
+ *
+ * `/s/for-sarah` pasted into a message is a fragment nobody can follow, and the
+ * clipboard cannot recover the host it was copied from. The caller passes the
+ * origin it is running on — the production domain in production, localhost in
+ * dev — so what lands on the clipboard is the link that actually works from
+ * where the author is sitting.
+ */
+export function absolutePublicUrl(slug: string, origin: string): string {
+  return new URL(publicUrl(slug), origin).href;
+}
+
 /** The longest address the create form accepts, and that a suffix must respect. */
 export const MAX_SLUG_LENGTH = 60;
 

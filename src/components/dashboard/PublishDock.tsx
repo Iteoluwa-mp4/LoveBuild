@@ -2,7 +2,7 @@ import { useState, type Ref } from "react";
 import { Link } from "react-router-dom";
 import { FiCheckCircle, FiCircle, FiSend } from "react-icons/fi";
 
-import { publicUrl } from "../../lib/site/slug";
+import { absolutePublicUrl, publicUrl } from "../../lib/site/slug";
 import type { SiteStatus } from "../../lib/site/schema";
 import { readiness } from "../../lib/site/derive";
 
@@ -83,9 +83,18 @@ export default function PublishDock({
   const state = readiness(site);
   const published = status === "published";
 
+  /**
+   * The complete link: host included, because that is what a clipboard needs.
+   *
+   * Derived from the origin the app is running on rather than a hard-coded
+   * domain, so the displayed link and the copied one are always the same
+   * string — the production domain in production, localhost in dev.
+   */
+  const shareUrl = absolutePublicUrl(slug, window.location.origin);
+
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(publicUrl(slug));
+      await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -108,7 +117,7 @@ export default function PublishDock({
                 rel="noreferrer"
                 className="publish-dock-link"
               >
-                love-build.vercel.app/s/{slug}
+                {shareUrl.replace(/^https?:\/\//, "")}
               </Link>
             </p>
             <p className="publish-dock-meta">
