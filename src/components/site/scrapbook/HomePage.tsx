@@ -378,10 +378,21 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
                 .sb-stamp-cover { margin-top:34px; }
 
                 /*
-                  Overlap is the point. Negative margins pull each photograph
-                  over the one before it, and the z-index is set explicitly —
-                  later siblings otherwise win on paint order alone, which makes
-                  the layering depend on array order rather than on intent.
+                  Overlap is the point. The photographs are placed relative to
+                  each other, and the z-index is set explicitly — later
+                  siblings otherwise win on paint order alone, which makes the
+                  layering depend on array order rather than on intent.
+
+                  Two rules keep that composition from spilling over the note
+                  and the letter below it. The cluster is sized by min-height
+                  alone, so an absolutely positioned child can never push the
+                  box taller — a photo sized by its own aspect ratio would just
+                  paint over whatever follows. So each frame is fixed (4:5,
+                  cropped) to make its height predictable, and the lower pair
+                  hangs off the bottom edge: a bottom-anchored photo grows
+                  upward, so it cannot cross the bottom at any viewport or
+                  caption length. The slack under pos-4 absorbs the tilt, whose
+                  rotation dips a few pixels below the unrotated edge.
                 */
                 .sb-cluster { position:relative; min-height:min(78svh,600px); }
                 .sb-polaroid {
@@ -391,15 +402,35 @@ export default function ScrapbookHomePage({ site, basePath }: { site: Site; base
                   transform:rotate(var(--tilt));
                   border:1px solid rgba(180,164,136,.5);
                 }
-                .sb-polaroid img { display:block; width:100%; height:auto; }
+                /*
+                  A fixed frame rather than height:auto: the photo fills a
+                  4:5 portrait crop (a polaroid frame is never the shape of
+                  what is stuck in it), so every card is the same height for a
+                  given width. The max-height keeps short, landscape phone
+                  viewports inside the cluster too. object-fit:cover crops
+                  rather than stretches.
+                */
+                .sb-polaroid img {
+                  display:block; width:100%;
+                  aspect-ratio:4/5; object-fit:cover; object-position:center;
+                  max-height:min(40svh,340px);
+                }
+                /*
+                  Two lines: a caption is allowed 300 characters in the schema,
+                  and an unbounded one would grow the card past the frame this
+                  layout depends on. The full caption stays in the alt text and
+                  in the album below.
+                */
                 .sb-polaroid figcaption {
                   font-family:'Caveat',cursive; font-size:22px; line-height:1.25;
                   color:var(--ink); padding:9px 2px 13px; text-align:center;
+                  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+                  overflow:hidden;
                 }
                 .sb-pos-1 { top:2%;  left:2%;  z-index:3; }
                 .sb-pos-2 { top:26%; left:34%; z-index:4; }
-                .sb-pos-3 { top:52%; left:8%;  z-index:5; }
-                .sb-pos-4 { top:70%; left:40%; z-index:2; }
+                .sb-pos-3 { bottom:7%; left:8%;  z-index:5; }
+                .sb-pos-4 { bottom:2%; left:40%; z-index:2; }
 
                 .sb-cover-note {
                   grid-column:1; margin:0; font-size:clamp(23px,2.4vw,30px);

@@ -111,10 +111,23 @@ a { text-decoration:none; }
 
 /* Paper fibre. Two layers: a fine speckle and a few long fibres, because flat
    speckle alone reads as monitor noise rather than as a surface. */
+
+/*
+  The template's own colour anchor, and the reason it is on the shell rather
+  than left to the body rule below: SiteShell wraps every page in a div that
+  carries the theme's text-content utility — the preset's light text, meant
+  for the dark templates. That declaration sits between body and this shell,
+  so "body { color:var(--ink) }" never reaches the content, and anything
+  without an explicit colour inherited pale lavender on cream instead of ink
+  (the flipbook's note was rendered unreadable exactly this way). Declared
+  here, the whole template inherits ink again and only rules that state a
+  colour of their own can override it.
+*/
 .sb-shell {
   min-height:100vh;
   position:relative;
   overflow:hidden;
+  color:var(--ink);
   background:
     radial-gradient(ellipse at 20% 8%, rgba(255,255,255,.5), transparent 45%),
     radial-gradient(ellipse at 85% 92%, rgba(196,178,146,.4), transparent 50%),

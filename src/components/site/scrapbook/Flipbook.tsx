@@ -867,7 +867,7 @@ export const FLIPBOOK_CSS = `
   box-shadow:0 12px 26px -14px rgba(74,58,34,.55), 0 2px 5px rgba(74,58,34,.12);
 }
 .fb-polaroid img { display:block; width:100%; aspect-ratio:1; object-fit:cover; filter:grayscale(.14); }
-.fb-polaroid figcaption { padding:7px 2px 10px; text-align:center; font-size:clamp(16px,2.2vw,22px); }
+.fb-polaroid figcaption { padding:7px 2px 10px; text-align:center; font-size:clamp(16px,2.2vw,22px); color:var(--ink); }
 
 .fb-pick {
   display:flex; flex-direction:column; align-items:center; gap:10px;
@@ -880,9 +880,11 @@ export const FLIPBOOK_CSS = `
 }
 .fb-pick-hint { font-size:15px; color:var(--red); opacity:.75; }
 
-.fb-note-date { margin:0; color:var(--ink-faint); }
-.fb-note-body { margin:0; max-width:22ch; text-align:center; font-size:clamp(20px,2.9vw,29px); line-height:1.4; }
-.fb-note-sign { margin:2px 0 0; color:var(--ink-faint); font-size:clamp(16px,2vw,20px); }
+/* The note is the page's reading text, so it states its colour rather than
+   trusting the shell's anchor — ink on paper is the whole point of a letter. */
+.fb-note-date { margin:0; color:var(--ink-soft); }
+.fb-note-body { margin:0; max-width:22ch; text-align:center; font-size:clamp(20px,2.9vw,29px); line-height:1.4; color:var(--ink); }
+.fb-note-sign { margin:2px 0 0; color:var(--ink-soft); font-size:clamp(16px,2vw,20px); }
 
 .fb-page-end { gap:10px; }
 .fb-end-mark { font-size:clamp(32px,5.5vw,54px); }
