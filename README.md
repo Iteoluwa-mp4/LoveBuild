@@ -245,6 +245,13 @@ resolve.** `isEphemeralUrl` flags `blob:` URLs — the only kind, on purpose: a
 a working image as broken. Anything ephemeral found in the config is shown by
 the uploader as a dead file worth re-picking.
 
+Still photos are re-encoded in the browser before they are sent: longest edge
+2560px, quality 0.85, WebP with a JPEG/PNG fallback. GIF, SVG and animated
+images are uploaded as picked, because flattening them to one frame would lose
+content. Cloudinary's Free limits — 10 MB and 25 megapixels per photo, 100 MB
+per video — are checked before the request. A rejected upload keeps the file
+and shows a plain-language reason plus **Try again**, rather than a status code.
+
 Three honest limits, stated rather than hidden:
 
 - **Uploads need an account.** Signing is authenticated, so the browser must be
@@ -255,10 +262,11 @@ Three honest limits, stated rather than hidden:
   in `VITE_CLOUDINARY_CLOUD_NAME`), the API refuses to sign with a `503`; the
   file previews from a blob URL and the dashboard says it will not survive a
   reload.
-- **The delivered URL is the original.** Authenticated Cloudinary assets cannot
-  use on-the-fly transformations, so a 12 MB phone photograph is served at its
-  original size and a video is not transcoded. The next change with the largest
-  visible payoff would be uploading a smaller derivative alongside the original.
+- **The delivered URL is the uploaded copy.** Authenticated Cloudinary assets
+  cannot use on-the-fly transformations, so the browser re-encodes a still photo
+  before uploading it and that smaller copy is what is served. Video is not
+  transcoded. A video poster frame and multiple derivatives are still the next
+  change with a large visible payoff.
 
 The delivery URL is a bearer link: it cannot be guessed, but anyone given it can
 load the asset, and it does not expire. Rotating `CLOUDINARY_API_SECRET`

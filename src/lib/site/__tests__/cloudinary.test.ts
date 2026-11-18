@@ -4,7 +4,9 @@ import { apiRequest } from "../apiClient";
 import {
   UPLOAD_NOT_CONFIGURED,
   UploadError,
+  classifyUploadFailure,
   isEphemeralUrl,
+  isRetryable,
   needsReupload,
   uploadAsset,
   uploadConfigured,
@@ -311,6 +313,125 @@ describe("cloudinary", () => {
       );
 
       await expect(uploadAsset(new File([], "a.jpg"))).rejects.toThrow(/unreadable/);
+    });
+  });
+
+  /**
+   * The reason shown to the person holding the file, not the HTTP status. The
+   * vocabulary is deliberately small: every value maps to one sentence and one
+   * action in the uploader.
+   */
+  describe("classifyUploadFailure", () => {
+    it("recognises Cloudinary's file-size and pixel limits", () => {
+      expect(
+        classifyUploadFailure("File size too large. Got 12.3 MB. Maximum is 10 MB.", 400),
+      ).toBe("too-large");
+      expect(
+        classifyUploadFailure("Maximum image size is 25 megapixels.", 400),
+      ).toBe("too-large");
+      expect(classifyUploadFailure("Too many pixels in the image.", 400)).toBe(
+        "too-large",
+      );
+    });
+
+    it("recognises a connection that never arrived", () => {
+      expect(
+        classifyUploadFailure("Could not reach Cloudinary. Check the connection and try again."),
+      ).toBe("network");
+      expect(classifyUploadFailure("Failed to fetch")).toBe("network");
+      expect(classifyUploadFailure("The upload timed out.")).toBe("network");
+    });
+
+    it("recognises an expired session or rejected signature", () => {
+      expect(classifyUploadFailure("Your session has expired. Sign in again.")).toBe(
+        "auth",
+      );
+      expect(classifyUploadFailure("Invalid signature", 401)).toBe("auth");
+      expect(classifyUploadFailure("", 403)).toBe("auth");
+    });
+
+    it("recognises a Cloudinary rate limit", () => {
+      expect(classifyUploadFailure("Too many requests", 429)).toBe("rate-limit");
+      expect(classifyUploadFailure("Upload limit reached", 420)).toBe("rate-limit");
+      expect(classifyUploadFailure("quota exceeded", 400)).toBe("rate-limit");
+    });
+
+    it("recognises a file Cloudinary cannot process", () => {
+      expect(classifyUploadFailure("Unsupported image format", 400)).toBe("format");
+      expect(classifyUploadFailure("The file is corrupt", 400)).toBe("format");
+    });
+
+    it("names a missing setting rather than calling it an unknown error", () => {
+      expect(
+        classifyUploadFailure("Uploads are not configured on this server."),
+      ).toBe("unconfigured");
+    });
+
+    it("treats a 5xx as the service's problem, not the file's", () => {
+      expect(classifyUploadFailure("Upload failed (HTTP 503).", 503)).toBe("server");
+    });
+
+    it("says unknown when it genuinely does not know", () => {
+      expect(classifyUploadFailure("Something odd happened.", 400)).toBe("unknown");
+    });
+  });
+
+  describe("isRetryable", () => {
+    it("allows a retry when the same bytes could succeed next time", () => {
+      expect(isRetryable("network")).toBe(true);
+      expect(isRetryable("rate-limit")).toBe(true);
+      expect(isRetryable("server")).toBe(true);
+      expect(isRetryable("unknown")).toBe(true);
+    });
+
+    it("does not pretend a retry will fix the file or the settings", () => {
+      expect(isRetryable("too-large")).toBe(false);
+      expect(isRetryable("format")).toBe(false);
+      expect(isRetryable("unconfigured")).toBe(false);
+      expect(isRetryable("auth")).toBe(false);
+    });
+  });
+
+  describe("failure kinds on the thrown error", () => {
+    it("marks an unconfigured build without making a request", async () => {
+      const error = await uploadAsset(new File([], "a.jpg")).catch((cause: unknown) => cause);
+      expect(error).toBeInstanceOf(UploadError);
+      expect((error as UploadError).kind).toBe("unconfigured");
+    });
+
+    it("marks a Cloudinary rejection with the reason it found", async () => {
+      configure();
+      request.mockResolvedValueOnce(signedUpload());
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 400,
+          json: async () => ({ error: { message: "Invalid signature" } }),
+        }),
+      );
+
+      const error = await uploadAsset(new File([], "a.jpg")).catch((cause: unknown) => cause);
+      expect(error).toBeInstanceOf(UploadError);
+      expect((error as UploadError).kind).toBe("auth");
+      expect((error as UploadError).message).toBe("Invalid signature");
+    });
+
+    it("marks an unreachable network as retryable", async () => {
+      configure();
+      request.mockResolvedValueOnce(signedUpload());
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+      const error = await uploadAsset(new File([], "a.jpg")).catch((cause: unknown) => cause);
+      expect((error as UploadError).kind).toBe("network");
+    });
+
+    it("marks a missing session as something to sign in for", async () => {
+      configure();
+      request.mockRejectedValueOnce(new Error("Sign in to continue."));
+
+      const error = await uploadAsset(new File([], "a.jpg")).catch((cause: unknown) => cause);
+      expect((error as UploadError).kind).toBe("auth");
     });
   });
 

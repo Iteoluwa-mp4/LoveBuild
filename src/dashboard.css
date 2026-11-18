@@ -1084,6 +1084,37 @@
   word-break: break-all;
 }
 
+/* Cloudinary's own wording, collapsed by default. The friendly sentence above
+   is what most people need; this is for the person setting up the account. */
+.uploader-details {
+  width: 100%;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+}
+
+.uploader-details summary {
+  width: fit-content;
+  color: var(--dash-pink-deep);
+  cursor: pointer;
+}
+
+.uploader-details summary:hover {
+  text-decoration: underline;
+}
+
+.uploader-details code {
+  display: block;
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--dash-line);
+  border-radius: 3px;
+  background: var(--dash-panel-2);
+  color: var(--dash-text);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- sr-only ---------- */
 
 .sr-only {

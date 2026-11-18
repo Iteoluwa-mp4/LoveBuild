@@ -1,4 +1,5 @@
 import { apiRequest } from "./apiClient";
+import { SaveError } from "./repository";
 import type { Media, MediaKind } from "./schema";
 
 /**
@@ -43,12 +44,101 @@ export type UploadedMedia = {
   durationMs: number | null;
 };
 
+/**
+ * Why an upload failed, in the small vocabulary the uploader can explain.
+ *
+ * The distinction is for the person looking at the field, not for logging:
+ * "file too large" has an action, "connection lost" has a retry, and an
+ * unknown failure has to say so rather than inventing a cause.
+ */
+export type UploadFailureKind =
+  | "unconfigured"
+  | "too-large"
+  | "network"
+  | "auth"
+  | "rate-limit"
+  | "format"
+  | "server"
+  | "unknown";
+
 /** An upload that failed in a way worth showing a human. */
 export class UploadError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly kind: UploadFailureKind = "unknown",
+  ) {
     super(message);
     this.name = "UploadError";
   }
+}
+
+/** Whether running the same upload again has a chance of working. */
+export function isRetryable(kind: UploadFailureKind): boolean {
+  return (
+    kind === "network" ||
+    kind === "rate-limit" ||
+    kind === "server" ||
+    kind === "unknown"
+  );
+}
+
+/**
+ * Turns Cloudinary's own wording into one of the reasons above.
+ *
+ * Cloudinary returns 400 for most rejections and puts the useful sentence in
+ * the body, so the message is checked before the status. The size patterns
+ * cover both its file-size wording ("Maximum is 10 Megabytes") and its
+ * megapixel wording ("Maximum is 25 megapixels").
+ */
+export function classifyUploadFailure(
+  message: string,
+  status = 0,
+): UploadFailureKind {
+  const text = message.toLowerCase();
+
+  if (
+    status === 420 ||
+    status === 429 ||
+    /rate.?limit|too many requests|quota|credit/.test(text)
+  ) {
+    return "rate-limit";
+  }
+
+  if (/could not reach|failed to fetch|network|timed out|timeout|connection/.test(text)) {
+    return "network";
+  }
+
+  if (
+    /file size too large|maximum (image |video )?file size|maximum is|exceeds.*(size|limit)|too many pixels|megapixel/.test(
+      text,
+    )
+  ) {
+    return "too-large";
+  }
+
+  if (
+    status === 401 ||
+    status === 403 ||
+    /invalid signature|missing permissions|not allowed|unauthorized|forbidden|sign in|session/.test(
+      text,
+    )
+  ) {
+    return "auth";
+  }
+
+  if (/not configured|unconfigured/.test(text)) return "unconfigured";
+
+  if (
+    /unsupported|invalid (image|file|format)|corrupt|failed to process|could not (read|decode)/.test(
+      text,
+    )
+  ) {
+    return "format";
+  }
+
+  if (status >= 500) return "server";
+
+  return "unknown";
 }
 
 const CLOUD_NAME_KEY = "VITE_CLOUDINARY_CLOUD_NAME";
@@ -116,7 +206,9 @@ type UploadResponse = {
  * and a Cloudinary constraint error is exactly the thing they need to see.
  */
 export async function uploadAsset(file: File, kind?: MediaKind): Promise<UploadedMedia> {
-  if (!uploadConfigured()) throw new UploadError(UPLOAD_NOT_CONFIGURED);
+  if (!uploadConfigured()) {
+    throw new UploadError(UPLOAD_NOT_CONFIGURED, "unconfigured");
+  }
 
   const mediaKind: MediaKind =
     kind ?? (file.type.startsWith("video/") ? "video" : "image");
@@ -128,7 +220,7 @@ export async function uploadAsset(file: File, kind?: MediaKind): Promise<Uploade
       body: JSON.stringify({ kind: mediaKind }),
     });
   } catch (cause) {
-    throw new UploadError(messageFor(cause, "Could not get permission to upload."));
+    throw uploadError(cause, "Could not get permission to upload.");
   }
 
   const body = new FormData();
@@ -143,22 +235,31 @@ export async function uploadAsset(file: File, kind?: MediaKind): Promise<Uploade
   try {
     response = await fetch(signed.uploadUrl, { method: "POST", body });
   } catch {
-    throw new UploadError("Could not reach Cloudinary. Check the connection and try again.");
+    throw new UploadError(
+      "Could not reach Cloudinary. Check the connection and try again.",
+      "network",
+    );
   }
 
   let payload: UploadResponse;
   try {
     payload = (await response.json()) as UploadResponse;
   } catch {
-    throw new UploadError(`Cloudinary replied with something unreadable (HTTP ${response.status}).`);
+    throw new UploadError(
+      `Cloudinary replied with something unreadable (HTTP ${response.status}).`,
+      "server",
+    );
   }
 
   // The error object and the HTTP status can disagree — Cloudinary returns 400
   // for most rejections, but an account problem may not — so both are checked
   // and the service's own message wins, because it is the one that says why.
   if (payload.error || !response.ok) {
+    const message =
+      payload.error?.message?.trim() || `Upload failed (HTTP ${response.status}).`;
     throw new UploadError(
-      payload.error?.message?.trim() || `Upload failed (HTTP ${response.status}).`,
+      message,
+      classifyUploadFailure(message, response.status),
     );
   }
 
@@ -168,6 +269,7 @@ export async function uploadAsset(file: File, kind?: MediaKind): Promise<Uploade
   if (!publicId || !format) {
     throw new UploadError(
       "Cloudinary accepted the file but did not return enough information to deliver it.",
+      "server",
     );
   }
 
@@ -181,8 +283,9 @@ export async function uploadAsset(file: File, kind?: MediaKind): Promise<Uploade
     // The bytes are already stored, but without a signed address they are not
     // usable. Saying so is better than persisting an unsigned URL that would
     // be rejected on the next reload.
-    throw new UploadError(
-      messageFor(cause, "The file uploaded, but its protected link could not be created."),
+    throw uploadError(
+      cause,
+      "The file uploaded, but its protected link could not be created.",
     );
   }
 
@@ -200,14 +303,46 @@ export async function uploadAsset(file: File, kind?: MediaKind): Promise<Uploade
   };
 }
 
-function messageFor(cause: unknown, fallback: string): string {
-  if (!(cause instanceof Error) || !cause.message) return fallback;
+/**
+ * The API client speaks to more than uploads, so its generic sentences are
+ * translated into the reason the uploader needs. The original message is kept
+ * whenever it is already useful.
+ */
+function uploadError(cause: unknown, fallback: string): UploadError {
+  if (cause instanceof UploadError) return cause;
+
+  if (cause instanceof SaveError) {
+    if (cause.code === "unauthorized") {
+      return new UploadError(
+        "Sign in to upload photos and videos. Uploads need an account.",
+        "auth",
+      );
+    }
+    if (cause.code === "media-unconfigured") {
+      return new UploadError(cause.message, "unconfigured");
+    }
+    if (cause.code === "unavailable") {
+      return new UploadError(cause.message, "network");
+    }
+  }
+
+  if (!(cause instanceof Error) || !cause.message) {
+    return new UploadError(fallback, "unknown");
+  }
+
   // The generic API client speaks to more than uploads; make the two cases a
   // person can actually hit name the thing they were trying to do.
   if (cause.message === "Sign in to continue.") {
-    return "Sign in to upload photos and videos. Uploads need an account.";
+    return new UploadError(
+      "Sign in to upload photos and videos. Uploads need an account.",
+      "auth",
+    );
   }
-  return cause.message;
+
+  return new UploadError(
+    cause.message,
+    classifyUploadFailure(cause.message),
+  );
 }
 
 /**

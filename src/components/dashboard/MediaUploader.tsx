@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 
-import type { Media } from "../../lib/site/schema";
+import type { Media, MediaKind } from "../../lib/site/schema";
+import { prepareImage } from "../../lib/site/imagePrep";
+import {
+  UPLOAD_LIMITS,
+  formatBytes,
+  formatPixels,
+} from "../../lib/site/uploadLimits";
 import {
   UPLOAD_NOT_CONFIGURED,
+  UploadError,
+  isRetryable,
+  needsReupload,
   uploadAsset,
   uploadConfigured,
-  needsReupload,
+  type UploadFailureKind,
 } from "../../lib/site/cloudinary";
 
 /**
@@ -19,53 +28,64 @@ import {
  * to the tab that made it. The picture looked right until a reload, and then
  * every photograph on the site was broken with nothing in the UI to say why.
  *
- * So the flow is now two halves:
+ * So the flow is now three halves:
  *
  *   1. **Preview** from a blob, immediately. Nobody should wait on a round trip
  *      to see the picture they just picked.
- *   2. **Persist** only what Cloudinary returns. The blob never reaches
+ *   2. **Prepare** still photos in the browser. A 48 MP phone picture becomes
+ *      a ~1 MB WebP, which is both more likely to survive the upload and much
+ *      cheaper to load once it is on the site.
+ *   3. **Persist** only what Cloudinary returns. The blob never reaches
  *      `onChange`.
  *
- * If Cloudinary is not configured, step 2 does not happen and the slot is left
+ * If Cloudinary is not configured, step 3 does not happen and the slot is left
  * empty rather than filled with a lie — empty is detectable, is already
  * reported by the dashboard's to-do list, and reads honestly as "What's Left?".
  *
- * Everything below is `onChange` of a `Media`; the form does not care where the
- * URL came from, which is why this can change without touching the editors.
+ * A failed upload keeps the file and shows a reason plus a retry action. The
+ * file picker is not the only way out of a bad connection.
  */
 
-const MAX_BYTES = 100 * 1024 * 1024;
-
-/** The facts about a picked file, gathered once by `probeFile`. */
+/** A picked file and the facts needed to preview, retry, and describe it. */
 type Picked = {
   name: string;
+  /** Bytes actually sent: the smaller re-encoded size for an optimized photo. */
   bytes: number;
-  /** Intrinsic size, used to reserve layout space and avoid layout shift. */
+  /** Bytes the person picked, so the saving can be shown. */
+  originalBytes: number;
+  /** Intrinsic size of the file being uploaded. */
   width: number | null;
   height: number | null;
-  kind: "image" | "video";
+  kind: MediaKind;
   /** A blob URL, for the preview in this tab only. Never saved. */
   previewUrl: string;
+  /** The exact file to send: a re-encoded copy when one was made. */
+  file: File;
+  /** True when `file` is the smaller re-encoded copy. */
+  optimized: boolean;
+};
+
+type Failure = {
+  kind: UploadFailureKind;
+  message: string;
+  retryable: boolean;
 };
 
 type Probe =
   | { state: "reading"; name: string }
+  | ({ state: "preparing" } & Picked)
   | ({ state: "uploading" } & Picked)
-  /** Cloudinary has it. `media.publicId` is set, so the badge reads Uploaded. */
   | ({ state: "uploaded" } & Picked)
-  /** Picked, previewed, but nothing will keep it. */
   | ({ state: "unconfigured" } & Picked)
-  | ({ state: "upload-failed"; message: string } & Picked)
-  | { state: "too-big"; name: string; bytes: number }
+  | ({ state: "upload-failed"; failure: Failure } & Picked)
+  | ({ state: "too-big"; reason: "bytes" | "pixels" } & Picked)
   /** Could not read the file at all. */
-  | { state: "failed"; message: string };
+  | { state: "failed"; name: string; message: string; file: File };
 
 /** What `probeFile` reports once: either the file's facts, or why it has none. */
-type ProbeResult = { ok: true; picked: Picked } | { ok: false; message: string };
-
-function megabytes(bytes: number): string {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
+type ProbeResult =
+  | { ok: true; picked: Picked }
+  | { ok: false; message: string; file: File };
 
 /**
  * Reads a file's dimensions from its own blob, without keeping the bytes.
@@ -79,17 +99,20 @@ function megabytes(bytes: number): string {
  * `Probe` state would have meant `reading` meaning both at once.
  */
 function probeFile(file: File, onDone: (result: ProbeResult) => void): () => void {
-  const kind: "image" | "video" = file.type.startsWith("video") ? "video" : "image";
+  const kind: MediaKind = file.type.startsWith("video") ? "video" : "image";
   const previewUrl = URL.createObjectURL(file);
   const element = kind === "image" ? new Image() : document.createElement("video");
 
   const picked: Picked = {
     name: file.name,
     bytes: file.size,
+    originalBytes: file.size,
     kind,
     previewUrl,
     width: null,
     height: null,
+    file,
+    optimized: false,
   };
 
   let settled = false;
@@ -109,12 +132,21 @@ function probeFile(file: File, onDone: (result: ProbeResult) => void): () => voi
 
   element.onload = () => {
     window.clearTimeout(timeout);
+    const width =
+      kind === "image"
+        ? (element as HTMLImageElement).naturalWidth
+        : (element as HTMLVideoElement).videoWidth;
+    const height =
+      kind === "image"
+        ? (element as HTMLImageElement).naturalHeight
+        : (element as HTMLVideoElement).videoHeight;
+
     finish({
       ok: true,
       picked: {
         ...picked,
-        width: (element as HTMLImageElement).naturalWidth ?? null,
-        height: (element as HTMLImageElement).naturalHeight ?? null,
+        width: width || null,
+        height: height || null,
       },
     });
   };
@@ -122,13 +154,102 @@ function probeFile(file: File, onDone: (result: ProbeResult) => void): () => voi
   element.onerror = () => {
     window.clearTimeout(timeout);
     URL.revokeObjectURL(previewUrl);
-    finish({ ok: false, message: `Could not read ${file.name}.` });
+    finish({ ok: false, message: `Could not read ${file.name}.`, file });
   };
 
   element.src = previewUrl;
   if (kind === "video") (element as HTMLVideoElement).preload = "metadata";
 
-  return () => window.clearTimeout(timeout);
+  return () => {
+    window.clearTimeout(timeout);
+    // Only an unfinished probe still owns the URL. Once a result has been
+    // handed back, `startUpload` keeps the preview on screen.
+    if (!settled) {
+      settled = true;
+      URL.revokeObjectURL(previewUrl);
+    }
+  };
+}
+
+/** Turns any thrown value into the reason the field can explain. */
+function failureFor(error: unknown): Failure {
+  if (error instanceof UploadError) {
+    return {
+      kind: error.kind,
+      message: error.message,
+      retryable: isRetryable(error.kind),
+    };
+  }
+
+  return {
+    kind: "unknown",
+    message:
+      error instanceof Error && error.message
+        ? error.message
+        : "The upload failed for an unknown reason.",
+    retryable: true,
+  };
+}
+
+/** The human sentence for each failure kind. The raw message stays in detail. */
+function failureCopy(failure: Failure): {
+  title: string;
+  message: string;
+  detail: string | null;
+} {
+  switch (failure.kind) {
+    case "too-large":
+      return {
+        title: "File too large.",
+        message: failure.message,
+        detail: null,
+      };
+    case "network":
+      return {
+        title: "Upload interrupted.",
+        message:
+          "The file did not finish uploading. Check your connection and try again.",
+        detail: null,
+      };
+    case "auth":
+      return {
+        title: "Upload permission expired.",
+        message:
+          "Try again to get a fresh permission. If that still fails, sign in again.",
+        detail: failure.message,
+      };
+    case "rate-limit":
+      return {
+        title: "Uploads are paused.",
+        message:
+          "Cloudinary is limiting uploads right now. Wait a minute, then try again.",
+        detail: null,
+      };
+    case "format":
+      return {
+        title: "That format could not be read.",
+        message: "Try a JPEG, PNG or WebP.",
+        detail: failure.message,
+      };
+    case "server":
+      return {
+        title: "Cloudinary had a problem.",
+        message: "The file could not be processed. Try again.",
+        detail: failure.message,
+      };
+    case "unconfigured":
+      return {
+        title: "Uploads are not configured.",
+        message: failure.message,
+        detail: null,
+      };
+    default:
+      return {
+        title: "The upload failed.",
+        message: "The reason is unknown. Try again, or replace the file.",
+        detail: failure.message,
+      };
+  }
 }
 
 export default function MediaUploader({
@@ -178,8 +299,12 @@ export default function MediaUploader({
 
   // Revoke the previous blob URL so repeated picking does not leak memory.
   const previousUrl = useRef<string | null>(null);
+  /** Cancels a probe that is still reading, which also releases its preview. */
+  const pendingProbe = useRef<(() => void) | null>(null);
   useEffect(() => {
     return () => {
+      pendingProbe.current?.();
+      pendingProbe.current = null;
       if (previousUrl.current) URL.revokeObjectURL(previousUrl.current);
       // Invalidates any upload still in flight, so its callback finds a
       // mismatched sequence and stops instead of calling setState on a
@@ -188,67 +313,118 @@ export default function MediaUploader({
     };
   }, []);
 
-  const startUpload = (file: File, picked: Picked, seq: number, initial: Media) => {
+  const startUpload = (
+    source: File,
+    picked: Picked,
+    seq: number,
+    alreadyPrepared = false,
+  ) => {
     /**
-     * Clear the slot before anything else.
+     * Clear the slot when the upload is actually about to start.
      *
      * Empty rather than the blob: a dead URL *looks* finished, while an empty
      * slot is reported by the dashboard's to-do list and cannot be mistaken for
-     * a working image. This runs whether or not an upload follows, so a file
-     * that never leaves this tab is never recorded as though it had.
+     * a working image. Doing it here rather than on pick means a file rejected
+     * by the local size check leaves the existing picture in place.
      */
-    const cleared: Media = {
-      ...initial,
-      url: "",
-      publicId: null,
-      width: picked.width,
-      height: picked.height,
-      alt:
-        initial.alt || (picked.kind === "image" ? file.name.replace(/\.[^.]+$/, "") : ""),
+    const clearSlot = (width: number | null, height: number | null) => {
+      const latest = mediaRef.current;
+      onChange({
+        ...latest,
+        url: "",
+        publicId: null,
+        width,
+        height,
+        alt:
+          latest.alt ||
+          (picked.kind === "image" ? source.name.replace(/\.[^.]+$/, "") : ""),
+      });
     };
-    onChange(cleared);
 
     if (!uploadConfigured()) {
-      setProbe({ state: "unconfigured", ...picked });
+      clearSlot(picked.width, picked.height);
+      setProbe({ state: "unconfigured", ...picked, file: source });
       return;
     }
 
-    setProbe({ state: "uploading", ...picked });
+    const run = async () => {
+      let ready: Picked = { ...picked, file: source };
 
-    void uploadAsset(file, picked.kind)
-      .then((uploaded) => {
-        if (pickSeq.current !== seq) return; // superseded by a later pick
-        // Spread over `mediaRef.current`, not `cleared`: the author can edit
-        // the alt text while this is in flight, and `cleared` would write that
-        // edit back out from under them.
-        const latest = mediaRef.current;
-        onChange({
-          ...latest,
-          ...uploaded,
-          // Cloudinary always returns dimensions for the asset it created;
-          // keep the probed ones only if it somehow did not.
-          width: uploaded.width ?? latest.width,
-          height: uploaded.height ?? latest.height,
-        });
-        setProbe({ state: "uploaded", ...picked });
-      })
-      .catch((error: unknown) => {
+      if (!alreadyPrepared && picked.kind === "image") {
+        setProbe({ state: "preparing", ...ready });
+        const prepared = await prepareImage(source);
         if (pickSeq.current !== seq) return;
-        const message =
-          error instanceof Error && error.message
-            ? error.message
-            : "The upload failed for an unknown reason.";
-        setProbe({ state: "upload-failed", message, ...picked });
-      });
+
+        if (prepared) {
+          ready = {
+            ...ready,
+            file: prepared.file,
+            bytes: prepared.bytes,
+            width: prepared.width,
+            height: prepared.height,
+            optimized: true,
+          };
+        }
+      }
+
+      if (pickSeq.current !== seq) return;
+
+      const limit = UPLOAD_LIMITS[ready.kind];
+      const pixels =
+        ready.width && ready.height ? ready.width * ready.height : null;
+
+      // A file that cannot fit the limit never reaches Cloudinary, so the
+      // existing picture is deliberately left untouched.
+      if (ready.bytes > limit.bytes) {
+        setProbe({ state: "too-big", reason: "bytes", ...ready });
+        return;
+      }
+
+      if (limit.pixels !== null && pixels !== null && pixels > limit.pixels) {
+        setProbe({ state: "too-big", reason: "pixels", ...ready });
+        return;
+      }
+
+      clearSlot(ready.width, ready.height);
+      setProbe({ state: "uploading", ...ready });
+
+      void uploadAsset(ready.file, ready.kind)
+        .then((uploaded) => {
+          if (pickSeq.current !== seq) return; // superseded by a later pick
+          // Spread over `mediaRef.current`, not the cleared slot: the author
+          // can edit the alt text while this is in flight, and the cleared
+          // object would write that edit back out from under them.
+          const latest = mediaRef.current;
+          onChange({
+            ...latest,
+            ...uploaded,
+            // Cloudinary always returns dimensions for the asset it created;
+            // keep the prepared ones only if it somehow did not.
+            width: uploaded.width ?? latest.width,
+            height: uploaded.height ?? latest.height,
+          });
+          setProbe({ state: "uploaded", ...ready });
+        })
+        .catch((error: unknown) => {
+          if (pickSeq.current !== seq) return;
+          setProbe({
+            state: "upload-failed",
+            ...ready,
+            failure: failureFor(error),
+          });
+        });
+    };
+
+    void run();
   };
 
   const pick = (file: File | undefined) => {
     if (!file) return;
 
-    if (file.size > MAX_BYTES) {
-      setProbe({ state: "too-big", name: file.name, bytes: file.size });
-      return;
-    }
+    // A previous probe still decoding would otherwise keep its blob URL alive
+    // even though its result can no longer be used.
+    pendingProbe.current?.();
+    pendingProbe.current = null;
 
     const seq = ++pickSeq.current;
     setProbe({ state: "reading", name: file.name });
@@ -259,9 +435,15 @@ export default function MediaUploader({
       // decode is still running. `onChange` would then write to a draft path
       // nobody is looking at any more.
       if (pickSeq.current !== seq) return;
+      pendingProbe.current = null;
 
       if (!result.ok) {
-        setProbe({ state: "failed", message: result.message });
+        setProbe({
+          state: "failed",
+          name: file.name,
+          message: result.message,
+          file: result.file,
+        });
         return;
       }
 
@@ -269,10 +451,31 @@ export default function MediaUploader({
       if (previousUrl.current) URL.revokeObjectURL(previousUrl.current);
       previousUrl.current = picked.previewUrl;
 
-      startUpload(file, picked, seq, mediaRef.current);
+      startUpload(file, picked, seq);
     });
 
-    return cancel;
+    pendingProbe.current = cancel;
+  };
+
+  /**
+   * Runs the failed step again with the file already in hand.
+   *
+   * A prepared photo is reused as-is: encoding it a second time would waste
+   * time and could change the quality for no reason. The signature is new on
+   * every attempt, so a retry after an expired permission slip is a real retry.
+   */
+  const retry = () => {
+    if (!probe) return;
+
+    if (probe.state === "failed") {
+      pick(probe.file);
+      return;
+    }
+
+    if (probe.state !== "upload-failed") return;
+
+    const seq = ++pickSeq.current;
+    startUpload(probe.file, probe, seq, probe.optimized);
   };
 
   /**
@@ -286,28 +489,49 @@ export default function MediaUploader({
    */
   const clear = () => {
     pickSeq.current += 1;
+    pendingProbe.current?.();
+    pendingProbe.current = null;
     setProbe(null);
+    if (previousUrl.current) {
+      URL.revokeObjectURL(previousUrl.current);
+      previousUrl.current = null;
+    }
     onClear();
   };
 
   /**
-   * The blob while this tab owns one, the stored URL otherwise.
+   * The picked file while it is being prepared or uploaded, the stored URL
+   * otherwise.
    *
-   * `media.publicId` wins deliberately once an upload has landed: the whole
-   * point of uploading is a URL that outlives the tab, so the preview should be
-   * showing that one. Otherwise a failed upload would still look perfect from a
-   * local copy that nobody else can load.
+   * A file that was rejected before sending (too big) deliberately falls back
+   * to `media.url`: nothing was replaced, so the old picture is still what the
+   * site will show. Once an upload starts the slot is cleared, and a failure
+   * leaves the local preview as the only picture available.
    */
-  const previewSrc = media.publicId
-    ? media.url
-    : probe && "previewUrl" in probe
-      ? probe.previewUrl
-      : media.url;
+  const previewFromPick = probe && "previewUrl" in probe ? probe.previewUrl : "";
+  const previewingPick =
+    probe?.state === "preparing" || probe?.state === "uploading";
+  const previewSrc = previewingPick ? previewFromPick : media.url || previewFromPick;
 
-  /** The uploader's own `accept` says which it is; the probe says it sooner. */
-  const isVideo = probe && "kind" in probe ? probe.kind === "video" : accept.startsWith("video");
+  const probeKind: MediaKind | null =
+    probe && "kind" in probe ? probe.kind : null;
+  const previewKind: MediaKind =
+    (previewingPick || !media.url) && probeKind
+      ? probeKind
+      : accept.startsWith("video")
+        ? "video"
+        : "image";
+  const isVideo = previewKind === "video";
 
-  const busy = probe?.state === "reading" || probe?.state === "uploading";
+  const busy =
+    probe?.state === "reading" ||
+    probe?.state === "preparing" ||
+    probe?.state === "uploading";
+
+  const canRetry =
+    probe?.state === "upload-failed" || probe?.state === "failed";
+
+  const failure = probe?.state === "upload-failed" ? failureCopy(probe.failure) : null;
 
   /**
    * A stored blob URL from an earlier build, with no local preview to show
@@ -317,7 +541,7 @@ export default function MediaUploader({
    * here to re-send — the panel has to say so rather than render a broken
    * image, which reads as the site being broken rather than one missing file.
    */
-  const showDeadFile = needsReupload(media) && !(probe && "previewUrl" in probe);
+  const showDeadFile = needsReupload(media) && !previewingPick;
 
   return (
     <div className="field">
@@ -358,15 +582,23 @@ export default function MediaUploader({
           >
             {probe?.state === "reading"
               ? "Reading…"
-              : probe?.state === "uploading"
-                ? "Uploading…"
-                : // Judged on what is *stored*, not on what is visible. After a
-                  // failed or unconfigured pick there is a picture on screen but
-                  // nothing behind it, and the word has to be "choose".
-                  media.url
-                  ? "Replace file"
-                  : "Choose file"}
+              : probe?.state === "preparing"
+                ? "Optimizing…"
+                : probe?.state === "uploading"
+                  ? "Uploading…"
+                  : // Judged on what is *stored*, not on what is visible. After a
+                    // failed or unconfigured pick there is a picture on screen but
+                    // nothing behind it, and the word has to be "choose".
+                    media.url
+                    ? "Replace file"
+                    : "Choose file"}
           </button>
+
+          {canRetry && (
+            <button type="button" className="btn" onClick={retry} disabled={busy}>
+              Try again
+            </button>
+          )}
 
           {(media.url || previewSrc) && (
             <button type="button" className="btn btn-danger" onClick={clear}>
@@ -374,12 +606,17 @@ export default function MediaUploader({
             </button>
           )}
 
+          {probe?.state === "preparing" && <span className="badge badge-warn">Optimizing…</span>}
           {probe?.state === "uploading" && <span className="badge badge-warn">Uploading…</span>}
           {probe?.state === "unconfigured" && (
             <span className="badge badge-warn">Not kept</span>
           )}
           {probe?.state === "upload-failed" && <span className="badge badge-warn">Upload failed</span>}
-          {media.publicId && <span className="badge badge-good">Uploaded</span>}
+          {probe?.state === "too-big" && <span className="badge badge-warn">Too large</span>}
+          {probe?.state === "failed" && <span className="badge badge-warn">Could not read</span>}
+          {media.publicId && (!probe || probe.state === "uploaded") && (
+            <span className="badge badge-good">Uploaded</span>
+          )}
         </div>
 
         <input
@@ -394,33 +631,82 @@ export default function MediaUploader({
           }}
         />
 
-        {(probe?.state === "uploading" || probe?.state === "uploaded") && (
+        {(probe?.state === "preparing" ||
+          probe?.state === "uploading" ||
+          probe?.state === "uploaded") && (
           <p className="uploader-meta">
-            {probe.name} · {megabytes(probe.bytes)}
+            {probe.name} ·{" "}
+            {probe.optimized
+              ? `${formatBytes(probe.originalBytes)} → ${formatBytes(probe.bytes)}`
+              : formatBytes(probe.bytes)}
             {probe.width ? ` · ${probe.width}×${probe.height}` : ""}
-            {probe.state === "uploading" ? " — uploading, keep this open." : ""}
+            {probe.state === "preparing"
+              ? " — optimizing, keep this open."
+              : probe.state === "uploading"
+                ? " — uploading, keep this open."
+                : ""}
           </p>
         )}
+
         {probe?.state === "unconfigured" && <p className="field-warn">{UPLOAD_NOT_CONFIGURED}</p>}
-        {probe?.state === "upload-failed" && (
-          <p className="field-warn">
-            {probe.message} The preview above is local to this tab and will not survive a reload.
-          </p>
+
+        {probe?.state === "upload-failed" && failure && (
+          <div className="field-warn" role="alert">
+            <strong>{failure.title}</strong> {failure.message}
+            {failure.detail && failure.detail !== failure.message && (
+              <details className="uploader-details">
+                <summary>Technical details</summary>
+                <code>{failure.detail}</code>
+              </details>
+            )}
+            {probe.failure.kind === "auth" && (
+              <span className="uploader-meta">
+                {" "}
+                Sign in again before retrying.
+              </span>
+            )}
+            {!probe.failure.retryable &&
+              probe.failure.kind !== "auth" &&
+              probe.failure.kind !== "unconfigured" && (
+                <span className="uploader-meta">
+                  {" "}
+                  Retrying is unlikely to help; replacing the file is the surest fix.
+                </span>
+              )}
+          </div>
         )}
+
         {probe?.state === "too-big" && (
           <p className="field-warn">
-            {probe.name} is {megabytes(probe.bytes)}. Keep it under 100 MB.
+            {probe.reason === "bytes" ? (
+              <>
+                {probe.name} is {formatBytes(probe.bytes)}. The upload limit is{" "}
+                {formatBytes(UPLOAD_LIMITS[probe.kind].bytes)}.
+              </>
+            ) : (
+              <>
+                {probe.name} is{" "}
+                {formatPixels((probe.width ?? 0) * (probe.height ?? 0))}. The limit is{" "}
+                {formatPixels(UPLOAD_LIMITS[probe.kind].pixels ?? 0)}.
+              </>
+            )}{" "}
+            {probe.kind === "video" ? "Choose a shorter video." : "Choose a smaller image."}
           </p>
         )}
-        {probe?.state === "failed" && <p className="field-warn">{probe.message}</p>}
+
+        {probe?.state === "failed" && (
+          <p className="field-warn">
+            {probe.message} Try another file, or the same one again.
+          </p>
+        )}
       </div>
 
-      <TextLikeAlt value={media.alt} onChange={(alt) => onChange({ ...media, alt })} />
+      <AltField value={media.alt} onChange={(alt) => onChange({ ...media, alt })} />
     </div>
   );
 }
 
-function TextLikeAlt({ value, onChange }: { value: string; onChange: (alt: string) => void }) {
+function AltField({ value, onChange }: { value: string; onChange: (alt: string) => void }) {
   return (
     <div className="field">
       <label className="field-label">Describe this (for screen readers)</label>

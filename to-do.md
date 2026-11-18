@@ -1,7 +1,7 @@
 # to-do.md — things yet to come
 
 Carried over from `LOVEBUILD_TODO.md` and pruned against the code as of today:
-uploads now work (Cloudinary, 300 tests passing), the upload ring and publish
+uploads now work (Cloudinary, 352 tests passing), the upload ring and publish
 dock are built, auth is real, and Neon storage is implemented behind the API. What
 is left, in the order it is worth doing.
 
@@ -94,7 +94,7 @@ lives in `site.editorial` and is editable from the dashboard, and it renders at
 
 ## 6. Later, when the pain is felt
 
-- [ ] Resize and re-encode in the browser before upload (WebP ~80–85%).
+- [x] Resize and re-encode in the browser before upload (WebP ~80–85%).
 - [ ] Chunked/resumable uploads for video on bad connections.
 - [ ] Adaptive streaming (HLS) instead of one-file video delivery.
 - [ ] Background uploads with an out-of-form progress surface.
