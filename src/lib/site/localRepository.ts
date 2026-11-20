@@ -105,9 +105,9 @@ export class LocalSiteRepository implements SiteRepository {
   /**
    * Development only, so there is no account to meter.
    *
-   * The hosted backend is the one that owns the one-free-site rule. Pretending
-   * to enforce it against localStorage would make a fresh clone fail in a
-   * different place from the product it is meant to exercise.
+   * Site creation is currently free on the hosted backend as well. The method
+   * stays on the repository contract for a future paid mode; it does not gate
+   * local creation.
    */
   async allowance(): Promise<SiteAllowance> {
     return { ...DEV_ALLOWANCE };

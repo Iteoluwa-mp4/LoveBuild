@@ -88,14 +88,15 @@ idea" and `src/lib/site/schema.ts`, `path.ts`, `App.tsx#SitePages`.)*
   stay public through one unauthenticated route. *(Confirmed — `auth.ts`,
   `useSession`, `RequireAuth`, `SiteFooter`, `apiRepository.ts`,
   `server/app.ts`, `server/auth.ts`, `server/store.ts`.)*
-- **One free site, then paid.** `account_entitlements` holds the lifetime free
-  flag and paid credits; `device_claims` holds a hashed browser/device id so a
-  new email on the same phone does not reset the free allowance. The API spends
-  the allowance at insert time; the create form only explains it. Clearing all
-  browser storage or changing browsers is still a bypass, because this is a
-  device memory rather than a verified phone number. *(Confirmed — `entitlement.ts`,
-  `device.ts`, `deviceProtocol.ts`, `server/schema.ts`, `server/store.ts`,
-  `server/app.ts`, `CreateSite.tsx`, `ProfilePage.tsx`.)*
+- **Site creation is free for now.** Any signed-in account can create as many
+  sites as it wants. The create form no longer asks for payment, and
+  `POST /api/sites` inserts directly without spending an allowance. The earlier
+  one-free-site and paid-credit design is parked: `account_entitlements` and
+  `device_claims` remain in the schema, and the store keeps its allowance
+  methods, but the current API does not read them. `GET /api/entitlement` is a
+  compatibility read that always answers with a free allowance. *(Confirmed —
+  `server/app.ts`, `server/store.ts`, `server/schema.ts`, `CreateSite.tsx`,
+  `ProfilePage.tsx`, `repository.ts`.)*
 - **Uploads persist to Cloudinary through signed, authenticated requests.**
   `src/lib/site/cloudinary.ts` asks the API for a one-hour signature, posts the
   file to Cloudinary with `type=authenticated`, then stores a signed delivery
@@ -140,7 +141,7 @@ code:
   ScrollTrigger silently failed and left real content invisible on published
   pages.
 - **Never prefix a secret with `VITE_`.** It is compiled into the public bundle.
-- **381 tests pass** (`npm test`), including an assertion that no real photograph
+- **380 tests pass** (`npm test`), including an assertion that no real photograph
   ships with the sample config, that derived values are not stored, that uploads
   only ever persist a URL that resolves, and that a create collision suffixes the
   address instead of overwriting the first site.
@@ -149,8 +150,9 @@ Open product decisions, deliberately undecided:
 
 - Whether a review gate is ever wanted before publish (`submitted` status exists
   but is unused).
-- Which payment provider and price a second site should use. The allowance and
-  paid-credit ledger exist; the checkout and webhook do not.
+- Whether site creation ever becomes paid again. The allowance and paid-credit
+  tables exist, but no checkout or webhook is wired and the current API does not
+  enforce a limit.
 - Whether the browser-local fallback stays forever as a no-account mode, or is
   removed once Neon is the only deployment story. It is deliberately still
   there for a fresh clone and offline development.

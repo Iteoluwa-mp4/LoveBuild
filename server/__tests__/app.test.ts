@@ -81,10 +81,6 @@ class MemoryStore implements SiteStore {
     );
   }
 
-  grantPaid(ownerId: string, credits = 1): void {
-    this.account(ownerId).paidSiteCredits += credits;
-  }
-
   async list(ownerId: string): Promise<SiteSummary[]> {
     return [...this.rows.entries()]
       .filter(([, row]) => row.ownerId === ownerId)
@@ -354,58 +350,37 @@ describe("api", () => {
     expect(response.headers.get("set-cookie")).toContain(`lovebuilds_device=${DEVICE_A}`);
   });
 
-  it("allows one free site per account, then asks for payment", async () => {
-    const first = await create("alice", "first", DEVICE_A);
-    expect(first.status).toBe(201);
+  it("allows as many sites as the account wants while creation is free", async () => {
+    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
+    expect((await create("alice", "second", DEVICE_A)).status).toBe(201);
+    expect((await create("alice", "third", DEVICE_B)).status).toBe(201);
 
-    const allowance = await app.request("/api/entitlement", {
+    expect([...store.rows.keys()]).toEqual(["first", "second", "third"]);
+  });
+
+  it("allows another account on the same device while creation is free", async () => {
+    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
+    expect((await create("bob", "bobs", DEVICE_A)).status).toBe(201);
+
+    expect(store.rows.get("bobs")?.ownerId).toBe("user-bob");
+  });
+
+  it("reports a free allowance to a dashboard from the previous release", async () => {
+    const response = await app.request("/api/entitlement", {
       headers: { ...auth("alice"), ...device(DEVICE_A) },
     });
-    await expect(allowance.json()).resolves.toEqual({
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
       allowance: {
-        freeAvailable: false,
+        freeAvailable: true,
         paidCredits: 0,
         deviceAvailable: true,
       },
     });
-
-    const second = await create("alice", "second", DEVICE_B);
-    expect(second.status).toBe(402);
-    const body = (await second.json()) as { code?: string; error?: string };
-    expect(body.code).toBe("payment-required");
-    expect(body.error).toMatch(/paid/i);
-    expect(store.rows.has("second")).toBe(false);
   });
 
-  it("does not let a new email on the same phone claim another free site", async () => {
-    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
-
-    const blocked = await create("bob", "bobs", DEVICE_A);
-    expect(blocked.status).toBe(402);
-    const body = (await blocked.json()) as { code?: string; error?: string };
-    expect(body.code).toBe("payment-required");
-    expect(body.error).toMatch(/phone/i);
-
-    // A different phone is a different free site — this is the boundary the
-    // device rule can honestly draw without a verified phone number.
-    const otherPhone = await create("bob", "bobs", DEVICE_B);
-    expect(otherPhone.status).toBe(201);
-  });
-
-  it("spends a paid credit for the second site and only once", async () => {
-    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
-    store.grantPaid("user-alice");
-
-    const paid = await create("alice", "second", DEVICE_B);
-    expect(paid.status).toBe(201);
-    expect(store.accounts.get("user-alice")?.paidSiteCredits).toBe(0);
-
-    const third = await create("alice", "third", DEVICE_A);
-    expect(third.status).toBe(402);
-    expect(store.rows.has("third")).toBe(false);
-  });
-
-  it("does not refund the free site when the site is deleted", async () => {
+  it("allows another site after one is deleted", async () => {
     expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
 
     const removed = await app.request("/api/sites/first", {
@@ -415,22 +390,8 @@ describe("api", () => {
     expect(removed.status).toBe(204);
 
     const again = await create("alice", "another", DEVICE_A);
-    expect(again.status).toBe(402);
-    expect(store.rows.has("another")).toBe(false);
-  });
-
-  it("keeps a phone claimed after its first account is deleted", async () => {
-    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
-
-    const wiped = await app.request("/api/account", {
-      method: "DELETE",
-      headers: auth("alice"),
-    });
-    expect(wiped.status).toBe(200);
-
-    const bob = await create("bob", "bobs", DEVICE_A);
-    expect(bob.status).toBe(402);
-    expect(store.rows.has("bobs")).toBe(false);
+    expect(again.status).toBe(201);
+    expect(store.rows.has("another")).toBe(true);
   });
 
   it("keeps one owner's site out of another owner's dashboard", async () => {

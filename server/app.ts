@@ -123,16 +123,23 @@ export function createApp({
   });
 
   /**
-   * The one-free-site allowance, for the shelf and the create form.
+   * A compatibility read for tabs that still have the previous dashboard.
    *
-   * The same device identity that `POST /sites` enforces is issued here, so a
-   * signed-in owner who only ever visits their shelf still gives their phone a
-   * stable identity. The route is a read of policy but can write the account
-   * row and a device claim — see `allowance` in the store.
+   * Site creation is free right now, so this always answers with a free
+   * allowance. It deliberately does not touch `account_entitlements` or
+   * `device_claims`; the current API neither spends nor enforces them. Keeping
+   * the route means an old tab sees a working form instead of an error.
    */
   app.get("/entitlement", requireAuth, async (c) => {
-    const deviceHash = await deviceHashFor(c);
-    return c.json({ allowance: await store.allowance(c.get("uid"), deviceHash) });
+    /*
+      The device cookie is still issued while creation is free. It costs one
+      first-party cookie and leaves a future allowance able to recognize the
+      same browser without relying on localStorage having survived.
+    */
+    await deviceHashFor(c);
+    return c.json({
+      allowance: { freeAvailable: true, paidCredits: 0, deviceAvailable: true },
+    });
   });
 
   app.get("/sites", requireAuth, async (c) => {
@@ -141,8 +148,14 @@ export function createApp({
 
   app.post("/sites", requireAuth, async (c) => {
     const site = parseSite(await readJson(c));
-    const deviceHash = await deviceHashFor(c);
-    const created = await store.createEntitled(c.get("uid"), site, deviceHash);
+
+    /*
+      Site creation is free for every signed-in account right now. The old
+      allowance store methods and tables are still present for a future paid
+      mode, but this route deliberately calls the plain insert.
+    */
+    await deviceHashFor(c);
+    const created = await store.create(c.get("uid"), site);
     return c.json({ site: created }, 201);
   });
 

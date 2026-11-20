@@ -1,6 +1,11 @@
 /**
  * Who may make another site.
  *
+ * NOTE: Site creation is currently free for every account. The policy below is
+ * parked for a future paid mode; the current API does not enforce it and the
+ * dashboard no longer asks for an allowance. If a limit comes back, apply it on
+ * the server first and then re-wire the form and shelf.
+ *
  * The allowance is deliberately small and boring: every account gets one free
  * site, and every device gets to be the home of one free site. The account rule
  * stops the same person from making a second free site by staying signed in; the

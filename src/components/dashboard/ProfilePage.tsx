@@ -8,11 +8,6 @@ import { useSession } from "../../hooks/useSession";
 import { deleteAccount } from "../../lib/site/account";
 import { signOut } from "../../lib/site/auth";
 import { STORAGE_PREFIX } from "../../lib/site/brand";
-import {
-  allowanceState,
-  canCreateSite,
-  type SiteAllowance,
-} from "../../lib/site/entitlement";
 import { getRepository } from "../../lib/site/getRepository";
 import { LocalSiteRepository } from "../../lib/site/localRepository";
 import type { SiteSummary } from "../../lib/site/repository";
@@ -73,7 +68,6 @@ export default function ProfilePage() {
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [allowance, setAllowance] = useState<SiteAllowance | null>(null);
 
   /** Account deletion: idle → confirming → busy, with a message on failure. */
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -146,30 +140,6 @@ export default function ProfilePage() {
   }, [uid]);
 
   /**
-   * The one-free-site state, beside the shelf.
-   *
-   * A failure here leaves the shelf usable and simply omits the sentence. The
-   * create form and the API are still the places that decide, so a missing
-   * readout must not turn into a missing gate.
-   */
-  useEffect(() => {
-    let cancelled = false;
-
-    void getRepository()
-      .allowance()
-      .then((next) => {
-        if (!cancelled) setAllowance(next);
-      })
-      .catch(() => {
-        /* The shelf itself already has an error state if the API is down. */
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [uid]);
-
-  /**
    * Copies every browser-local site into the signed-in account.
    *
    * Deliberately manual. An automatic import would write to someone's account
@@ -187,15 +157,6 @@ export default function ProfilePage() {
     const local = new LocalSiteRepository();
     const imported: string[] = [];
     let renamed = 0;
-
-    const refreshAllowance = async () => {
-      try {
-        setAllowance(await repository.allowance());
-      } catch {
-        // The import result is the useful message; a stale allowance sentence
-        // can wait for the next shelf load.
-      }
-    };
 
     try {
       for (const summary of localSites) {
@@ -222,7 +183,6 @@ export default function ProfilePage() {
       setImportError(
         cause instanceof Error ? cause.message : "Could not import your local sites.",
       );
-      void refreshAllowance();
       setImporting(false);
       return;
     }
@@ -245,8 +205,6 @@ export default function ProfilePage() {
       // The import itself worked; only the refresh failed. A reload will show
       // the list, so this does not deserve an error over the success note.
     }
-
-    await refreshAllowance();
   };
 
   /**
@@ -392,12 +350,6 @@ export default function ProfilePage() {
               {localSites.length === 1 ? "it follows" : "they follow"} you to other devices.
             </p>
 
-            {allowance && !canCreateSite(allowance) && (
-              <p className="field-hint">
-                Importing counts as creating a site, so it needs a paid site on this account.
-              </p>
-            )}
-
             <div className="btn-row">
               <button
                 type="button"
@@ -438,23 +390,9 @@ export default function ProfilePage() {
                 {count === null
                   ? "Loading…"
                   : count === 0
-                    ? allowance && !canCreateSite(allowance)
-                      ? "Nothing here right now."
-                      : "Nothing made yet."
+                    ? "Nothing made yet."
                     : `${count} ${count === 1 ? "site" : "sites"}, newest first.`}
               </p>
-
-              {allowance && (
-                <p className="field-hint">
-                  {allowanceState(allowance) === "paid"
-                    ? `${allowance.paidCredits} paid ${allowance.paidCredits === 1 ? "site" : "sites"} ready.`
-                    : allowanceState(allowance) === "free"
-                      ? "One free site is included."
-                      : allowanceState(allowance) === "blocked-device"
-                        ? "This phone's free site is used. Another site is paid."
-                        : "Your free site is used. Another site is paid."}
-                </p>
-              )}
             </div>
 
             <Link className="btn btn-primary" to="/new">

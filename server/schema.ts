@@ -46,6 +46,10 @@ export const sites = pgTable(
 /**
  * The account's side of the one-free-site allowance.
  *
+ * Parked while site creation is free: the current API does not read or write
+ * these rows. They are kept because the migration is already applied and the
+ * table is the seam for a future paid mode.
+ *
  * `free_site_used` is a lifetime flag, not a count of current sites. Deleting
  * the site does not refund it: otherwise the cheapest way to get unlimited free
  * sites would be to delete and recreate forever. Paid credits are per-site and
@@ -65,6 +69,9 @@ export const accountEntitlements = pgTable("account_entitlements", {
 
 /**
  * The phone's side of the allowance.
+ *
+ * Parked with `account_entitlements` while site creation is free. The current
+ * API issues the device cookie but does not read or write this table.
  *
  * `device_hash` is a SHA-256 digest of a random install token. The token itself
  * never reaches the database, and this table has no email, IP or fingerprint in

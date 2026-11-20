@@ -20,10 +20,9 @@ export interface SiteStore {
   /**
    * What this account and device may create next.
    *
-   * This is a read with one deliberate side effect: an account that has
-   * already used its free site claims the device it is asking from. That is
-   * what lets the device rule apply to accounts that existed before the rule
-   * did — their phone becomes known the next time they open the shelf.
+   * Parked while site creation is free: the current API does not call this and
+   * no longer spends a free allowance. It stays on the interface for a future
+   * paid mode, where the same device claim would be reused.
    */
   allowance(ownerId: string, deviceHash: string): Promise<SiteAllowance>;
 
@@ -32,17 +31,18 @@ export interface SiteStore {
   getPublic(slug: string): Promise<Site | null>;
 
   /**
-   * The low-level insert. Kept for tests and migrations; owner-facing creation
-   * goes through `createEntitled`, which spends a free site or a paid credit.
+   * The low-level insert. The current free-for-everyone route uses this
+   * directly; `createEntitled` is kept for the parked allowance mode.
    */
   create(ownerId: string, site: Site): Promise<Site>;
 
   /**
    * Creates a site under the one-free-site allowance.
    *
-   * The reservation happens here rather than in the route so two requests
-   * cannot both believe the same free site is available. The device row is the
-   * unique constraint; the account flag is the second gate.
+   * Parked while site creation is free. The reservation happens here rather
+   * than in the route so a future paid mode can make two requests race for the
+   * same free site without both winning. The device row is the unique
+   * constraint; the account flag is the second gate.
    */
   createEntitled(ownerId: string, site: Site, deviceHash: string): Promise<Site>;
 

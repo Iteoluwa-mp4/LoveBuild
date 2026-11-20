@@ -110,45 +110,24 @@ one auto-creating form: Firebase's email-enumeration protection returns the same
 error for a wrong password and an unknown address, so "create it if it is not
 there" cannot be told apart from "you mistyped your password".
 
-### One free site, then paid — and what “phone remembering” really means
+### Site creation is free for now
 
-Each account gets one free site. The API spends it when the row is inserted, in
-`account_entitlements`, so a stale tab, a second click or a client that ignores
-the dashboard cannot get a second one. Deleting the free site does not refund
-it; otherwise delete-and-recreate would be the cheapest unlimited plan.
+Any signed-in account can create as many sites as it wants. The create form
+does not ask for payment, and `POST /api/sites` inserts directly rather than
+spending an allowance. A second, third or tenth site works the same as the
+first, including after deleting one.
 
-Email alone is not enough, because another address is free to create. The API
-also records a `device_claims` row for the phone/browser that used the free
-site. The browser gets a random install id in localStorage and the API sets it
-as an `HttpOnly` cookie; the database stores only a SHA-256 hash. A new email on
-the same phone therefore sees “this phone has already used its free site” rather
-than a fresh allowance. The cookie is capped at 400 days, which is the longest
-lifetime browsers still accept; the localStorage install id normally outlives
-it.
+The one-free-site and paid-credit machinery from the previous product decision
+is parked, not deleted. `account_entitlements` and `device_claims` remain in the
+schema (the migration is already applied), and `server/store.ts` keeps the
+`allowance` and `createEntitled` methods for a future paid mode. The current
+route does not call either method, and the dashboard no longer fetches or shows
+an allowance.
 
-That is a deterrent, not phone attestation. A web page cannot read a SIM or a
-phone number, and someone can clear browser storage or use a different browser.
-If the product later needs identity that survives all of those, the next step is
-a verified phone number (Firebase Phone Auth) or payment identity stored on the
-server; the API's allowance check is the seam that would accept it.
-
-The next site is paid. Paid sites are tracked as credits on
-`account_entitlements.paid_site_credits`; creating one spends a credit. Payment
-checkout is not connected yet, so the blocked screen points at the developer.
-To grant a paid site by hand after payment, use the Firebase uid from the
-Firebase console:
-
-```sql
-UPDATE account_entitlements
-SET paid_site_credits = paid_site_credits + 1,
-    updated_at = now()
-WHERE owner_id = '<firebase uid>';
-```
-
-The migration backfills every existing owner with `free_site_used = true`, so
-accounts that already have a site do not receive a second free one. Existing
-accounts claim the device the next time they ask for their allowance, which is
-what carries the device rule over to accounts made before it existed.
+`GET /api/entitlement` still answers with a free allowance so a tab that has the
+previous dashboard loaded does not show a payment prompt after this release. New
+builds do not call it. If a site limit returns, enforce it on the server first,
+then re-wire the create form and shelf.
 
 ### Neon setup
 
@@ -171,11 +150,10 @@ switch to forget, and a fresh clone with no `.env.local` still uses localStorage
 
 Existing browser-local sites are neither deleted nor uploaded silently. `/profile`
 shows a one-time **Import** card when it finds local sites that are not yet in the
-account. Import copies each one, keeps a published site published, and appends the
-usual random suffix if an address is already taken. An import is a creation like
-any other, so it spends the account's free site or a paid credit; the card says
-so when the allowance is already gone. The record of what has been imported is
-per account, so signing into a different account does not inherit it.
+account. Import copies each one, keeps a published site published, and appends
+the usual random suffix if an address is already taken. Import is free like any
+other creation while payments are paused. The record of what has been imported
+is per account, so signing into a different account does not inherit it.
 
 Existing Firestore sites are copied once, not dual-written:
 
@@ -727,15 +705,13 @@ are operator steps. The app deploys as a static SPA plus one Edge Function (see
 *Deploying*), but there is no App Check — so the API relies on Firebase token
 verification, authorized domains and Neon's own access controls for now.
 
-**Device memory is not a phone number.** The one-free-site rule remembers the
-browser profile, not the person holding the phone. Clearing all site data, using
-another browser or changing phones resets that signal. A verified phone number or
-payment identity is the honest upgrade; it is deliberately not faked with a
-fingerprint.
-
-**Checkout is not connected.** The paid path is enforced and a credit can be
-granted by hand, but there is no card form, receipt or automatic credit webhook
-yet. The blocked screen says so instead of pretending a button charged someone.
+**Site limits and checkout are paused.** Site creation is free and unlimited for
+now. The earlier one-free-site rule, paid-credit ledger and device memory remain
+in the code and database, but the current API does not enforce them and the
+dashboard does not show them. If the limit returns, the old device signal is a
+browser profile, not a phone number: clearing all site data, using another
+browser or changing phones would reset it. A verified phone number or payment
+identity is the honest upgrade; it is deliberately not faked with a fingerprint.
 
 **Browser-local sites are imported by hand.** The `/profile` card copies them into
 the signed-in account, but there is no automatic migration, no export, and no
