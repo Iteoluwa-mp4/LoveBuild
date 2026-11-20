@@ -46,6 +46,8 @@ describe("schema", () => {
     expect(site.editorial.person).toBe("");
     expect(site.editorial.quote).toBe("");
     expect(site.editorial.letter).toBe("");
+    expect(site.godpoetry.hero.lines).toEqual(["", ""]);
+    expect(site.godpoetry.hero.dedication).toBe("");
   });
 
   /**
@@ -185,6 +187,45 @@ describe("submission checks", () => {
     const paths = findSubmissionIssues(site).map((i) => i.path);
     expect(paths).toContain("gallery.chapters.0");
   });
+
+  /**
+   * The God Poetry page is a single blessing, not the standard hero-plus-
+   * chapters site. Measuring it against fields it never renders would send the
+   * author looking for a "Hero subtitle" that has no home on the page.
+   */
+  it("measures God Poetry against the fields it actually renders", () => {
+    const site = emptySite("poem");
+    site.template = "godpoetry";
+
+    const paths = findSubmissionIssues(site).map((i) => i.path);
+    expect(paths).toContain("identity.name");
+    expect(paths).toContain("godpoetry.hero.lines.0");
+    expect(paths).toContain("godpoetry.hero.dedication");
+    expect(paths).toContain("home.moments");
+    expect(paths).not.toContain("home.hero.lines.0");
+    expect(paths).not.toContain("home.hero.subline");
+    expect(paths).not.toContain("gallery.chapters");
+  });
+
+  it("passes God Poetry once the name, cover, dedication and a photo exist", () => {
+    const site = emptySite("poem");
+    site.template = "godpoetry";
+    site.identity.name = "Cristian";
+    site.godpoetry.hero.lines = ["A garden", "of grace."];
+    site.godpoetry.hero.dedication = "For the one who carries light.";
+    site.home.moments = [
+      {
+        id: "m1",
+        tag: "",
+        date: "",
+        caption: "The ordinary light.",
+        secret: "",
+        image: { ...emptyMedia(), url: "https://example.test/light.jpg" },
+      },
+    ];
+
+    expect(findSubmissionIssues(site)).toEqual([]);
+  });
 });
 
 /**
@@ -290,6 +331,9 @@ describe("templates", () => {
 
   it("keeps a template it recognises", () => {
     expect(siteSchema.parse({ ...defaultSite(), template: "modern" }).template).toBe("modern");
+    expect(siteSchema.parse({ ...defaultSite(), template: "godpoetry" }).template).toBe(
+      "godpoetry",
+    );
   });
 
   /**
@@ -347,6 +391,29 @@ describe("templates", () => {
   it("keeps media out of the editorial block", () => {
     const editorial = defaultSite().editorial as Record<string, unknown>;
     const serialised = JSON.stringify(editorial);
+    expect(serialised).not.toContain("publicId");
+    expect(serialised).not.toContain('"url"');
+  });
+
+  /**
+   * The private template's cover copy lives on every config, whatever template
+   * is selected. Switching layouts must re-present the same draft, not discard
+   * the words that belong to the one being left.
+   */
+  it("keeps God Poetry's cover copy when the template changes", () => {
+    const site = emptySite("poem");
+    site.template = "godpoetry";
+    site.godpoetry.hero.lines = ["A garden", "of grace."];
+    site.godpoetry.hero.dedication = "For the one who carries light.";
+
+    const switched = siteSchema.parse({ ...site, template: "modern" });
+    expect(switched.godpoetry.hero.lines).toEqual(["A garden", "of grace."]);
+    expect(switched.godpoetry.hero.dedication).toBe("For the one who carries light.");
+  });
+
+  it("keeps media out of the God Poetry block", () => {
+    const godpoetry = defaultSite().godpoetry as Record<string, unknown>;
+    const serialised = JSON.stringify(godpoetry);
     expect(serialised).not.toContain("publicId");
     expect(serialised).not.toContain('"url"');
   });
@@ -419,6 +486,7 @@ describe("themes", () => {
     expect(templateUsesThemes("modern")).toBe(true);
     expect(templateUsesThemes("editorial")).toBe(false);
     expect(templateUsesThemes("scrapbook")).toBe(false);
+    expect(templateUsesThemes("godpoetry")).toBe(false);
     expect(templateUsesThemes("unknown")).toBe(false);
   });
 });

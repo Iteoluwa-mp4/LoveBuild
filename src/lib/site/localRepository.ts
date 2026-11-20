@@ -1,6 +1,7 @@
 import type { Site, SiteStatus } from "./schema";
 import { siteSchema } from "./schema";
 import { STORAGE_PREFIX } from "./brand";
+import { DEV_ALLOWANCE, type SiteAllowance } from "./entitlement";
 import { SaveError, type SiteRepository, type SiteSummary } from "./repository";
 import { randomSlugSuffix, suffixSlug } from "./slug";
 import { parseForStorage, parseStoredSite } from "./parseSite";
@@ -100,6 +101,17 @@ export class LocalSiteRepository implements SiteRepository {
 
   /** False in private mode or when the quota is already blown. */
   readonly available = hasStorage();
+
+  /**
+   * Development only, so there is no account to meter.
+   *
+   * The hosted backend is the one that owns the one-free-site rule. Pretending
+   * to enforce it against localStorage would make a fresh clone fail in a
+   * different place from the product it is meant to exercise.
+   */
+  async allowance(): Promise<SiteAllowance> {
+    return { ...DEV_ALLOWANCE };
+  }
 
   async list(): Promise<SiteSummary[]> {
     const out: SiteSummary[] = [];

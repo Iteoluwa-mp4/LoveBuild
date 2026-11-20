@@ -1,5 +1,12 @@
 import { useId, type ReactNode } from "react";
-import { FiAperture, FiBookOpen, FiDroplet, FiScissors } from "react-icons/fi";
+import {
+  FiAperture,
+  FiBookOpen,
+  FiChevronRight,
+  FiDroplet,
+  FiFeather,
+  FiScissors,
+} from "react-icons/fi";
 
 import { templateUsesThemes, themeIds, themes } from "../../lib/site/themes";
 
@@ -134,6 +141,12 @@ const TEMPLATES: ReadonlyArray<{ id: string; label: string; note: string; icon: 
     note: "Taped polaroids at odd angles, paper ground, handwriting face.",
     icon: <FiScissors />,
   },
+  {
+    id: "godpoetry",
+    label: "God Poetry",
+    note: "A long-form blessing on paper and gold: a poem, a letter and a small prayer.",
+    icon: <FiFeather />,
+  },
 ];
 
 /**
@@ -153,15 +166,25 @@ const TEMPLATES: ReadonlyArray<{ id: string; label: string; note: string; icon: 
 export function TemplatePicker({
   value,
   onChange,
+  isAvailable = () => true,
 }: {
   value: string;
   onChange: (id: string) => void;
+  /**
+   * Hides layouts this account may not pick.
+   *
+   * Defaults to showing everything, so the picker remains a plain controlled
+   * list for tests and for any caller without an account context. The dashboard
+   * supplies the real allowlist; `isTemplateAvailable` is the single place the
+   * rules live.
+   */
+  isAvailable?: ((id: string) => boolean) | undefined;
 }) {
   return (
     <div className="field">
       <span className="field-label">Template</span>
       <div className="theme-grid">
-        {TEMPLATES.map((template) => (
+        {TEMPLATES.filter((template) => isAvailable(template.id)).map((template) => (
           <button
             key={template.id}
             type="button"
@@ -284,6 +307,42 @@ export function Section({
         {hint && <span className="dash-section-hint">{hint}</span>}
       </summary>
       <div className="dash-section-body">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * A labelled cluster of sections: the form's two halves, "The look" and
+ * "Your message".
+ *
+ * Open by default, the opposite of the sections it holds — the group
+ * announces the shape of the form, and folding that on arrival would trade
+ * one navigation problem for another. `open` is a constant prop, so React
+ * never rewrites the attribute and the reader's own toggling survives the
+ * next render: the same mechanism `Section` relies on, and what lets a jump
+ * open a folded group on the way to a field inside it.
+ */
+export function SectionGroup({
+  title,
+  hint,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  hint?: string | undefined;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details className="dash-group" open={defaultOpen}>
+      <summary>
+        <span className="dash-group-chevron" aria-hidden="true">
+          <FiChevronRight />
+        </span>
+        <span className="dash-group-title">{title}</span>
+        {hint && <span className="dash-group-hint">{hint}</span>}
+      </summary>
+      <div className="dash-group-body">{children}</div>
     </details>
   );
 }

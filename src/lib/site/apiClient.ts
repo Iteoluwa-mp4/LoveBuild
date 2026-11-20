@@ -1,3 +1,5 @@
+import { installId } from "./device";
+import { DEVICE_HEADER } from "./deviceProtocol";
 import { getFirebaseAuth } from "./firebase";
 import { SaveError } from "./repository";
 
@@ -25,6 +27,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${token}`);
+  /*
+    The API prefers its own HttpOnly cookie. This header is the first-request
+    and cookie-blocked fallback, so the same browser profile keeps the same
+    free-site identity across account switches.
+  */
+  headers.set(DEVICE_HEADER, installId());
   if (init.body !== undefined && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }

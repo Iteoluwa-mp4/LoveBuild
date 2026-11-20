@@ -258,6 +258,29 @@ export function uploadItems(site: Site): UploadItem[] {
 
   const items: UploadItem[] = [];
 
+  /**
+   * The God Poetry page never renders gallery chapters, so counting them would
+   * chase the author toward uploads no visitor can see. What it does render is
+   * the shared photograph list: the images themselves and the captions printed
+   * beneath them in the gallery. Same rule as every other template — a heading
+   * is not a task, but the words under a photograph are.
+   */
+  if (site.template === "godpoetry") {
+    items.push({
+      path: "home.moments",
+      message: "Add your first photograph",
+      kind: "missing",
+      ok: site.home.moments.length > 0,
+    });
+
+    site.home.moments.forEach((moment, i) => {
+      items.push(media(`home.moments.${i}.image.url`, `Photo ${i + 1}`, moment.image.url));
+      items.push(text(`home.moments.${i}.caption`, moment.caption, `Photo ${i + 1} caption`));
+    });
+
+    return items;
+  }
+
   items.push({
     path: "home.moments",
     message: "Add your first moment",
@@ -715,6 +738,42 @@ export type OutlineEntry = {
 export function siteOutline(site: Site): OutlineEntry[] {
   const blocks = visibleBlocks(site);
   const out: OutlineEntry[] = [];
+
+  /**
+   * The God Poetry template is a single-page blessing. Reporting the standard
+   * hero, quote and chapters would describe a page that is not there, so its
+   * outline names the three things it really renders: the cover, the line
+   * under it, and the photographs shared by every template.
+   */
+  if (site.template === "godpoetry") {
+    const lines = site.godpoetry.hero.lines.filter(hasContent);
+    const dedication = site.godpoetry.hero.dedication;
+
+    return [
+      {
+        path: "godpoetry.hero",
+        label: "Cover",
+        shown: anyContent(...lines, dedication),
+        detail: lines.length > 0 ? lines.join(" / ") : "Add a cover title",
+      },
+      {
+        path: "godpoetry.hero.dedication",
+        label: "Dedication",
+        shown: hasContent(dedication),
+        advanced: true,
+        detail: hasContent(dedication) ? undefined : "The italic line under the title",
+      },
+      {
+        path: "home.moments",
+        label: `Photographs (${site.home.moments.length})`,
+        shown: true,
+        detail:
+          site.home.moments.length === 0
+            ? "Add a photograph for the cover and gallery"
+            : "Used on the cover, in the poem spread and in the gallery",
+      },
+    ];
+  }
 
   out.push({
     path: "home.hero",

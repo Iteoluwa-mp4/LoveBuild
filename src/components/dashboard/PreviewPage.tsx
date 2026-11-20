@@ -8,6 +8,8 @@ import ScrapbookHomePage from "../site/scrapbook/HomePage";
 import ScrapbookGalleryPage from "../site/scrapbook/GalleryPage";
 import EditorialHomePage from "../site/editorial/HomePage";
 import EditorialGalleryPage from "../site/editorial/GalleryPage";
+import GodPoetryHomePage from "../site/godpoetry/HomePage";
+import GodPoetryGalleryPage from "../site/godpoetry/GalleryPage";
 import SiteShell from "../site/shared/SiteShell";
 import {
   MESSAGES,
@@ -180,7 +182,7 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
   const basePath = `/s/${site.slug}`;
 
   /*
-    The same three-way switch as `SitePages` in `App.tsx`, written as an
+    The same four-way switch as `SitePages` in `App.tsx`, written as an
     if-chain rather than a nested ternary so that it reads line for line like
     the routing table it mirrors. The two have to agree: this frame is where the
     author changes `template`, and a preview that renders a different template
@@ -209,6 +211,13 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
         <ScrapbookHomePage site={site} basePath={basePath} />
       ) : (
         <ScrapbookGalleryPage site={site} basePath={basePath} />
+      );
+  } else if (site.template === "godpoetry") {
+    page =
+      variant === "home" ? (
+        <GodPoetryHomePage site={site} basePath={basePath} />
+      ) : (
+        <GodPoetryGalleryPage site={site} basePath={basePath} />
       );
   } else {
     page =

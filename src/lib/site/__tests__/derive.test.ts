@@ -498,6 +498,29 @@ describe("siteOutline", () => {
       expect(["home", "gallery"]).toContain(head);
     }
   });
+
+  /**
+   * God Poetry is one blessing, not the standard hero-plus-chapters site. The
+   * outline has to describe the page that exists, so its three rows are the
+   * cover, the dedication and the shared photographs — not sections the
+   * template never renders.
+   */
+  it("describes only the page God Poetry actually renders", () => {
+    const site = emptySite("poem");
+    site.template = "godpoetry";
+    site.godpoetry.hero.lines = ["A garden", "of grace."];
+    site.godpoetry.hero.dedication = "For the one who carries light.";
+
+    const outline = siteOutline(site);
+    expect(outline.map((entry) => entry.path)).toEqual([
+      "godpoetry.hero",
+      "godpoetry.hero.dedication",
+      "home.moments",
+    ]);
+    expect(outline[0]?.detail).toBe("A garden / of grace.");
+    expect(outline[1]?.shown).toBe(true);
+    expect(outline[2]?.detail).toBe("Add a photograph for the cover and gallery");
+  });
 });
 
 describe("derived values survive a save", () => {
@@ -624,6 +647,36 @@ describe("readiness", () => {
     const before = readiness(emptySite("x"));
     const after = readiness(defaultSite());
     expect(after.total).toBeGreaterThan(before.total);
+  });
+
+  it("is complete for a finished God Poetry page without chapters", () => {
+    const site = emptySite("poem");
+    site.template = "godpoetry";
+    site.identity.name = "Cristian";
+    site.godpoetry.hero.lines = ["A garden of quiet", "and light."];
+    site.godpoetry.hero.dedication = "For the one who carries light.";
+    site.home.moments = [
+      {
+        id: "m1",
+        tag: "",
+        date: "",
+        caption: "The ordinary light.",
+        secret: "",
+        image: {
+          id: "i",
+          publicId: "p",
+          url: "https://x.test/light.jpg",
+          alt: "",
+          caption: "",
+          width: null,
+          height: null,
+          durationMs: null,
+        },
+      },
+    ];
+
+    expect(findIssues(site)).toEqual([]);
+    expect(readiness(site).complete).toBe(true);
   });
 });
 
@@ -822,6 +875,45 @@ describe("uploadItems", () => {
    * the person who uploaded it. Of all the ways a site can be unfinished, this
    * is the only one where it looks finished, so the list has to name it.
    */
+  /**
+   * The God Poetry page does not render gallery chapters, so a checklist that
+   * counted them would be sending the author to add uploads no visitor sees.
+   */
+  it("does not send a God Poetry author to gallery chapters", () => {
+    const site = emptySite("poem");
+    site.template = "godpoetry";
+
+    const empty = uploadItems(site);
+    expect(empty.map((item) => item.path)).toEqual(["home.moments"]);
+    expect(empty[0]?.message).toBe("Add your first photograph");
+
+    site.home.moments = [
+      {
+        id: "m1",
+        tag: "",
+        date: "",
+        caption: "The ordinary light.",
+        secret: "",
+        image: {
+          id: "i",
+          publicId: "p",
+          url: "https://x.test/light.jpg",
+          alt: "",
+          caption: "",
+          width: null,
+          height: null,
+          durationMs: null,
+        },
+      },
+    ];
+
+    const paths = uploadItems(site).map((item) => item.path);
+    expect(paths).toContain("home.moments.0.image.url");
+    expect(paths).toContain("home.moments.0.caption");
+    expect(paths).not.toContain("gallery.chapters");
+    expect(uploadProgress(site).complete).toBe(true);
+  });
+
   it("reports a stale blob URL as needing re-uploading, not as done", () => {
     const site = emptySite("blob");
     site.home.moments = [

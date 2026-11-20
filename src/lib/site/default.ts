@@ -354,6 +354,19 @@ export function sample(): Site {
         "Thank you for the brave beginnings, the tiny rituals, and every version of ordinary that became ours. If this issue has a thesis, it is simple: life is more itself with you in it.",
       ].join("\n"),
     },
+
+    /*
+      The private God Poetry template. Seeded with the page's designed title and
+      dedication, so selecting the template immediately renders the finished
+      long-form design; the author only has to add her name and the photographs.
+      No name is seeded here — it lives once under `identity.name`.
+    */
+    godpoetry: {
+      hero: {
+        lines: ["A garden", "of grace."],
+        dedication: "For the woman who carries light gently.",
+      },
+    },
   });
 }
 

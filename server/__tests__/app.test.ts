@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { emptySite } from "../../src/lib/site/default";
+import type { SiteAllowance } from "../../src/lib/site/entitlement";
 import type { SiteSummary } from "../../src/lib/site/repository";
 import type { Site, SiteStatus } from "../../src/lib/site/schema";
 import { createApp } from "../app";
@@ -25,6 +26,64 @@ type Row = {
 
 class MemoryStore implements SiteStore {
   readonly rows = new Map<string, Row>();
+  readonly accounts = new Map<string, { freeSiteUsed: boolean; paidSiteCredits: number }>();
+  readonly devices = new Map<string, string>();
+
+  private account(ownerId: string) {
+    let account = this.accounts.get(ownerId);
+    if (!account) {
+      account = { freeSiteUsed: false, paidSiteCredits: 0 };
+      this.accounts.set(ownerId, account);
+    }
+    return account;
+  }
+
+  async allowance(ownerId: string, deviceHash: string): Promise<SiteAllowance> {
+    const account = this.account(ownerId);
+    const hasSite = [...this.rows.values()].some((row) => row.ownerId === ownerId);
+    const freeUsed = account.freeSiteUsed || hasSite;
+    const claimedBy = this.devices.get(deviceHash);
+
+    // Mirror the Drizzle store's rollout behaviour: an account that already
+    // spent its free site claims the device it is asking from.
+    if (freeUsed && claimedBy === undefined) {
+      this.devices.set(deviceHash, ownerId);
+    }
+
+    const owner = this.devices.get(deviceHash);
+    return {
+      freeAvailable: !freeUsed,
+      paidCredits: account.paidSiteCredits,
+      deviceAvailable: owner === undefined || owner === ownerId,
+    };
+  }
+
+  async createEntitled(ownerId: string, site: Site, deviceHash: string): Promise<Site> {
+    const allowance = await this.allowance(ownerId, deviceHash);
+
+    if (allowance.freeAvailable && allowance.deviceAvailable) {
+      this.devices.set(deviceHash, ownerId);
+      this.account(ownerId).freeSiteUsed = true;
+      return this.create(ownerId, site);
+    }
+
+    if (allowance.paidCredits > 0) {
+      this.account(ownerId).paidSiteCredits -= 1;
+      return this.create(ownerId, site);
+    }
+
+    throw new ApiError(
+      402,
+      allowance.deviceAvailable
+        ? "Your free site is already used. Another site is paid."
+        : "This phone has already used its free site. Another site is paid.",
+      "payment-required",
+    );
+  }
+
+  grantPaid(ownerId: string, credits = 1): void {
+    this.account(ownerId).paidSiteCredits += credits;
+  }
 
   async list(ownerId: string): Promise<SiteSummary[]> {
     return [...this.rows.entries()]
@@ -118,6 +177,20 @@ describe("api", () => {
   });
 
   const auth = (token: string) => ({ authorization: `Bearer ${token}` });
+  const device = (id: string) => ({ cookie: `lovebuilds_device=${id}` });
+  const DEVICE_A = "device-aaaaaaaaaaaaaaaa";
+  const DEVICE_B = "device-bbbbbbbbbbbbbbbb";
+
+  const create = (token: string, slug: string, deviceId: string) =>
+    app.request("/api/sites", {
+      method: "POST",
+      headers: {
+        ...auth(token),
+        ...device(deviceId),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(emptySite(slug)),
+    });
 
   it("answers a health check", async () => {
     const response = await app.request("/api/health");
@@ -250,6 +323,114 @@ describe("api", () => {
         updatedAt: "2026-01-01T00:00:00.000Z",
       },
     ]);
+  });
+
+  it("issues a durable device cookie when a site is created", async () => {
+    const response = await app.request("/api/sites", {
+      method: "POST",
+      headers: { ...auth("alice"), "content-type": "application/json" },
+      body: JSON.stringify(emptySite("first")),
+    });
+
+    expect(response.status).toBe(201);
+    const setCookie = response.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain("lovebuilds_device=");
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("Path=/api");
+  });
+
+  it("accepts the browser install id as the first device identity", async () => {
+    const response = await app.request("/api/sites", {
+      method: "POST",
+      headers: {
+        ...auth("alice"),
+        "x-lovebuilds-device": DEVICE_A,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(emptySite("first")),
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get("set-cookie")).toContain(`lovebuilds_device=${DEVICE_A}`);
+  });
+
+  it("allows one free site per account, then asks for payment", async () => {
+    const first = await create("alice", "first", DEVICE_A);
+    expect(first.status).toBe(201);
+
+    const allowance = await app.request("/api/entitlement", {
+      headers: { ...auth("alice"), ...device(DEVICE_A) },
+    });
+    await expect(allowance.json()).resolves.toEqual({
+      allowance: {
+        freeAvailable: false,
+        paidCredits: 0,
+        deviceAvailable: true,
+      },
+    });
+
+    const second = await create("alice", "second", DEVICE_B);
+    expect(second.status).toBe(402);
+    const body = (await second.json()) as { code?: string; error?: string };
+    expect(body.code).toBe("payment-required");
+    expect(body.error).toMatch(/paid/i);
+    expect(store.rows.has("second")).toBe(false);
+  });
+
+  it("does not let a new email on the same phone claim another free site", async () => {
+    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
+
+    const blocked = await create("bob", "bobs", DEVICE_A);
+    expect(blocked.status).toBe(402);
+    const body = (await blocked.json()) as { code?: string; error?: string };
+    expect(body.code).toBe("payment-required");
+    expect(body.error).toMatch(/phone/i);
+
+    // A different phone is a different free site — this is the boundary the
+    // device rule can honestly draw without a verified phone number.
+    const otherPhone = await create("bob", "bobs", DEVICE_B);
+    expect(otherPhone.status).toBe(201);
+  });
+
+  it("spends a paid credit for the second site and only once", async () => {
+    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
+    store.grantPaid("user-alice");
+
+    const paid = await create("alice", "second", DEVICE_B);
+    expect(paid.status).toBe(201);
+    expect(store.accounts.get("user-alice")?.paidSiteCredits).toBe(0);
+
+    const third = await create("alice", "third", DEVICE_A);
+    expect(third.status).toBe(402);
+    expect(store.rows.has("third")).toBe(false);
+  });
+
+  it("does not refund the free site when the site is deleted", async () => {
+    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
+
+    const removed = await app.request("/api/sites/first", {
+      method: "DELETE",
+      headers: auth("alice"),
+    });
+    expect(removed.status).toBe(204);
+
+    const again = await create("alice", "another", DEVICE_A);
+    expect(again.status).toBe(402);
+    expect(store.rows.has("another")).toBe(false);
+  });
+
+  it("keeps a phone claimed after its first account is deleted", async () => {
+    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
+
+    const wiped = await app.request("/api/account", {
+      method: "DELETE",
+      headers: auth("alice"),
+    });
+    expect(wiped.status).toBe(200);
+
+    const bob = await create("bob", "bobs", DEVICE_A);
+    expect(bob.status).toBe(402);
+    expect(store.rows.has("bobs")).toBe(false);
   });
 
   it("keeps one owner's site out of another owner's dashboard", async () => {

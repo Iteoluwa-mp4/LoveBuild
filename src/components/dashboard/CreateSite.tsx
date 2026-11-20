@@ -1,11 +1,17 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { FiPlusCircle } from "react-icons/fi";
 
 import { EmptyNote, TextField } from "./fields";
+import { CONTACT } from "../../lib/contact";
 import { getRepository } from "../../lib/site/getRepository";
-import { SaveError } from "../../lib/site/repository";
+import {
+  allowanceNotice,
+  canCreateSite,
+  type SiteAllowance,
+} from "../../lib/site/entitlement";
+import { isPaymentRequired, SaveError } from "../../lib/site/repository";
 import { checkSlug, publicUrl, slugify } from "../../lib/site/slug";
 import { createDraft } from "../../lib/site/default";
 import { SEED_SLUG } from "../../lib/site/default";
@@ -19,6 +25,11 @@ import { SEED_SLUG } from "../../lib/site/default";
  * letter before they have seen the shape of the thing is how you get an empty
  * site and a disappointed user; starting from something real means the first
  * edit is "change her name", not "begin".
+ *
+ * The allowance is checked before the form appears. The check is a courtesy,
+ * not the enforcement: the API spends the free site at the moment the row is
+ * created, so a stale tab or a client that ignores this screen still cannot get
+ * a second one.
  */
 export default function CreateSite({ onDone }: { onDone: (slug: string) => void }) {
   const [name, setName] = useState("");
@@ -26,11 +37,38 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [allowance, setAllowance] = useState<SiteAllowance | null>(null);
+  const [allowanceError, setAllowanceError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getRepository()
+      .allowance()
+      .then((next) => {
+        if (!cancelled) setAllowance(next);
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setAllowanceError(
+            cause instanceof Error ? cause.message : "Could not check your free site.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // The derived address, shown live so the link is never a surprise. An
   // override is offered because "For Sarah" becoming `for-sarah` is usually
   // right but occasionally not what they wanted.
   const suggested = useMemo(() => slugify(slugOverride || name), [name, slugOverride]);
   const check = useMemo(() => checkSlug(suggested), [suggested]);
+
+  const blocked = allowance !== null && !canCreateSite(allowance);
+  const notice = allowance ? allowanceNotice(allowance) : null;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -57,6 +95,22 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
       } else {
         setError("Could not create the site. Try again.");
       }
+
+      /*
+        The allowance can change while this form is open — another tab, or a
+        payment arriving in a different session. Refresh it after a refusal so
+        the form replaces itself with the accurate blocked state rather than
+        inviting a second click.
+      */
+      if (isPaymentRequired(cause)) {
+        void getRepository()
+          .allowance()
+          .then(setAllowance)
+          .catch(() => {
+            /* The error above already says what happened. */
+          });
+      }
+
       setBusy(false);
     }
   };
@@ -77,78 +131,126 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
             <span className="dash-section-title">Create your site</span>
           </div>
           <div className="dash-section-body">
-            <p className="field-hint" style={{ marginTop: 0 }}>
-              Give it a name. You can change everything else afterwards — this just
-              decides your web address.
-            </p>
+            {allowance === null && !allowanceError && (
+              <p className="spinner">Checking your free site…</p>
+            )}
 
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-              <TextField
-                label="What is it called?"
-                value={name}
-                onChange={(v) => {
-                  setName(v);
-                  // Clear the override when the name changes, so the derived
-                  // slug follows the name until they deliberately override it.
-                  setSlugOverride("");
-                  setError(null);
-                }}
-                placeholder="For Sarah"
-                maxLength={120}
-              />
-
-              {slugOverride !== "" && (
-                <TextField
-                  label="Web address"
-                  value={slugOverride}
-                  onChange={setSlugOverride}
-                  placeholder={slugify(name)}
-                  maxLength={60}
-                />
-              )}
-
-              <p className="field-hint">
-                {check.ok ? (
-                  <>
-                    Your site will be at{" "}
-                    <code style={{ color: "var(--dash-pink-deep)" }}>{publicUrl(check.slug)}</code>. If
-                    that address is already taken, we&rsquo;ll add a short suffix so yours still
-                    works.
-                  </>
-                ) : (
-                  <span className="field-warn">{check.reason}</span>
-                )}
+            {allowanceError && (
+              <p className="notice notice-warn">
+                <strong>Could not check your free site.</strong> {allowanceError} You can still
+                try; the server checks again when you create it.
               </p>
+            )}
 
-              {!check.ok && name.trim() && (
-                <button type="button" className="btn" style={{ alignSelf: "flex-start" }} onClick={() => setSlugOverride(suggested)}>
-                  Use &ldquo;{suggested}&rdquo; anyway
-                </button>
-              )}
-
-              {error && (
-                <p className="notice notice-bad" role="alert">
-                  {error}
+            {blocked && (
+              <div className="notice notice-warn" role="status">
+                <p>
+                  <strong>{notice?.title ?? "Another site is paid."}</strong>
                 </p>
-              )}
-
-              <div className="btn-row">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={!check.ok || busy || !name.trim()}
-                >
-                  {busy ? "Creating…" : "Create site"}
-                </button>
+                <p>{notice?.body}</p>
+                <p>
+                  Payment is not connected inside LoveBuilds yet. Message the developer and a
+                  paid site can be added to this account.
+                </p>
+                <div className="btn-row">
+                  <a
+                    className="btn btn-primary"
+                    href={`mailto:${CONTACT.email}?subject=${encodeURIComponent("Another LoveBuilds site")}`}
+                  >
+                    Ask about a paid site
+                  </a>
+                  <Link className="btn" to="/profile">
+                    Back to your sites
+                  </Link>
+                </div>
               </div>
-            </form>
+            )}
 
-            {SEED_SLUG && (
+            {!blocked && (
               <>
-                <EmptyNote>
-                  New sites start with the sample content already filled in, so you can edit
-                  rather than begin. Everything in it can be replaced.
-                </EmptyNote>
+                <p className="field-hint" style={{ marginTop: 0 }}>
+                  Give it a name. You can change everything else afterwards — this just
+                  decides your web address.
+                </p>
+
+                {notice && (
+                  <p className="notice notice-live">
+                    <strong>{notice.title}</strong> {notice.body}
+                  </p>
+                )}
+
+                <form
+                  onSubmit={submit}
+                  style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}
+                >
+                  <TextField
+                    label="What is it called?"
+                    value={name}
+                    onChange={(v) => {
+                      setName(v);
+                      // Clear the override when the name changes, so the derived
+                      // slug follows the name until they deliberately override it.
+                      setSlugOverride("");
+                      setError(null);
+                    }}
+                    placeholder="For Sarah"
+                    maxLength={120}
+                  />
+
+                  {slugOverride !== "" && (
+                    <TextField
+                      label="Web address"
+                      value={slugOverride}
+                      onChange={setSlugOverride}
+                      placeholder={slugify(name)}
+                      maxLength={60}
+                    />
+                  )}
+
+                  <p className="field-hint">
+                    {check.ok ? (
+                      <>
+                        Your site will be at{" "}
+                        <code style={{ color: "var(--dash-pink-deep)" }}>{publicUrl(check.slug)}</code>. If
+                        that address is already taken, we&rsquo;ll add a short suffix so yours still
+                        works.
+                      </>
+                    ) : (
+                      <span className="field-warn">{check.reason}</span>
+                    )}
+                  </p>
+
+                  {!check.ok && name.trim() && (
+                    <button type="button" className="btn" style={{ alignSelf: "flex-start" }} onClick={() => setSlugOverride(suggested)}>
+                      Use &ldquo;{suggested}&rdquo; anyway
+                    </button>
+                  )}
+
+                  {error && (
+                    <p className="notice notice-bad" role="alert">
+                      {error}
+                    </p>
+                  )}
+
+                  <div className="btn-row">
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={!check.ok || busy || !name.trim()}
+                    >
+                      {busy ? "Creating…" : "Create site"}
+                    </button>
+                  </div>
+                </form>
+
+                {SEED_SLUG && (
+                  <>
+                    <EmptyNote>
+                      New sites start with the sample content already filled in, so you can edit
+                      rather than begin. Everything in it can be replaced.
+                    </EmptyNote>
+                  </>
+                )}
               </>
             )}
           </div>

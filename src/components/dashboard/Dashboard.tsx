@@ -5,7 +5,7 @@ import { FiDroplet, FiHome, FiImage, FiLayout, FiList } from "react-icons/fi";
 
 import "../../dashboard.css";
 import { AppearanceEditor } from "./editors";
-import { Section, TemplatePicker, ThemePicker } from "./fields";
+import { Section, SectionGroup, TemplatePicker, ThemePicker } from "./fields";
 import { SECTION_ID, sectionIdFor } from "./jumpTarget";
 import OutlinePanel from "./OutlinePanel";
 import PreviewPane from "./PreviewPane";
@@ -18,6 +18,7 @@ import { SEED_SLUG } from "../../lib/site/default";
 import { getRepository, repositoryKind } from "../../lib/site/getRepository";
 import { publicUrl } from "../../lib/site/slug";
 import { type SiteStatus } from "../../lib/site/schema";
+import { isTemplateAvailable } from "../../lib/site/templateAccess";
 import { templateUsesThemes } from "../../lib/site/themes";
 import { uploadItems, uploadProgress } from "../../lib/site/derive";
 import { resendVerification, signOut } from "../../lib/site/auth";
@@ -47,6 +48,19 @@ export default function Dashboard() {
 
   const session = useSession();
   const user = session.status === "signed-in" ? session.user : null;
+
+  /**
+   * Which templates this account may pick.
+   *
+   * Local mode has no email to compare, so development keeps the whole list;
+   * production never reaches local mode because `useSession` fails closed
+   * without a Firebase project. Everyone else gets the public templates plus
+   * any private one their email owns.
+   */
+  const localMode = session.status === "signed-in" && session.method === "local";
+  const canUseTemplate = (id: string) =>
+    localMode || isTemplateAvailable(id, user?.email);
+
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
 
@@ -462,40 +476,54 @@ export default function Dashboard() {
           )}
 
           {/*
-            Template and colour, together and first.
+            "The look": everything about layout and photographs, with the
+            template first because it decides what the fields below are for —
+            they have to be visible before the author scrolls into a long
+            form. Colour follows only when that template actually renders
+            from the shared presets; editorial and scrapbook bring their own
+            palettes, so a picker there would lie.
 
-            The template is the layout and copy. Colour follows only when that
-            template actually renders from the shared presets; editorial and
-            scrapbook bring their own palettes, so a picker there would lie.
-
-            `AppearanceEditor` still owns the conditional editor switch, so the
-            fields below follow whatever is chosen here.
+            `AppearanceEditor` renders one half of the form per pass: the
+            structure here, the words in the group below. It still owns the
+            conditional template switch, so the fields follow whatever is
+            chosen here.
           */}
-          <Section
-            id={SECTION_ID.template}
-            title="Template"
-            hint="The layout of the whole site"
-            icon={<FiLayout />}
-            defaultOpen = {true}
-          >
-            <TemplatePicker
-              value={site.template}
-              onChange={(id) => draft.set("template", id)}
-            />
-          </Section>
-
-          {templateUsesThemes(site.template) && (
+          <SectionGroup title="The look" hint="Template, photographs and pages">
             <Section
-              id={SECTION_ID.colours}
-              title="Colours"
-              hint="Five ready-made palettes"
-              icon={<FiDroplet />}
+              id={SECTION_ID.template}
+              title="Template"
+              hint="The layout of the whole site"
+              icon={<FiLayout />}
+              defaultOpen = {true}
             >
-              <ThemePicker value={site.theme} onChange={(id) => draft.set("theme", id)} />
+              <TemplatePicker
+                value={site.template}
+                onChange={(id) => draft.set("template", id)}
+                isAvailable={canUseTemplate}
+              />
             </Section>
-          )}
 
-          <AppearanceEditor draft={draft} />
+            {templateUsesThemes(site.template) && (
+              <Section
+                id={SECTION_ID.colours}
+                title="Colours"
+                hint="Five ready-made palettes"
+                icon={<FiDroplet />}
+              >
+                <ThemePicker value={site.theme} onChange={(id) => draft.set("theme", id)} />
+              </Section>
+            )}
+
+            <AppearanceEditor draft={draft} part="structure" />
+          </SectionGroup>
+
+          {/*
+            "Your message": what she actually reads — the name, the headline,
+            the letter, the sign-off, in whichever template is selected above.
+          */}
+          <SectionGroup title="Your message" hint="The name, the message, the sign-off">
+            <AppearanceEditor draft={draft} part="words" />
+          </SectionGroup>
 
           {/*
             PublishDock: sticky bottom bar with the readiness sentence and the

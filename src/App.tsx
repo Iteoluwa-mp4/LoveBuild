@@ -18,11 +18,16 @@ import { SCRAPBOOK_BASE } from "./components/site/scrapbook/paths";
 import EditorialHomePage from "./components/site/editorial/HomePage";
 import EditorialGalleryPage from "./components/site/editorial/GalleryPage";
 import { EDITORIAL_BASE as EDITORIAL_DEV_BASE } from "./components/site/editorial/paths";
+import GodPoetryHomePage from "./components/site/godpoetry/HomePage";
+import GodPoetryGalleryPage from "./components/site/godpoetry/GalleryPage";
+import { GOD_POETRY_BASE } from "./components/site/godpoetry/paths";
 import SiteShell from "./components/site/shared/SiteShell";
+import { useSession } from "./hooks/useSession";
 import { loadSite, type LoadState } from "./lib/site/load";
 import { getRepository } from "./lib/site/getRepository";
 import { sample } from "./lib/site/default";
 import type { SiteSummary } from "./lib/site/repository";
+import { isTemplateAvailable } from "./lib/site/templateAccess";
 import "./App.css";
 
 /**
@@ -127,6 +132,20 @@ export default function App() {
         <Route
           path={`${EDITORIAL_DEV_BASE}/gallery`}
           element={<EditorialPreviewPage variant="gallery" />}
+        />
+
+        {/*
+          The private template's development preview. It renders against the
+          seed config rather than a stored site, like the other previews — but
+          unlike them it is gated: the route gives a not-found screen unless the
+          signed-in account owns the template, so its existence is not
+          discoverable to everyone else. Published sites remain public; only
+          authoring is restricted.
+        */}
+        <Route path={GOD_POETRY_BASE} element={<GodPoetryPreviewPage variant="home" />} />
+        <Route
+          path={`${GOD_POETRY_BASE}/gallery`}
+          element={<GodPoetryPreviewPage variant="gallery" />}
         />
 
         <Route path="*" element={<NotFound />} />
@@ -234,6 +253,47 @@ function EditorialPreviewPage({ variant }: { variant: "home" | "gallery" }) {
   );
 }
 
+/**
+ * The God Poetry preview, for the account that owns the template.
+ *
+ * The data is the seed config with `template` overridden, because the sample
+ * itself is an editorial site. The name is the recipient the design was made
+ * for, so the surface shows the finished gift rather than "Her name"; the
+ * photographs stay empty, so the seeded fallback art shows.
+ *
+ * Access mirrors the dashboard: local development has no account and stays
+ * open, while production allows only the allowlisted email. A missing or
+ * mismatched session gets the ordinary not-found screen, never a login prompt —
+ * this is a dev surface, not an account page.
+ */
+function GodPoetryPreviewPage({ variant }: { variant: "home" | "gallery" }) {
+  const session = useSession();
+
+  const site = useMemo(() => {
+    const seeded = sample();
+    return {
+      ...seeded,
+      template: "godpoetry" as const,
+      identity: { ...seeded.identity, name: "Cristian", initials: "" },
+    };
+  }, []);
+
+  if (session.status === "checking") return <LoadingScreen />;
+
+  const allowed =
+    session.status === "signed-in" &&
+    (session.method === "local" ||
+      isTemplateAvailable("godpoetry", session.user.email));
+
+  if (!allowed) return <NotFound />;
+
+  return variant === "home" ? (
+    <GodPoetryHomePage site={site} basePath={GOD_POETRY_BASE} />
+  ) : (
+    <GodPoetryGalleryPage site={site} basePath={GOD_POETRY_BASE} />
+  );
+}
+
 /** Loads a site by slug and hands it to the right page. */
 function SiteRoute({ variant }: { variant: "home" | "gallery" }) {
   const { slug } = useParams();
@@ -276,7 +336,7 @@ function SiteRoute({ variant }: { variant: "home" | "gallery" }) {
  * Picks the template, then the page.
  *
  * One switch in one place, because `template` decides layout and `variant`
- * decides which of that layout's two pages is showing — and the four
+ * decides which of that layout's two pages is showing — and the eight
  * combinations are not interchangeable. `HomePage` and `GalleryPage` are
  * imported with explicit names rather than aliased at the call site, so this
  * reads as a routing table instead of a naming trick.
@@ -307,6 +367,14 @@ function SitePages({
       <ScrapbookHomePage site={site} basePath={basePath} />
     ) : (
       <ScrapbookGalleryPage site={site} basePath={basePath} />
+    );
+  }
+
+  if (site.template === "godpoetry") {
+    return variant === "home" ? (
+      <GodPoetryHomePage site={site} basePath={basePath} />
+    ) : (
+      <GodPoetryGalleryPage site={site} basePath={basePath} />
     );
   }
 

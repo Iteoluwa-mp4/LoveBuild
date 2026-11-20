@@ -79,6 +79,16 @@ const newId = () =>
     ? crypto.randomUUID()
     : `id-${Math.random().toString(36).slice(2, 10)}`;
 
+/**
+ * Which half of the form a pass renders.
+ *
+ * The dashboard draws two groups — "The look" and "Your message" — and asks
+ * the template's editor for each half separately. A section belongs to
+ * exactly one part, so the form's ids stay unique and each group keeps the
+ * order its sections already had.
+ */
+export type EditorPart = "structure" | "words";
+
 /* ================================================================== *
  * IDENTITY — shared by every template's editor
  * ================================================================== */
@@ -144,7 +154,7 @@ function IdentityFields({
  * HOME
  * ================================================================== */
 
-export function HomeEditor({ draft }: { draft: DraftSite }) {
+export function HomeEditor({ draft, part }: { draft: DraftSite; part: EditorPart }) {
   const site = draft.site;
 
   // Hooks first. An early return in front of them would change the hook order
@@ -153,6 +163,10 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
   const openMoments = useOpenItems(initiallyOpenItems(site).moments);
 
   if (!site) return null;
+
+  // The photographs are layout: they render in "The look". Everything else
+  // here is what she reads.
+  if (part === "structure") return <MomentsEditor draft={draft} open={openMoments} />;
 
   return (
     <>
@@ -227,8 +241,6 @@ export function HomeEditor({ draft }: { draft: DraftSite }) {
         </div>
       </Section>
 
-      <MomentsEditor draft={draft} open={openMoments} />
-
       <QuoteEditor draft={draft} />
       <FooterEditor draft={draft} />
     </>
@@ -254,11 +266,13 @@ function MomentsEditor({
   open,
   modern = false,
   editorial = false,
+  godPoetry = false,
 }: {
   draft: DraftSite;
   open: ReturnType<typeof useOpenItems>;
   modern?: boolean;
   editorial?: boolean;
+  godPoetry?: boolean;
 }) {
   const site = draft.site;
   if (!site) return null;
@@ -267,7 +281,9 @@ function MomentsEditor({
     ? "Shown as a strip and an orbit"
     : editorial
       ? "Told as stories — photo, dateline, headline, note"
-      : "Photos that flip when tapped";
+      : godPoetry
+        ? "The first is the cover, the second the poem spread; all appear in the gallery"
+        : "Photos that flip when tapped";
 
   return (
     <Section
@@ -292,6 +308,7 @@ function MomentsEditor({
           draft={draft}
           open={open.isOpen(moment.id)}
           onToggle={(next) => open.setOpen(moment.id, next)}
+          godPoetry={godPoetry}
         />
       ))}
 
@@ -336,6 +353,7 @@ function MomentEditor({
   draft,
   open,
   onToggle,
+  godPoetry = false,
 }: {
   moment: Moment;
   index: number;
@@ -343,6 +361,7 @@ function MomentEditor({
   draft: DraftSite;
   open: boolean;
   onToggle: (next: boolean) => void;
+  godPoetry?: boolean;
 }) {
   const base = `home.moments.${index}`;
 
@@ -356,7 +375,9 @@ function MomentEditor({
         onChange: (v) => draft.set(`${base}.caption`, v),
         maxLength: 300,
         placeholder: momentTagPreview(moment, index),
-        ariaLabel: `Caption on the front of photograph ${index + 1}`,
+        ariaLabel: godPoetry
+          ? `Caption for photograph ${index + 1}`
+          : `Caption on the front of photograph ${index + 1}`,
       }}
       badges={moment.image.url ? undefined : <span className="badge badge-warn">No photo</span>}
       open={open}
@@ -377,20 +398,28 @@ function MomentEditor({
       />
 
       <TextField
-        label="Caption on the front"
+        label={godPoetry ? "Caption" : "Caption on the front"}
         value={moment.caption}
         onChange={(v) => draft.set(`${base}.caption`, v)}
         maxLength={300}
-        hint="What she reads before tapping"
+        hint={
+          godPoetry
+            ? "Printed under the photograph in the gallery"
+            : "What she reads before tapping"
+        }
       />
 
       <TextAreaField
-        label="Hidden message on the back"
+        label={godPoetry ? "A note under the photograph" : "Hidden message on the back"}
         value={moment.secret}
         onChange={(v) => draft.set(`${base}.secret`, v)}
         rows={3}
         maxLength={600}
-        hint="Revealed when the photo is tapped. This is the bit worth writing yourself."
+        hint={
+          godPoetry
+            ? "Shown beneath the caption in the gallery. The bit worth writing yourself."
+            : "Revealed when the photo is tapped. This is the bit worth writing yourself."
+        }
       />
 
       <details>
@@ -1032,27 +1061,31 @@ function StillEditor({
  * APPEARANCE
  * ================================================================== */
 
-export function AppearanceEditor({ draft }: { draft: DraftSite }) {
+export function AppearanceEditor({ draft, part }: { draft: DraftSite; part: EditorPart }) {
   const site = draft.site;
   if (!site) return null;
 
   return (
     <>
       {/*
-        The template and colour pickers live in `Dashboard.tsx`, above this — they
-        decide what the fields below are for, so they have to be visible before
-        the author scrolls into a long form. What is left here is the editor for
-        whichever template is currently selected.
+        The template and colour pickers live in `Dashboard.tsx`, at the top of
+        "The look" — they decide what the fields below are for, so they have
+        to be visible before the author scrolls into a long form. What is left
+        here is the editor for whichever template is currently selected,
+        rendered in two passes: `part="structure"` inside "The look", and
+        `part="words"` inside "Your message" below it.
 
         Switching template is non-destructive: `home.moments` holds the
         photographs for every template, so nothing is lost either way.
       */}
       {site.template === "modern" ? (
-        <ModernEditor draft={draft} />
+        <ModernEditor draft={draft} part={part} />
       ) : site.template === "editorial" ? (
-        <EditorialEditor draft={draft} />
+        <EditorialEditor draft={draft} part={part} />
+      ) : site.template === "godpoetry" ? (
+        <GodPoetryEditor draft={draft} part={part} />
       ) : (
-        <StandardEditor draft={draft} />
+        <StandardEditor draft={draft} part={part} />
       )}
     </>
   );
@@ -1073,11 +1106,12 @@ export function AppearanceEditor({ draft }: { draft: DraftSite }) {
  * Split out of `AppearanceEditor` purely so the template switch reads as one
  * conditional rather than two sets of fields interleaved.
  */
-function StandardEditor({ draft }: { draft: DraftSite }) {
+function StandardEditor({ draft, part }: { draft: DraftSite; part: EditorPart }) {
   return (
     <>
-      <HomeEditor draft={draft} />
-      <GalleryEditor draft={draft} />
+      <HomeEditor draft={draft} part={part} />
+      {/* Chapters and the gallery intro/outro are layout: "The look". */}
+      {part === "structure" && <GalleryEditor draft={draft} />}
     </>
   );
 }
@@ -1095,7 +1129,7 @@ function StandardEditor({ draft }: { draft: DraftSite }) {
  * date becomes the dateline, its caption the story headline, and its secret
  * the note; see `editorialMoments` in `derive.ts`.
  */
-function EditorialEditor({ draft }: { draft: DraftSite }) {
+function EditorialEditor({ draft, part }: { draft: DraftSite; part: EditorPart }) {
   // Hooks first, before the early return, for the same reason as ModernEditor:
   // this is rendered conditionally by the template switch, so the hook count
   // changing with the template is exactly the case React's rule is about.
@@ -1103,6 +1137,10 @@ function EditorialEditor({ draft }: { draft: DraftSite }) {
   const openMoments = useOpenItems(initiallyOpenItems(site).moments);
 
   if (!site) return null;
+
+  // The photographs are layout: they render in "The look". The cover, the
+  // quote and the letter are the message.
+  if (part === "structure") return <MomentsEditor draft={draft} open={openMoments} editorial />;
 
   const editorial = site.editorial;
 
@@ -1136,8 +1174,6 @@ function EditorialEditor({ draft }: { draft: DraftSite }) {
           hint="Shown in the masthead line. Left blank it falls back to the issue title."
         />
       </Section>
-
-      <MomentsEditor draft={draft} open={openMoments} editorial />
 
       <Section
         id={SECTION_ID.quote}
@@ -1177,14 +1213,95 @@ function EditorialEditor({ draft }: { draft: DraftSite }) {
 }
 
 /**
- * The modern template's copy.
+ * The God Poetry template's editor.
  *
- * Photographs are not here on purpose — they are `home.moments`, and the
- * moments editor below edits them for both templates. Duplicating an uploader
- * would mean uploading each photo twice and would leave the two lists free to
- * disagree.
+ * The page is a finished long-form blessing: the scripture, the letter and the
+ * prayer are the design's fixed liturgy, the way the editorial's section
+ * headings belong to the publication. What is offered here is the part that is
+ * unmistakably the recipient's — her name and monogram, the two-line cover
+ * title, and the dedication underneath it. The photographs are the shared
+ * `home.moments` list, so they are edited here exactly as on every other
+ * template and appear in the hero, the poem spread and the gallery.
  */
-function ModernEditor({ draft }: { draft: DraftSite }) {
+function GodPoetryEditor({ draft, part }: { draft: DraftSite; part: EditorPart }) {
+  // Hooks before the early return, because this editor is mounted
+  // conditionally by the template switch.
+  const site = draft.site;
+  const openMoments = useOpenItems(initiallyOpenItems(site).moments);
+
+  if (!site) return null;
+
+  if (part === "structure") {
+    return <MomentsEditor draft={draft} open={openMoments} godPoetry />;
+  }
+
+  return (
+    <>
+      <Section
+        id={SECTION_ID.identity}
+        title="Her name and monogram"
+        hint="The greeting in the copy and the mark in the top bar"
+        icon={<FiUser />}
+      >
+        <IdentityFields draft={draft} />
+      </Section>
+
+      <Section
+        id={SECTION_ID.hero}
+        title="First impression"
+        hint="The cover title and the line underneath it"
+        icon={<FiStar />}
+      >
+        <TextField
+          label="Headline, line 1"
+          value={site.godpoetry.hero.lines[0] ?? ""}
+          onChange={(v) => draft.set("godpoetry.hero.lines.0", v)}
+          placeholder="A garden"
+          hint="Set very large. Short is better."
+          maxLength={90}
+        />
+        <TextField
+          label="Headline, line 2"
+          value={site.godpoetry.hero.lines[1] ?? ""}
+          onChange={(v) => draft.set("godpoetry.hero.lines.1", v)}
+          placeholder="of grace."
+          hint="This line renders in the gold italic accent. Leave blank for a one-line title."
+          maxLength={90}
+        />
+        <TextAreaField
+          label="Dedication"
+          value={site.godpoetry.hero.dedication}
+          onChange={(v) => draft.set("godpoetry.hero.dedication", v)}
+          rows={2}
+          maxLength={300}
+          placeholder="For the woman who carries light gently."
+          hint="The italic line under the title. It is addressed to her, not about the site."
+        />
+        <p className="field-hint">
+          The poem, letter and prayer are part of the layout's voice. Add photographs in
+          “The look” — the first becomes the cover image, the second the poem image, and
+          all of them become the gallery.
+        </p>
+      </Section>
+    </>
+  );
+}
+
+/**
+ * The modern template's editor, split into the two halves the form is
+ * grouped by.
+ *
+ * `part="structure"` renders the photographs and the blocks that show them;
+ * `part="words"` renders the name, the headline, the note and the closing.
+ * The dashboard asks for each half once, so the hooks below run per pass —
+ * each instance holding its own stable count, which is all React needs.
+ *
+ * The photographs are not modern's own list: they are `home.moments`,
+ * edited here exactly as the other templates edit them. Duplicating an
+ * uploader would mean uploading each photo twice and would leave the two
+ * lists free to disagree.
+ */
+function ModernEditor({ draft, part }: { draft: DraftSite; part: EditorPart }) {
   // Hooks first, before the early return. The original site carried the same
   // guard and got away with it; this one is rendered conditionally by the
   // template switch, which is exactly the case React's rule is about — the hook
@@ -1195,6 +1312,19 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
   if (!site) return null;
 
   const modern = site.modern;
+
+  /*
+    The structure pass — "The look" in the dashboard: the photographs and
+    the blocks that show them. The words below render without them.
+  */
+  if (part === "structure") {
+    return (
+      <>
+        <MomentsEditor draft={draft} open={openMoments} modern />
+        <ModernLayout draft={draft} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -1212,8 +1342,6 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
       >
         <IdentityFields draft={draft} />
       </Section>
-
-      <MomentsEditor draft={draft} open={openMoments} modern />
 
       <Section id={SECTION_ID.hero} title="First impression" hint="The first thing she sees" icon={<FiStar />}>
         <TextField
@@ -1302,6 +1430,56 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
         />
       </Section>
 
+      <Section
+        id={SECTION_ID.modernClosing}
+        title="Closing"
+        hint="The last thing she reads"
+        icon={<FiFlag />}
+        defaultOpen={false}
+      >
+        <TextAreaField
+          label="Heading"
+          value={modern.closing.heading}
+          onChange={(v) => draft.set("modern.closing.heading", v)}
+          rows={2}
+          maxLength={200}
+        />
+        <TextAreaField
+          label="A line under it"
+          value={modern.closing.copy}
+          onChange={(v) => draft.set("modern.closing.copy", v)}
+          rows={3}
+          maxLength={500}
+        />
+        <TextField
+          label="Signature"
+          value={modern.closing.signature}
+          onChange={(v) => draft.set("modern.closing.signature", v)}
+          placeholder="With love"
+          maxLength={80}
+        />
+      </Section>
+    </>
+  );
+}
+
+/**
+ * The modern template's layout sections: the photo strip, the archive
+ * sphere, and the archive page.
+ *
+ * Split out so `ModernEditor` can render the two halves of the form — these
+ * sections join the moments editor in "The look", the rest is "Your
+ * message" — without one return statement interleaving both. They are plain
+ * sections with no open state of their own, which is why this takes only
+ * the draft.
+ */
+function ModernLayout({ draft }: { draft: DraftSite }) {
+  const site = draft.site;
+  if (!site) return null;
+  const modern = site.modern;
+
+  return (
+    <>
       <Section
         id={SECTION_ID.modernStrip}
         title="Photo strip"
@@ -1416,36 +1594,6 @@ function ModernEditor({ draft }: { draft: DraftSite }) {
           onChange={(v) => draft.set("modern.gallery.backLabel", v)}
           placeholder="Return home"
           maxLength={120}
-        />
-      </Section>
-
-      <Section
-        id={SECTION_ID.modernClosing}
-        title="Closing"
-        hint="The last thing she reads"
-        icon={<FiFlag />}
-        defaultOpen={false}
-      >
-        <TextAreaField
-          label="Heading"
-          value={modern.closing.heading}
-          onChange={(v) => draft.set("modern.closing.heading", v)}
-          rows={2}
-          maxLength={200}
-        />
-        <TextAreaField
-          label="A line under it"
-          value={modern.closing.copy}
-          onChange={(v) => draft.set("modern.closing.copy", v)}
-          rows={3}
-          maxLength={500}
-        />
-        <TextField
-          label="Signature"
-          value={modern.closing.signature}
-          onChange={(v) => draft.set("modern.closing.signature", v)}
-          placeholder="With love"
-          maxLength={80}
         />
       </Section>
     </>

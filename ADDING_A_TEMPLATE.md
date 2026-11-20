@@ -22,6 +22,7 @@ words, not a field the form never shows. One source, both ends.
 | Scrapbook (standard form) | cover `<h1>` | First impression | `home.hero.lines` |
 | Modern | hero `<h1>` | First impression | `modern.hero.lines` |
 | Editorial | cover title `<h1>` | First impression | `identity.name` |
+| God Poetry | cover title `<h1>` | First impression | `godpoetry.hero.lines` |
 
 Rules that follow from it:
 
@@ -208,9 +209,18 @@ in the same commit.
 - `src/components/dashboard/fields.tsx` — add to `TEMPLATES` (id, label,
   note, icon). The note is a sentence about what the layout is *like*; it is
   the only thing anyone reads before choosing.
+- **Private templates:** gate the card through `isTemplateAvailable` in
+  `src/lib/site/templateAccess.ts`, and pass the signed-in email from the
+  dashboard. Mirror the same check on the template's development preview
+  route. This restricts *authoring*, never rendering: a published `/s/:slug`
+  page must stay readable by the recipient without an account.
 - `src/components/dashboard/editors.tsx` — add the branch in
   `AppearanceEditor` and write the template's editor. Give every section an
   id from `SECTION_ID`, and include the **First impression** section per §0.
+  The editor takes `part: EditorPart` and renders each section in exactly
+  one half: `structure` (template, photographs, the blocks that show them)
+  and `words` (name, headline, letter, closing) — the two groups the
+  dashboard draws around it.
   Keep template-specific sections out of the shared editors: only one
   template's editor renders at a time, so ids never collide between them —
   `hero` is the standard form's First impression and the modern one's.

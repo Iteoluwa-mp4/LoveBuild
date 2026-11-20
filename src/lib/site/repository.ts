@@ -1,3 +1,4 @@
+import type { SiteAllowance } from "./entitlement";
 import type { Site, SiteStatus } from "./schema";
 
 /**
@@ -22,6 +23,15 @@ export type SiteSummary = {
 export interface SiteRepository {
   /** Which backend is live, so the UI can say so out loud. */
   readonly kind: "local" | "remote";
+
+  /**
+   * What this account and this device may create next.
+   *
+   * The server is the authority. The dashboard asks so it can explain the
+   * state before someone fills in a form, but `create` enforces the same rule
+   * again because a client can always be wrong or out of date.
+   */
+  allowance(): Promise<SiteAllowance>;
 
   list(): Promise<SiteSummary[]>;
   /**
@@ -115,5 +125,11 @@ export class SaveError extends Error {
 /** True when the failure was "that slug is already taken". */
 export function isSlugTaken(error: unknown): boolean {
   if (error instanceof SaveError) return error.code === "slug-taken";
+  return false;
+}
+
+/** True when the free allowance is spent and no paid site is available. */
+export function isPaymentRequired(error: unknown): boolean {
+  if (error instanceof SaveError) return error.code === "payment-required";
   return false;
 }

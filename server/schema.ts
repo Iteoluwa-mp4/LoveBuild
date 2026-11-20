@@ -1,4 +1,13 @@
-import { index, integer, jsonb, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 import type { Site } from "../src/lib/site/schema";
 
@@ -31,5 +40,51 @@ export const sites = pgTable(
   (table) => [
     // The shelf query: this owner's sites, newest first.
     index("sites_owner_updated_idx").on(table.ownerId, table.updatedAt),
+  ],
+);
+
+/**
+ * The account's side of the one-free-site allowance.
+ *
+ * `free_site_used` is a lifetime flag, not a count of current sites. Deleting
+ * the site does not refund it: otherwise the cheapest way to get unlimited free
+ * sites would be to delete and recreate forever. Paid credits are per-site and
+ * are spent one at a time.
+ *
+ * A row is created lazily when an account first asks about, or uses, its
+ * allowance. Existing owners are backfilled by the migration that introduced
+ * this table.
+ */
+export const accountEntitlements = pgTable("account_entitlements", {
+  ownerId: text("owner_id").primaryKey(),
+  freeSiteUsed: boolean("free_site_used").notNull().default(false),
+  paidSiteCredits: integer("paid_site_credits").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * The phone's side of the allowance.
+ *
+ * `device_hash` is a SHA-256 digest of a random install token. The token itself
+ * never reaches the database, and this table has no email, IP or fingerprint in
+ * it. One row means "this browser/device already housed a free site"; the owner
+ * column exists so that same owner can keep using their own device without
+ * being locked out of their one free site.
+ *
+ * The claim survives account deletion on purpose. Re-registering with a new
+ * email on the same phone is precisely the bypass this table exists to stop.
+ */
+export const deviceClaims = pgTable(
+  "device_claims",
+  {
+    deviceHash: text("device_hash").primaryKey(),
+    ownerId: text("owner_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Support/account clean-up queries, and a cheap way to see what one phone
+    // has claimed. The primary key is what enforces the rule.
+    index("device_claims_owner_idx").on(table.ownerId),
   ],
 );

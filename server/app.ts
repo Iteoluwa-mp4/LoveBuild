@@ -8,6 +8,7 @@ import {
   type Site,
 } from "../src/lib/site/schema";
 import { createTokenVerifier, type TokenVerifier } from "./auth";
+import { deviceHashFor } from "./device";
 import { ApiError } from "./errors";
 import {
   createCloudinarySigner,
@@ -121,13 +122,27 @@ export function createApp({
     return c.json({ site });
   });
 
+  /**
+   * The one-free-site allowance, for the shelf and the create form.
+   *
+   * The same device identity that `POST /sites` enforces is issued here, so a
+   * signed-in owner who only ever visits their shelf still gives their phone a
+   * stable identity. The route is a read of policy but can write the account
+   * row and a device claim — see `allowance` in the store.
+   */
+  app.get("/entitlement", requireAuth, async (c) => {
+    const deviceHash = await deviceHashFor(c);
+    return c.json({ allowance: await store.allowance(c.get("uid"), deviceHash) });
+  });
+
   app.get("/sites", requireAuth, async (c) => {
     return c.json({ sites: await store.list(c.get("uid")) });
   });
 
   app.post("/sites", requireAuth, async (c) => {
     const site = parseSite(await readJson(c));
-    const created = await store.create(c.get("uid"), site);
+    const deviceHash = await deviceHashFor(c);
+    const created = await store.createEntitled(c.get("uid"), site, deviceHash);
     return c.json({ site: created }, 201);
   });
 

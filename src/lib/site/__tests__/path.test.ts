@@ -285,6 +285,10 @@ describe("paths used by the dashboard", () => {
     ["modern.closing.heading", "string"],
     ["modern.closing.copy", "string"],
     ["modern.closing.signature", "string"],
+    ["godpoetry.hero.lines", "array"],
+    ["godpoetry.hero.lines.0", "string"],
+    ["godpoetry.hero.lines.1", "string"],
+    ["godpoetry.hero.dedication", "string"],
   ];
 
   it.each(cases)("%s exists and is a %s", (path, kind) => {

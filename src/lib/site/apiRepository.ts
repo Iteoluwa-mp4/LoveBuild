@@ -1,4 +1,5 @@
 import { apiRequest, publicRequest } from "./apiClient";
+import type { SiteAllowance } from "./entitlement";
 import { parseForStorage } from "./parseSite";
 import { SaveError, type SiteRepository, type SiteSummary } from "./repository";
 import type { Site, SiteStatus } from "./schema";
@@ -16,6 +17,11 @@ import type { Site, SiteStatus } from "./schema";
  */
 export class ApiSiteRepository implements SiteRepository {
   readonly kind = "remote" as const;
+
+  async allowance(): Promise<SiteAllowance> {
+    const data = await apiRequest<{ allowance: SiteAllowance }>("/entitlement");
+    return data.allowance;
+  }
 
   async list(): Promise<SiteSummary[]> {
     const data = await apiRequest<{ sites: SiteSummary[] }>("/sites");

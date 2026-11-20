@@ -388,11 +388,46 @@ const editorialSchema = z
   .prefault({});
 
 /* ------------------------------------------------------------------ *
+ * GOD POETRY TEMPLATE
+ * ------------------------------------------------------------------ */
+
+/**
+ * The God Poetry template's own copy.
+ *
+ * This is a private, long-form blessing: paper, serif type, and a poem written
+ * for one person. The fixed sections — the scripture, the letter, the prayer —
+ * are the design's liturgy and live in the component. What is stored here is
+ * the part that belongs to the recipient: the two-line cover title and the
+ * dedication that sits underneath it.
+ *
+ * Like `modern` and `editorial`, this block is present on every config whatever
+ * `template` says, so switching templates back and forth never loses a draft.
+ * The photographs are not here either: they are `home.moments`, presented by
+ * the template as the hero and poem images and as the final gallery.
+ */
+const godPoetrySchema = z
+  .object({
+    hero: z
+      .object({
+        /** Two lines, so the second can carry the italic accent. */
+        lines: z
+          .array(z.string().max(90))
+          .min(1)
+          .max(2)
+          .default(["", ""]),
+        /** The italic line under the title. */
+        dedication: z.string().max(300).default(""),
+      })
+      .prefault({}),
+  })
+  .prefault({});
+
+/* ------------------------------------------------------------------ *
  * SITE
  * ------------------------------------------------------------------ */
 
 /** Which layouts the renderer knows how to draw. */
-export const TEMPLATE_IDS = ["editorial", "modern", "scrapbook"] as const;
+export const TEMPLATE_IDS = ["editorial", "godpoetry", "modern", "scrapbook"] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
 /**
@@ -474,6 +509,12 @@ export const siteSchema = z.object({
    * because a different layout was briefly chosen.
    */
   editorial: editorialSchema,
+
+  /**
+   * The God Poetry template's copy. Present on every config for the same
+   * reason as the two blocks above: a template switch is non-destructive.
+   */
+  godpoetry: godPoetrySchema,
 });
 
 export type Site = z.infer<typeof siteSchema>;
@@ -538,6 +579,40 @@ export function submissionChecks(site: Site): SubmissionCheck[] {
     });
   };
 
+  // Every media entry needs a reachable URL. A dropped upload leaves a null
+  // publicId and an empty url, which would render as a broken frame.
+  const checkMedia = (media: Media, path: string) => {
+    checks.push({
+      path: `${path}.url`,
+      message: "Add a file",
+      ok: media.url.trim().length > 0,
+    });
+  };
+
+  /**
+   * The God Poetry page is a one-page blessing: it renders the cover, the
+   * photographs and its own dedication, not the standard hero or gallery
+   * chapters. Measuring it against fields it never shows would chase the author
+   * to fill in words no visitor can read, so the checklist follows the layout.
+   */
+  if (site.template === "godpoetry") {
+    need("identity.name", site.identity.name, "Her name");
+    need("godpoetry.hero.lines.0", site.godpoetry.hero.lines[0] ?? "", "First headline line");
+    need("godpoetry.hero.dedication", site.godpoetry.hero.dedication, "Dedication");
+
+    checks.push({
+      path: "home.moments",
+      message: "Add your first photograph",
+      ok: site.home.moments.length > 0,
+    });
+
+    site.home.moments.forEach((m, i) => {
+      checkMedia(m.image, `home.moments.${i}.image`);
+    });
+
+    return checks;
+  }
+
   need("identity.name", site.identity.name, "Site name");
   need("home.hero.lines.0", site.home.hero.lines[0] ?? "", "First headline line");
   need("home.hero.subline", site.home.hero.subline, "Hero subtitle");
@@ -548,16 +623,6 @@ export function submissionChecks(site: Site): SubmissionCheck[] {
     message: "Add your first moment",
     ok: site.home.moments.length > 0,
   });
-
-  // Every media entry needs a reachable URL. A dropped upload leaves a null
-  // publicId and an empty url, which would render as a broken frame.
-  const checkMedia = (media: Media, path: string) => {
-    checks.push({
-      path: `${path}.url`,
-      message: "Add a file",
-      ok: media.url.trim().length > 0,
-    });
-  };
 
   site.home.moments.forEach((m, i) => {
     need(`home.moments.${i}.caption`, m.caption, "Moment caption");

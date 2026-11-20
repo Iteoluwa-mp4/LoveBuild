@@ -42,6 +42,9 @@ describe("sectionIdFor", () => {
     expect(sectionIdFor("modern.closing")).toBe(SECTION_ID.modernClosing);
     expect(sectionIdFor("editorial.person")).toBe(SECTION_ID.identity);
     expect(sectionIdFor("editorial.letter")).toBe(SECTION_ID.letter);
+    expect(sectionIdFor("godpoetry.hero")).toBe(SECTION_ID.hero);
+    expect(sectionIdFor("godpoetry.hero.lines.0")).toBe(SECTION_ID.hero);
+    expect(sectionIdFor("godpoetry.hero.dedication")).toBe(SECTION_ID.hero);
     expect(sectionIdFor("template")).toBe(SECTION_ID.template);
     expect(sectionIdFor("theme")).toBe(SECTION_ID.colours);
   });

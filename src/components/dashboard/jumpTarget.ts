@@ -65,16 +65,17 @@ export const SECTION_ID = {
 /**
  * Which path prefix each section owns.
  *
- * The outline and What's Left? only ever produce `home.*` and `gallery.*`
- * paths today; the `modern.*` and `editorial.*` entries are here so a caller
- * pointing at template-specific config gets the right section for free rather
- * than silently getting none.
+ * The outline and What's Left? produce `home.*`, `gallery.*`, and the active
+ * template's own paths. The `modern.*`, `editorial.*` and `godpoetry.*` entries
+ * are here so a caller pointing at template-specific config gets the right
+ * section for free rather than silently getting none.
  */
 const SECTION_BY_PATH: ReadonlyArray<readonly [path: string, section: string]> = [
   ["identity", SECTION_ID.identity],
   ["editorial.person", SECTION_ID.identity],
   ["home.hero", SECTION_ID.hero],
   ["modern.hero", SECTION_ID.hero],
+  ["godpoetry.hero", SECTION_ID.hero],
   ["home.moments", SECTION_ID.moments],
   ["home.quote", SECTION_ID.quote],
   ["editorial.quote", SECTION_ID.quote],
