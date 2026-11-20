@@ -12,11 +12,31 @@ import { isPrivateTemplate, isTemplateAvailable } from "../templateAccess";
  */
 describe("private template access", () => {
   it("offers the God Poetry template to its owner", () => {
-    expect(isTemplateAvailable("godpoetry", "youcantseemieirl@gmail.com")).toBe(true);
+    expect(isTemplateAvailable("godpoetry", "youcantseemeirl@gmail.com")).toBe(true);
   });
 
   it("matches the owner's email regardless of case or surrounding space", () => {
-    expect(isTemplateAvailable("godpoetry", "  YouCantSeeMieIRL@Gmail.com ")).toBe(true);
+    expect(isTemplateAvailable("godpoetry", "  YouCantSeeMeIRL@Gmail.com ")).toBe(true);
+  });
+
+  it("recognizes the owner by uid even when the email differs", () => {
+    expect(
+      isTemplateAvailable(
+        "godpoetry",
+        "another-spelling@gmail.com",
+        "ZQ2aXAydhyN36I8ngH33WAxlZ7u2",
+      ),
+    ).toBe(true);
+    expect(
+      isTemplateAvailable(
+        "godpoetry",
+        "youcantseemeirl@gmail.com",
+        "some-other-firebase-uid",
+      ),
+    ).toBe(true);
+    expect(isTemplateAvailable("godpoetry", "someone.else@gmail.com", "not-the-owner")).toBe(
+      false,
+    );
   });
 
   it("fails closed for another account, a missing email, or no session", () => {

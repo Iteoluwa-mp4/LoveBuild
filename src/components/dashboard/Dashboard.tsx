@@ -59,7 +59,7 @@ export default function Dashboard() {
    */
   const localMode = session.status === "signed-in" && session.method === "local";
   const canUseTemplate = (id: string) =>
-    localMode || isTemplateAvailable(id, user?.email);
+    localMode || isTemplateAvailable(id, user?.email, user?.uid);
 
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);

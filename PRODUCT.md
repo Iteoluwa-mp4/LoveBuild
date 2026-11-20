@@ -141,7 +141,7 @@ code:
   ScrollTrigger silently failed and left real content invisible on published
   pages.
 - **Never prefix a secret with `VITE_`.** It is compiled into the public bundle.
-- **380 tests pass** (`npm test`), including an assertion that no real photograph
+- **381 tests pass** (`npm test`), including an assertion that no real photograph
   ships with the sample config, that derived values are not stored, that uploads
   only ever persist a URL that resolves, and that a create collision suffixes the
   address instead of overwriting the first site.

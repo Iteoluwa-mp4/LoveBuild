@@ -9,14 +9,28 @@ import type { TemplateId } from "./schema";
  * opening the gift is not expected to have an account. What is hidden from
  * everyone else is the option to use it.
  *
- * The list is by email rather than uid because an email is something the owner
- * can recognise in the dashboard and in this file. Firebase returns it on the
- * session, and `useSession` already exposes it. Local development has no
- * account at all, which is why the callers treat `method: "local"` as allowed
- * — production fails closed before it ever reaches this helper.
+ * The gate accepts either the owner's email or their stable Firebase uid. The
+ * email stays here because it is recognisable; the uid is the reliable key.
+ * An email is easy to mistype in either the account or this file, and a typo
+ * looks exactly like "the private template is missing" to the person affected.
+ *
+ * Local development has no account at all, which is why the callers treat
+ * `method: "local"` as allowed. Production fails closed before it ever reaches
+ * this helper.
  */
-const PRIVATE_TEMPLATE_OWNERS: Partial<Record<TemplateId, readonly string[]>> = {
-  godpoetry: ["youcantseemieirl@gmail.com"],
+type TemplateOwner = {
+  emails: readonly string[];
+  uids: readonly string[];
+};
+
+const PRIVATE_TEMPLATE_OWNERS: Partial<Record<TemplateId, TemplateOwner>> = {
+  godpoetry: {
+    emails: ["youcantseemeirl@gmail.com"],
+    uids: [
+      // The account that owns /s/esther-ml and asked for this template.
+      "ZQ2aXAydhyN36I8ngH33WAxlZ7u2",
+    ],
+  },
 };
 
 /**
@@ -24,19 +38,22 @@ const PRIVATE_TEMPLATE_OWNERS: Partial<Record<TemplateId, readonly string[]>> = 
  *
  * Public templates answer `true` for everyone, including a signed-out visitor:
  * the question is about the picker, not about reading a published page.
- * Private templates fail closed on a missing or non-matching email.
+ * Private templates fail closed on a missing or non-matching email/uid.
  */
 export function isTemplateAvailable(
   template: string,
   email: string | null | undefined,
+  uid?: string | null,
 ): boolean {
-  const owners = PRIVATE_TEMPLATE_OWNERS[template as TemplateId];
-  if (!owners) return true;
+  const owner = PRIVATE_TEMPLATE_OWNERS[template as TemplateId];
+  if (!owner) return true;
+
+  if (uid && owner.uids.includes(uid)) return true;
 
   const address = email?.trim().toLowerCase();
   if (!address) return false;
 
-  return owners.some((owner) => owner.toLowerCase() === address);
+  return owner.emails.some((allowed) => allowed.toLowerCase() === address);
 }
 
 /** True when the template is restricted to named accounts. */
