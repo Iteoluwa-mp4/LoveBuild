@@ -261,6 +261,10 @@ function EditorialPreviewPage({ variant }: { variant: "home" | "gallery" }) {
  * for, so the surface shows the finished gift rather than "Her name"; the
  * photographs stay empty, so the seeded fallback art shows.
  *
+ * It is wrapped in `SiteShell` like every published page and every other
+ * template preview, so the preset's light-text utility is part of what the
+ * owner sees here rather than hidden by a standalone render.
+ *
  * Access mirrors the dashboard: local development has no account and stays
  * open, while production allows only the allowlisted email. A missing or
  * mismatched session gets the ordinary not-found screen, never a login prompt —
@@ -283,14 +287,18 @@ function GodPoetryPreviewPage({ variant }: { variant: "home" | "gallery" }) {
   const allowed =
     session.status === "signed-in" &&
     (session.method === "local" ||
-      isTemplateAvailable("godpoetry", session.user.email));
+      isTemplateAvailable("godpoetry", session.user.email, session.user.uid));
 
   if (!allowed) return <NotFound />;
 
-  return variant === "home" ? (
-    <GodPoetryHomePage site={site} basePath={GOD_POETRY_BASE} />
-  ) : (
-    <GodPoetryGalleryPage site={site} basePath={GOD_POETRY_BASE} />
+  return (
+    <SiteShell site={site}>
+      {variant === "home" ? (
+        <GodPoetryHomePage site={site} basePath={GOD_POETRY_BASE} />
+      ) : (
+        <GodPoetryGalleryPage site={site} basePath={GOD_POETRY_BASE} />
+      )}
+    </SiteShell>
   );
 }
 

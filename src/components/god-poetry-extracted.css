@@ -24,6 +24,7 @@ text-decoration:none;
 overflow:hidden;
 position:relative;
 background:var(--god-paper);
+color:var(--god-ink);
 }
 .god-noise { position:fixed;
 z-index:12;

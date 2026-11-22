@@ -154,7 +154,8 @@ const GALLERY_CSS = `
     html { scroll-behavior:smooth; }
     body { margin:0; background:var(--god-paper); color:var(--god-ink); font-family:Inter,Arial,sans-serif; }
     a { color:inherit; text-decoration:none; }
-    .gpg { min-height:100vh; overflow:hidden; position:relative; background:var(--god-paper); }
+    /* SiteShell applies the preset's pale text; this paper needs its own ink anchor. */
+    .gpg { min-height:100vh; overflow:hidden; position:relative; background:var(--god-paper); color:var(--god-ink); }
     .gpg-noise { position:fixed; z-index:12; pointer-events:none; inset:0; opacity:.13; mix-blend-mode:multiply; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E"); }
     .gpg-nav, .gpg-main, .gpg-footer { position:relative; z-index:2; }
     .gpg-nav { width:min(1360px,100%); margin:auto; display:flex; align-items:center; justify-content:space-between; padding:25px 5vw; border-bottom:1px solid var(--god-line); color:var(--god-soft); font:9px 'DM Mono',monospace; text-transform:uppercase; letter-spacing:.12em; }
