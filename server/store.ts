@@ -33,6 +33,10 @@ export interface SiteStore {
   /**
    * The low-level insert. The current free-for-everyone route uses this
    * directly; `createEntitled` is kept for the parked allowance mode.
+   *
+   * Both methods treat `site.slug` as already chosen. The public create route
+   * applies `privateSlug` before calling them; a future route that uses
+   * `createEntitled` must do the same.
    */
   create(ownerId: string, site: Site): Promise<Site>;
 
@@ -42,7 +46,8 @@ export interface SiteStore {
    * Parked while site creation is free. The reservation happens here rather
    * than in the route so a future paid mode can make two requests race for the
    * same free site without both winning. The device row is the unique
-   * constraint; the account flag is the second gate.
+   * constraint; the account flag is the second gate. The slug still needs its
+   * private tail at the route boundary.
    */
   createEntitled(ownerId: string, site: Site, deviceHash: string): Promise<Site>;
 

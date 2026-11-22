@@ -305,17 +305,19 @@ describe("api", () => {
 
     expect(created.status).toBe(201);
     const createdBody = (await created.json()) as { site: Site };
-    expect(createdBody.site.slug).toBe("for-sarah");
-    expect(store.rows.get("for-sarah")?.ownerId).toBe("user-alice");
+    const slug = createdBody.site.slug;
+    expect(slug).toMatch(/^for-sarah-[a-z0-9]{8}$/);
+    expect(store.rows.get(slug)?.ownerId).toBe("user-alice");
+    expect(store.rows.get("for-sarah")).toBeUndefined();
 
     const listed = await app.request("/api/sites", { headers: auth("alice") });
     expect(listed.status).toBe(200);
     const listBody = (await listed.json()) as { sites: SiteSummary[] };
     expect(listBody.sites).toEqual([
       {
-        slug: "for-sarah",
+        slug,
         status: "draft",
-        name: "for-sarah",
+        name: slug,
         updatedAt: "2026-01-01T00:00:00.000Z",
       },
     ]);
@@ -355,14 +357,16 @@ describe("api", () => {
     expect((await create("alice", "second", DEVICE_A)).status).toBe(201);
     expect((await create("alice", "third", DEVICE_B)).status).toBe(201);
 
-    expect([...store.rows.keys()]).toEqual(["first", "second", "third"]);
+    const slugs = [...store.rows.keys()];
+    expect(slugs).toHaveLength(3);
+    expect(slugs.every((slug) => /^(first|second|third)-[a-z0-9]{8}$/.test(slug))).toBe(true);
   });
 
   it("allows another account on the same device while creation is free", async () => {
     expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
     expect((await create("bob", "bobs", DEVICE_A)).status).toBe(201);
 
-    expect(store.rows.get("bobs")?.ownerId).toBe("user-bob");
+    expect([...store.rows.values()].some((row) => row.ownerId === "user-bob")).toBe(true);
   });
 
   it("reports a free allowance to a dashboard from the previous release", async () => {
@@ -381,9 +385,11 @@ describe("api", () => {
   });
 
   it("allows another site after one is deleted", async () => {
-    expect((await create("alice", "first", DEVICE_A)).status).toBe(201);
+    const first = await create("alice", "first", DEVICE_A);
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as { site: Site };
 
-    const removed = await app.request("/api/sites/first", {
+    const removed = await app.request(`/api/sites/${firstBody.site.slug}`, {
       method: "DELETE",
       headers: auth("alice"),
     });
@@ -391,7 +397,8 @@ describe("api", () => {
 
     const again = await create("alice", "another", DEVICE_A);
     expect(again.status).toBe(201);
-    expect(store.rows.has("another")).toBe(true);
+    const againBody = (await again.json()) as { site: Site };
+    expect(store.rows.has(againBody.site.slug)).toBe(true);
   });
 
   it("keeps one owner's site out of another owner's dashboard", async () => {

@@ -3,8 +3,8 @@
  *
  * Someone will type "For Sarah" or "Sarah & James" and it has to become
  * `for-sarah` without them learning what a slug is. The rule is boring on
- * purpose — predictable beats clever, and predictable means they can guess what
- * their link will be.
+ * purpose — predictable beats clever. The address they choose stays readable;
+ * `privateSlug` adds the tail that keeps the published link from being guessed.
  */
 
 /** Matches what the schema and the database both accept. */
@@ -83,11 +83,11 @@ export function absolutePublicUrl(slug: string, origin: string): string {
 export const MAX_SLUG_LENGTH = 60;
 
 /**
- * Appends a short random suffix to an address that is already taken.
+ * Appends a suffix to an address.
  *
- * Only used on collision, never on the first attempt: a site should keep the
- * name someone chose unless the world forces otherwise. The base is trimmed so
- * the result still fits the same limit as a hand-typed slug.
+ * Used for the private tail every new site gets, and again if that tail itself
+ * is already taken. The base is trimmed so the result still fits the same limit
+ * as a hand-typed slug.
  */
 export function suffixSlug(slug: string, suffix: string): string {
   const tail = `-${suffix}`;
@@ -98,7 +98,25 @@ export function suffixSlug(slug: string, suffix: string): string {
 }
 
 /**
- * Four lower-case base-36 characters.
+ * Eight lower-case base-36 characters, appended to every new address.
+ *
+ * The readable half keeps the link recognisable in a message; this half is what
+ * stops someone walking the namespace after guessing the name. It is a privacy
+ * tail, not a password — a passphrase is the stronger option if the gift needs
+ * one. Math.random keeps it synchronous and testable.
+ */
+export function randomPrivateSuffix(): string {
+  return Math.random().toString(36).slice(2, 10).padEnd(8, "0");
+}
+
+/** The address a new site is published at: the chosen base plus its private tail. */
+export function privateSlug(slug: string, suffix: string = randomPrivateSuffix()): string {
+  return suffixSlug(slug, suffix);
+}
+
+/**
+ * Four lower-case base-36 characters, for a second collision on an address that
+ * already carries its private tail.
  *
  * Not a security token — this only makes two people who chose the same name get
  * different links. Math.random is enough for that, and it keeps the helper

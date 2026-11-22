@@ -565,8 +565,8 @@ export default function ProfilePage() {
  *
  * Stored per uid rather than per browser so signing into a second account does
  * not inherit the first account's import history. The value is the local slug,
- * not the new one: a suffix on collision would otherwise make a failed retry
- * look like an unimported site.
+ * not the new one: every import gets a private tail, so keying by the stored
+ * address would make a failed retry look like an unimported site.
  */
 function importedKey(uid: string): string {
   return `${STORAGE_PREFIX}imported:${uid}`;

@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { EditingProvider } from "../site/shared/EditableText";
-import ModernTemplate from "../site/modern/HomePage";
-import ModernGallery from "../site/modern/GalleryPage";
-import ScrapbookHomePage from "../site/scrapbook/HomePage";
-import ScrapbookGalleryPage from "../site/scrapbook/GalleryPage";
-import EditorialHomePage from "../site/editorial/HomePage";
-import EditorialGalleryPage from "../site/editorial/GalleryPage";
-import GodPoetryHomePage from "../site/godpoetry/HomePage";
-import GodPoetryGalleryPage from "../site/godpoetry/GalleryPage";
+import {
+  EditorialGalleryPage,
+  EditorialHomePage,
+  GodPoetryGalleryPage,
+  GodPoetryHomePage,
+  ModernGallery,
+  ModernTemplate,
+  ScrapbookGalleryPage,
+  ScrapbookHomePage,
+} from "../site/lazyPages";
 import SiteShell from "../site/shared/SiteShell";
 import {
   MESSAGES,
@@ -230,7 +232,19 @@ export default function PreviewPage({ variant }: { variant: "home" | "gallery" }
 
   return (
     <EditingProvider enabled={editing} report={reportEdit}>
-      <SiteShell site={site}>{page}</SiteShell>
+      <SiteShell site={site}>
+        <Suspense
+          fallback={
+            <div
+              aria-busy="true"
+              aria-label="Loading preview"
+              className="h-svh w-full animate-pulse"
+            />
+          }
+        >
+          {page}
+        </Suspense>
+      </SiteShell>
     </EditingProvider>
   );
 }

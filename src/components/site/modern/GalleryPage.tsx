@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-import SphereGallery3D from "../../originkit/ui/sphere-gallery-3d";
 import EditableText from "../shared/EditableText";
 import {
   AmbientField,
@@ -17,6 +16,9 @@ import { modernMemories } from "../../../lib/site/derive";
 import { cssColorNumber } from "../classic/ornaments/themeColor";
 import type { Site } from "../../../lib/site/schema";
 import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
+
+/* The archive's WebGL gallery is loaded on demand; the index is readable first. */
+const SphereGallery3D = lazy(() => import("../../originkit/ui/sphere-gallery-3d"));
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -161,28 +163,30 @@ export default function ModernGallery({ site, basePath }: { site: Site; basePath
 
         <section className="archive-section">
           <div className="gallery-frame">
-            <SphereGallery3D
-              images={items}
-              branches={22}
-              /*
-                Transparent on purpose. The canvas sits over the page's own
-                radial gradient, and clearing to alpha 0 is what lets that show
-                through instead of the gallery looking like its own surface.
-              */
-              background="transparent"
-              scale={57}
-              size={24}
-              scatter={9}
-              speed={13}
-              direction="counterclockwise"
-              hover={150}
-              rounded={20}
-              core={{
-                coreSize: 22,
-                coreColor: `${cssColorNumber("gold-bright", 0xffb8cb).toString(16).padStart(6, "0")}66`,
-                lineColor: `${cssColorNumber("purple", 0xa17baf).toString(16).padStart(6, "0")}4d`,
-              }}
-            />
+            <Suspense fallback={null}>
+              <SphereGallery3D
+                images={items}
+                branches={22}
+                /*
+                  Transparent on purpose. The canvas sits over the page's own
+                  radial gradient, and clearing to alpha 0 is what lets that show
+                  through instead of the gallery looking like its own surface.
+                */
+                background="transparent"
+                scale={57}
+                size={24}
+                scatter={9}
+                speed={13}
+                direction="counterclockwise"
+                hover={150}
+                rounded={20}
+                core={{
+                  coreSize: 22,
+                  coreColor: `${cssColorNumber("gold-bright", 0xffb8cb).toString(16).padStart(6, "0")}66`,
+                  lineColor: `${cssColorNumber("purple", 0xa17baf).toString(16).padStart(6, "0")}4d`,
+                }}
+              />
+            </Suspense>
           </div>
         </section>
 

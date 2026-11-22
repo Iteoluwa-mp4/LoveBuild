@@ -49,9 +49,9 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
     try {
       const repo = getRepository();
 
-      // `create` owns the collision rule: it keeps the requested address if it
-      // is free, and returns the slightly different one it had to use if not.
-      // Navigate to what was actually stored, never to what was typed.
+      // `create` owns the address rule: every new site gets a private tail,
+      // and another if that whole address is taken. Navigate to what was
+      // actually stored, never to what was typed.
       const created = await repo.create(createDraft(check.slug));
       onDone(created.slug);
     } catch (cause) {
@@ -116,10 +116,10 @@ export default function CreateSite({ onDone }: { onDone: (slug: string) => void 
               <p className="field-hint">
                 {check.ok ? (
                   <>
-                    Your site will be at{" "}
-                    <code style={{ color: "var(--dash-pink-deep)" }}>{publicUrl(check.slug)}</code>. If
-                    that address is already taken, we&rsquo;ll add a short suffix so yours still
-                    works.
+                    Your site will live at{" "}
+                    <code style={{ color: "var(--dash-pink-deep)" }}>{publicUrl(check.slug)}</code> plus
+                    a short private code, so the link can&rsquo;t be guessed. You&rsquo;ll see the full
+                    address after it&rsquo;s made.
                   </>
                 ) : (
                   <span className="field-warn">{check.reason}</span>

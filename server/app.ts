@@ -7,6 +7,7 @@ import {
   statusSchema,
   type Site,
 } from "../src/lib/site/schema";
+import { privateSlug } from "../src/lib/site/slug";
 import { createTokenVerifier, type TokenVerifier } from "./auth";
 import { deviceHashFor } from "./device";
 import { ApiError } from "./errors";
@@ -153,9 +154,17 @@ export function createApp({
       Site creation is free for every signed-in account right now. The old
       allowance store methods and tables are still present for a future paid
       mode, but this route deliberately calls the plain insert.
+
+      The readable slug is only a request. Every new site gets a private tail
+      here, before the store claims it, so a gift link cannot be found by
+      guessing the name. The store still adds another suffix if the whole
+      address collides.
     */
     await deviceHashFor(c);
-    const created = await store.create(c.get("uid"), site);
+    const created = await store.create(c.get("uid"), {
+      ...site,
+      slug: privateSlug(site.slug),
+    });
     return c.json({ site: created }, 201);
   });
 

@@ -113,6 +113,12 @@ idea" and `src/lib/site/schema.ts`, `path.ts`, `App.tsx#SitePages`.)*
   Cloudinary secret invalidates every stored URL. Authenticated assets cannot
   use on-the-fly transforms, so the original bytes are delivered; a smaller
   derivative is future work.
+- **Published site links carry a private tail.** The author chooses a readable
+  base, but creation appends eight random base-36 characters before storing the
+  address, and the un-suffixed address does not exist. This is obscurity, not a
+  passphrase: anyone given the link can open the gift. Existing published links
+  are unchanged. *(Confirmed — `privateSlug` in `slug.ts`, the API create route,
+  and `LocalSiteRepository.create`.)*
 - **Dev commands.** `npm run dev` (Vite + API), `npm run build`,
   `npm run typecheck`, `npm test`, `npm run lint`, and the `db:*` migration
   scripts. *(Confirmed from `package.json`.)*
@@ -141,10 +147,10 @@ code:
   ScrollTrigger silently failed and left real content invisible on published
   pages.
 - **Never prefix a secret with `VITE_`.** It is compiled into the public bundle.
-- **381 tests pass** (`npm test`), including an assertion that no real photograph
+- **384 tests pass** (`npm test`), including an assertion that no real photograph
   ships with the sample config, that derived values are not stored, that uploads
-  only ever persist a URL that resolves, and that a create collision suffixes the
-  address instead of overwriting the first site.
+  only ever persist a URL that resolves, and that every created address gets a
+  private tail before a collision suffix is added.
 
 Open product decisions, deliberately undecided:
 

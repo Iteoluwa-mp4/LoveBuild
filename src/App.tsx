@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 
 import AuthScreen from "./components/auth/AuthScreen";
@@ -9,17 +9,19 @@ import Dashboard from "./components/dashboard/Dashboard";
 import PreviewPage from "./components/dashboard/PreviewPage";
 import ProfilePage from "./components/dashboard/ProfilePage";
 import DevScreen from "./components/dev/DevScreen";
-import ModernTemplate from "./components/site/modern/HomePage";
-import ModernGallery from "./components/site/modern/GalleryPage";
+import {
+  EditorialGalleryPage,
+  EditorialHomePage,
+  GodPoetryGalleryPage,
+  GodPoetryHomePage,
+  ModernGallery,
+  ModernTemplate,
+  ScrapbookGalleryPage,
+  ScrapbookHomePage,
+} from "./components/site/lazyPages";
 import { MODERN_BASE } from "./components/site/modern/paths";
-import ScrapbookHomePage from "./components/site/scrapbook/HomePage";
-import ScrapbookGalleryPage from "./components/site/scrapbook/GalleryPage";
 import { SCRAPBOOK_BASE } from "./components/site/scrapbook/paths";
-import EditorialHomePage from "./components/site/editorial/HomePage";
-import EditorialGalleryPage from "./components/site/editorial/GalleryPage";
 import { EDITORIAL_BASE as EDITORIAL_DEV_BASE } from "./components/site/editorial/paths";
-import GodPoetryHomePage from "./components/site/godpoetry/HomePage";
-import GodPoetryGalleryPage from "./components/site/godpoetry/GalleryPage";
 import { GOD_POETRY_BASE } from "./components/site/godpoetry/paths";
 import SiteShell from "./components/site/shared/SiteShell";
 import { useSession } from "./hooks/useSession";
@@ -220,7 +222,7 @@ function NewSiteRoute() {
  * link resolves inside this preview rather than pointing at `/s/`.
  */
 function ModernPreviewPage({ variant }: { variant: "home" | "gallery" }) {
-  const site = useMemo(() => sample(), []);
+  const site = useMemo(() => ({ ...sample(), template: "modern" as const }), []);
   return (
     <SiteShell site={site}>
       <SitePages site={site} basePath={MODERN_BASE} variant={variant} />
@@ -229,7 +231,7 @@ function ModernPreviewPage({ variant }: { variant: "home" | "gallery" }) {
 }
 
 function ScrapbookPreviewPage({ variant }: { variant: "home" | "gallery" }) {
-  const site = useMemo(() => sample(), []);
+  const site = useMemo(() => ({ ...sample(), template: "scrapbook" as const }), []);
   return (
     <SiteShell site={site}>
       <SitePages site={site} basePath={SCRAPBOOK_BASE} variant={variant} />
@@ -245,7 +247,7 @@ function ScrapbookPreviewPage({ variant }: { variant: "home" | "gallery" }) {
  * inside this preview rather than pointing at `/s/`.
  */
 function EditorialPreviewPage({ variant }: { variant: "home" | "gallery" }) {
-  const site = useMemo(() => sample(), []);
+  const site = useMemo(() => ({ ...sample(), template: "editorial" as const }), []);
   return (
     <SiteShell site={site}>
       <SitePages site={site} basePath={EDITORIAL_DEV_BASE} variant={variant} />
@@ -293,11 +295,13 @@ function GodPoetryPreviewPage({ variant }: { variant: "home" | "gallery" }) {
 
   return (
     <SiteShell site={site}>
-      {variant === "home" ? (
-        <GodPoetryHomePage site={site} basePath={GOD_POETRY_BASE} />
-      ) : (
-        <GodPoetryGalleryPage site={site} basePath={GOD_POETRY_BASE} />
-      )}
+      <Suspense fallback={<LoadingScreen />}>
+        {variant === "home" ? (
+          <GodPoetryHomePage site={site} basePath={GOD_POETRY_BASE} />
+        ) : (
+          <GodPoetryGalleryPage site={site} basePath={GOD_POETRY_BASE} />
+        )}
+      </Suspense>
     </SiteShell>
   );
 }
@@ -362,40 +366,40 @@ function SitePages({
   basePath: string;
   variant: "home" | "gallery";
 }) {
+  let page: React.ReactNode;
+
   if (site.template === "modern") {
-    return variant === "home" ? (
+    page = variant === "home" ? (
       <ModernTemplate site={site} basePath={basePath} />
     ) : (
       <ModernGallery site={site} basePath={basePath} />
     );
-  }
-
-  if (site.template === "scrapbook") {
-    return variant === "home" ? (
+  } else if (site.template === "scrapbook") {
+    page = variant === "home" ? (
       <ScrapbookHomePage site={site} basePath={basePath} />
     ) : (
       <ScrapbookGalleryPage site={site} basePath={basePath} />
     );
-  }
-
-  if (site.template === "godpoetry") {
-    return variant === "home" ? (
+  } else if (site.template === "godpoetry") {
+    page = variant === "home" ? (
       <GodPoetryHomePage site={site} basePath={basePath} />
     ) : (
       <GodPoetryGalleryPage site={site} basePath={basePath} />
     );
+  } else {
+    /*
+      Editorial last, as the fallback: the schema maps anything unknown to
+      editorial, and this switch must agree with it — an unknown id reaching
+      this branch is the same config, not a different one.
+    */
+    page = variant === "home" ? (
+      <EditorialHomePage site={site} basePath={basePath} />
+    ) : (
+      <EditorialGalleryPage site={site} basePath={basePath} />
+    );
   }
 
-  /*
-    Editorial last, as the fallback: the schema maps anything unknown to
-    editorial, and this switch must agree with it — an unknown id reaching
-    this branch is the same config, not a different one.
-  */
-  return variant === "home" ? (
-    <EditorialHomePage site={site} basePath={basePath} />
-  ) : (
-    <EditorialGalleryPage site={site} basePath={basePath} />
-  );
+  return <Suspense fallback={<LoadingScreen />}>{page}</Suspense>;
 }
 
 /**

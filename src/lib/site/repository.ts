@@ -61,10 +61,12 @@ export interface SiteRepository {
   /**
    * Creates a new site.
    *
-   * The slug on `site` is a request, not a guarantee. If it is already taken —
-   * by anyone, on any account — the implementation appends a short random suffix
-   * and returns the site as it was actually stored. Callers must navigate to
-   * `created.slug`, not the slug they asked for.
+   * The slug on `site` is a request, not a guarantee. Every new site gets a
+   * short private tail, even when the readable part is free, because the slug
+   * is the only thing protecting a published gift. If that whole address is
+   * already taken — by anyone, on any account — the implementation appends
+   * another suffix and returns the site as it was actually stored. Callers must
+   * navigate to `created.slug`, not the slug they asked for.
    *
    * Separate from `save` because creating is the only operation that has to
    * claim a globally unique address. A save that silently created a row could

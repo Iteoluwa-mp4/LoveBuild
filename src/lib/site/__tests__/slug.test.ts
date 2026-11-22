@@ -5,7 +5,9 @@ import {
   absolutePublicUrl,
   checkSlug,
   MAX_SLUG_LENGTH,
+  privateSlug,
   publicUrl,
+  randomPrivateSuffix,
   randomSlugSuffix,
   slugify,
   suffixSlug,
@@ -158,6 +160,26 @@ describe("randomSlugSuffix", () => {
   it("is always four lower-case base-36 characters", () => {
     for (let index = 0; index < 20; index += 1) {
       expect(randomSlugSuffix()).toMatch(/^[a-z0-9]{4}$/);
+    }
+  });
+});
+
+describe("privateSlug", () => {
+  it("appends the private tail to the chosen name", () => {
+    expect(privateSlug("for-sarah", "a1b2c3d4")).toBe("for-sarah-a1b2c3d4");
+  });
+
+  it("still fits the limit and the schema at a maximum-length base", () => {
+    const result = privateSlug("a".repeat(MAX_SLUG_LENGTH), "a1b2c3d4");
+    expect(result.length).toBe(MAX_SLUG_LENGTH);
+    expect(checkSlug(result).ok).toBe(true);
+  });
+});
+
+describe("randomPrivateSuffix", () => {
+  it("is always eight lower-case base-36 characters", () => {
+    for (let index = 0; index < 20; index += 1) {
+      expect(randomPrivateSuffix()).toMatch(/^[a-z0-9]{8}$/);
     }
   });
 });

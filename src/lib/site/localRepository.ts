@@ -3,7 +3,7 @@ import { siteSchema } from "./schema";
 import { STORAGE_PREFIX } from "./brand";
 import { DEV_ALLOWANCE, type SiteAllowance } from "./entitlement";
 import { SaveError, type SiteRepository, type SiteSummary } from "./repository";
-import { randomSlugSuffix, suffixSlug } from "./slug";
+import { privateSlug } from "./slug";
 import { parseForStorage, parseStoredSite } from "./parseSite";
 
 /**
@@ -187,16 +187,17 @@ export class LocalSiteRepository implements SiteRepository {
   }
 
   /**
-   * Claims a free slug, then writes the first version of the site.
+   * Claims a private address, then writes the first version of the site.
    *
-   * The requested slug is tried first. Only if it is taken does this append a
-   * random suffix and try again, so the common case keeps the address the
-   * author chose. The returned site carries the slug that was actually stored;
-   * callers navigate to that, not to the one they asked for.
+   * Every new site gets a random tail, even when the readable part is free:
+   * the slug is the only thing protecting a published gift, and a name alone
+   * is too easy to guess. If the whole address is taken, another tail is
+   * appended and tried again. The returned site carries the slug that was
+   * actually stored; callers navigate to that, not to the one they asked for.
    */
   async create(site: Site): Promise<Site> {
     const parsed = parseForStorage(site);
-    let slug = parsed.slug;
+    let slug = privateSlug(parsed.slug);
 
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (!read(CONFIG_PREFIX + slug)) {
@@ -204,7 +205,7 @@ export class LocalSiteRepository implements SiteRepository {
         this.store(created, "draft");
         return created;
       }
-      slug = suffixSlug(parsed.slug, randomSlugSuffix());
+      slug = privateSlug(slug);
     }
 
     throw new SaveError("Could not find a free web address. Try a different name.");

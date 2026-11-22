@@ -150,8 +150,8 @@ switch to forget, and a fresh clone with no `.env.local` still uses localStorage
 
 Existing browser-local sites are neither deleted nor uploaded silently. `/profile`
 shows a one-time **Import** card when it finds local sites that are not yet in the
-account. Import copies each one, keeps a published site published, and appends
-the usual random suffix if an address is already taken. Import is free like any
+account. Import copies each one, keeps a published site published, and gives the
+new address the same private tail as any other creation. Import is free like any
 other creation while payments are paused. The record of what has been imported
 is per account, so signing into a different account does not inherit it.
 
@@ -358,7 +358,7 @@ src/lib/site/
   themes.ts          5 presets, 36 CSS custom properties each
   derive.ts          computed values + which regions are visible
   sitemap.ts         the footer sitemap, derived from the site
-  slug.ts            "For Sarah" → for-sarah
+  slug.ts            "For Sarah" → for-sarah, plus the private tail every new site gets
   paths.ts           a site's routes, in one place
   path.ts            immutable edits by dotted config path
   repository.ts      the storage interface
@@ -399,6 +399,7 @@ src/hooks/
   useScrollReveal.ts JS-classed reveals with a failsafe (see "Scroll reveals")
 
 src/components/site/
+  lazyPages.ts         React.lazy wrappers — one template chunk per page
   shared/              used by every template
     SiteShell          theme tokens onto <html>
     EditableText       click-to-edit, inert unless an EditingProvider says otherwise
@@ -433,6 +434,14 @@ src/components/dashboard/     THE EDITOR
 src/components/auth/          AuthScreen  RequireAuth
 src/components/dev/           dev screens
 ```
+
+### Loading only the template in use
+
+`/s/:slug` chooses a template at render time, so importing all eight page
+components statically shipped every template to every recipient. `lazyPages.ts`
+wraps each page in `React.lazy`; the route renders the one chunk it needs behind
+a Suspense boundary. The modern sphere is also its own chunk. A scrapbook gift
+therefore does not download three.js, the WebGL gallery, or the modern template.
 
 ### Where to change what
 

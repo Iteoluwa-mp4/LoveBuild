@@ -50,23 +50,27 @@ afterEach(() => {
 });
 
 describe("LocalSiteRepository.create", () => {
-  it("keeps the requested slug when it is free", async () => {
+  it("gives every new site a private tail", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
     const repository = new LocalSiteRepository();
     const created = await repository.create(createDraft("for-sarah"));
 
-    expect(created.slug).toBe("for-sarah");
-    expect((await repository.get("for-sarah"))?.slug).toBe("for-sarah");
+    expect(created.slug).toBe("for-sarah-i0000000");
+    expect((await repository.get(created.slug))?.slug).toBe("for-sarah-i0000000");
+    // The readable address alone must not exist: guessing the name is not
+    // enough to open the gift.
+    expect(await repository.get("for-sarah")).toBeNull();
   });
 
-  it("suffixes on collision and keeps both sites", async () => {
+  it("adds another suffix on collision and keeps both sites", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const repository = new LocalSiteRepository();
 
     const first = await repository.create(createDraft("for-sarah"));
     const second = await repository.create(createDraft("for-sarah"));
 
-    expect(first.slug).toBe("for-sarah");
-    expect(second.slug).toBe("for-sarah-i000");
+    expect(first.slug).toBe("for-sarah-i0000000");
+    expect(second.slug).toBe("for-sarah-i0000000-i0000000");
     expect(await repository.get(first.slug)).not.toBeNull();
     expect(await repository.get(second.slug)).not.toBeNull();
     expect((await repository.list()).length).toBe(2);
@@ -83,7 +87,7 @@ describe("LocalSiteRepository.save", () => {
       identity: { ...created.identity, name: "For Sarah" },
     });
 
-    expect((await repository.get("for-sarah"))?.identity.name).toBe("For Sarah");
+    expect((await repository.get(created.slug))?.identity.name).toBe("For Sarah");
   });
 
   it("refuses to create a site by saving a missing slug", async () => {
@@ -99,11 +103,11 @@ describe("LocalSiteRepository.save", () => {
 describe("LocalSiteRepository publishing", () => {
   it("hides a draft from the public read and shows it once published", async () => {
     const repository = new LocalSiteRepository();
-    await repository.create(createDraft("for-sarah"));
+    const created = await repository.create(createDraft("for-sarah"));
 
-    expect(await repository.getPublic("for-sarah")).toBeNull();
+    expect(await repository.getPublic(created.slug)).toBeNull();
 
-    await repository.setStatus("for-sarah", "published");
-    expect(await repository.getPublic("for-sarah")).not.toBeNull();
+    await repository.setStatus(created.slug, "published");
+    expect(await repository.getPublic(created.slug)).not.toBeNull();
   });
 });

@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import SphereGallery3D from "../../originkit/ui/sphere-gallery-3d";
 import PhotoStrip from "./PhotoStrip";
 import { DriftBand, SignalInterlude, MODERN_INTERLUDE_CSS } from "./Interlude";
 import EditableText from "../shared/EditableText";
@@ -17,6 +16,12 @@ import { modernMemories } from "../../../lib/site/derive";
 import { cssColorNumber } from "../classic/ornaments/themeColor";
 import type { Site } from "../../../lib/site/schema";
 import { useScrollToReveal } from "../../../hooks/useScrollToReveal";
+
+/*
+  The sphere is its own chunk. Most of this page is type and motion; a phone
+  should not have to parse the WebGL gallery before it can read the note.
+*/
+const SphereGallery3D = lazy(() => import("../../originkit/ui/sphere-gallery-3d"));
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -353,25 +358,27 @@ export default function ModernTemplate({ site, basePath }: { site: Site; basePat
             />
           </div>
           <div className="gallery-frame">
-            <SphereGallery3D
-              images={galleryItems}
-              branches={40}
-              background="transparent"
-              scale={57}
-              size={32}
-              scatter={9}
-              speed={60}
-              direction="counterclockwise"
-              hover={150}
-              rounded={20}
-              core={{
-                coreSize: 22,
-                // Read from the theme, so the sphere's core is on-palette. See
-                // AmbientField for why these are resolved rather than aliased.
-                coreColor: `${cssColorNumber("gold-bright", 0xffb8cb).toString(16).padStart(6, "0")}66`,
-                lineColor: `${cssColorNumber("purple", 0xa17baf).toString(16).padStart(6, "0")}4d`,
-              }}
-            />
+            <Suspense fallback={null}>
+              <SphereGallery3D
+                images={galleryItems}
+                branches={40}
+                background="transparent"
+                scale={57}
+                size={32}
+                scatter={9}
+                speed={60}
+                direction="counterclockwise"
+                hover={150}
+                rounded={20}
+                core={{
+                  coreSize: 22,
+                  // Read from the theme, so the sphere's core is on-palette. See
+                  // AmbientField for why these are resolved rather than aliased.
+                  coreColor: `${cssColorNumber("gold-bright", 0xffb8cb).toString(16).padStart(6, "0")}66`,
+                  lineColor: `${cssColorNumber("purple", 0xa17baf).toString(16).padStart(6, "0")}4d`,
+                }}
+              />
+            </Suspense>
           </div>
           {/*
             The rows are links, not static text. They preview the four memories
